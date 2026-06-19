@@ -1,0 +1,1018 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:page_transition/page_transition.dart';
+import 'package:provider/provider.dart';
+import '/backend/backend.dart';
+import '/backend/schema/structs/index.dart';
+import '/backend/schema/enums/enums.dart';
+import '/backend/tenant_context.dart';
+
+import '/auth/base_auth_user_provider.dart';
+
+import '/main.dart';
+import '/flutter_flow/flutter_flow_theme.dart';
+import '/flutter_flow/lat_lng.dart';
+import '/flutter_flow/place.dart';
+import '/auth/permission_service.dart';
+import '/platform/platform_config_service.dart';
+import '/flutter_flow/flutter_flow_util.dart';
+import 'serialization_util.dart';
+
+import '/auth/post_login_router_widget.dart';
+import '/auth/auth_redirect.dart';
+import '/auth/role_helpers.dart';
+import '/auth/role_route_guard.dart';
+
+import '/index.dart';
+
+export 'package:go_router/go_router.dart';
+export 'serialization_util.dart';
+
+const kTransitionInfoKey = '__transition_info__';
+
+GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
+final RouteObserver<ModalRoute<void>> appRouteObserver =
+    RouteObserver<ModalRoute<void>>();
+
+class AppStateNotifier extends ChangeNotifier {
+  AppStateNotifier._();
+
+  static AppStateNotifier? _instance;
+  static AppStateNotifier get instance => _instance ??= AppStateNotifier._();
+
+  BaseAuthUser? initialUser;
+  BaseAuthUser? user;
+  bool showSplashImage = true;
+  String? _redirectLocation;
+  UserRole? userRole;
+
+  /// Role for permission checks; falls back to tenant profile when not synced yet.
+  UserRole? get effectiveUserRole =>
+      userRole ?? TenantContext.instance.profileRole;
+
+  /// Cached role for route guards (loaded after sign-in).
+  Future<void> loadUserRole() async {
+    if (!loggedIn) {
+      userRole = null;
+      PermissionService.instance.clear();
+      PlatformConfigService.instance.clear();
+      notifyListeners();
+      return;
+    }
+    userRole = TenantContext.instance.profileRole ?? await getCurrentUserRole();
+    notifyListeners();
+  }
+
+  /// Sets role immediately after profile resolve (avoids redirect spinner loop).
+  void syncUserRole(UserRole? role) {
+    userRole = role;
+    notifyListeners();
+  }
+
+  void clearUserRole() {
+    userRole = null;
+  }
+
+  /// Determines whether the app will refresh and build again when a sign
+  /// in or sign out happens. This is useful when the app is launched or
+  /// on an unexpected logout. However, this must be turned off when we
+  /// intend to sign in/out and then navigate or perform any actions after.
+  /// Otherwise, this will trigger a refresh and interrupt the action(s).
+  bool notifyOnAuthChange = true;
+
+  bool get loading => user == null || showSplashImage;
+  bool get loggedIn => user?.loggedIn ?? false;
+  bool get initiallyLoggedIn => initialUser?.loggedIn ?? false;
+  bool get shouldRedirect => loggedIn && _redirectLocation != null;
+
+  String getRedirectLocation() => _redirectLocation!;
+  bool hasRedirect() => _redirectLocation != null;
+  void setRedirectLocationIfUnset(String loc) => _redirectLocation ??= loc;
+  void clearRedirectLocation() => _redirectLocation = null;
+
+  /// Mark as not needing to notify on a sign in / out when we intend
+  /// to perform subsequent actions (such as navigation) afterwards.
+  void updateNotifyOnAuthChange(bool notify) => notifyOnAuthChange = notify;
+
+  void update(BaseAuthUser newUser) {
+    final shouldUpdate =
+        user?.uid == null || newUser.uid == null || user?.uid != newUser.uid;
+    initialUser ??= newUser;
+    user = newUser;
+    if (!newUser.loggedIn) {
+      userRole = null;
+    }
+    // Refresh the app on auth change unless explicitly marked otherwise.
+    // No need to update unless the user has changed.
+    if (notifyOnAuthChange && shouldUpdate) {
+      notifyListeners();
+    }
+    if (newUser.loggedIn && shouldUpdate) {
+      loadUserRole();
+    }
+    // Once again mark the notifier as needing to update on auth change
+    // (in order to catch sign in / out events).
+    updateNotifyOnAuthChange(true);
+  }
+
+  void stopShowingSplashImage() {
+    showSplashImage = false;
+    notifyListeners();
+  }
+}
+
+String? redirectLegacyCustomerProfilePath(GoRouterState state) {
+  final path = state.uri.path;
+  if (path.startsWith('/customerProfilePage/')) {
+    final id = path.substring('/customerProfilePage/'.length);
+    if (id.isNotEmpty) {
+      return CustomerProfilePageWidget.locationForId(id.split('/').first);
+    }
+  }
+  if (path == '/customerProfilePage') {
+    final id = state.uri.queryParameters['customerId'] ??
+        state.uri.queryParameters['customerRef'];
+    if (id != null && id.isNotEmpty) {
+      return CustomerProfilePageWidget.locationForId(id);
+    }
+  }
+  return null;
+}
+
+GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
+      initialLocation: '/',
+      debugLogDiagnostics: true,
+      refreshListenable: appStateNotifier,
+      navigatorKey: appNavigatorKey,
+      observers: [appRouteObserver],
+      redirect: (context, state) => redirectLegacyCustomerProfilePath(state),
+      errorBuilder: (context, state) => appStateNotifier.loggedIn
+          ? const PostLoginRouterWidget()
+          : LoginPageWidget(),
+      routes: [
+        FFRoute(
+          name: '_initialize',
+          path: '/',
+          builder: (context, _) => appStateNotifier.loggedIn
+              ? const PostLoginRouterWidget()
+              : LoginPageWidget(),
+        ),
+        FFRoute(
+          name: LoginPageWidget.routeName,
+          path: LoginPageWidget.routePath,
+          requireAuth: false,
+          builder: (context, params) => LoginPageWidget(),
+        ),
+        FFRoute(
+          name: UserSignupPageWidget.routeName,
+          path: UserSignupPageWidget.routePath,
+          requireAuth: false,
+          builder: (context, params) => const UserSignupPageWidget(),
+        ),
+        FFRoute(
+          name: RegisterPageWidget.routeName,
+          path: RegisterPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => RegisterPageWidget(),
+        ),
+        FFRoute(
+          name: CreateOrderFormWidget.routeName,
+          path: CreateOrderFormWidget.routePath,
+          builder: (context, params) => CreateOrderFormWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: RetailSummaryWidget.routeName,
+          path: RetailSummaryWidget.routePath,
+          builder: (context, params) => RetailSummaryWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: DeliveryOrderSummaryPageWidget.routeName,
+          path: DeliveryOrderSummaryPageWidget.routePath,
+          builder: (context, params) => DeliveryOrderSummaryPageWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: PartialDeliveryPageWidget.routeName,
+          path: PartialDeliveryPageWidget.routePath,
+          builder: (context, params) => PartialDeliveryPageWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: SalesReportPageWidget.routeName,
+          path: SalesReportPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => SalesReportPageWidget(),
+        ),
+        FFRoute(
+          name: MaterialUsageReportPageWidget.routeName,
+          path: MaterialUsageReportPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const MaterialUsageReportPageWidget(),
+        ),
+        FFRoute(
+          name: ProfitSummaryReportPageWidget.routeName,
+          path: ProfitSummaryReportPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const ProfitSummaryReportPageWidget(),
+        ),
+        FFRoute(
+          name: DriverAssignmentsPageWidget.routeName,
+          path: DriverAssignmentsPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const DriverAssignmentsPageWidget(),
+        ),
+        FFRoute(
+          name: SalesDashBoardWidget.routeName,
+          path: SalesDashBoardWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => SalesDashBoardWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: CompanySettingPageWidget.routeName,
+          path: CompanySettingPageWidget.routePath,
+          builder: (context, params) => CompanySettingPageWidget(),
+        ),
+        FFRoute(
+          name: UserListPageWidget.routeName,
+          path: UserListPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => UserListPageWidget(),
+        ),
+        FFRoute(
+          name: RolePermissionsPageWidget.routeName,
+          path: RolePermissionsPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const RolePermissionsPageWidget(),
+        ),
+        FFRoute(
+          name: IndustrySettingsPageWidget.routeName,
+          path: IndustrySettingsPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const IndustrySettingsPageWidget(),
+        ),
+        FFRoute(
+          name: RegistrationRequestsPageWidget.routeName,
+          path: RegistrationRequestsPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const RegistrationRequestsPageWidget(),
+        ),
+        FFRoute(
+          name: CustomerListPageWidget.routeName,
+          path: CustomerListPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => CustomerListPageWidget(),
+        ),
+        FFRoute(
+          name: CustomerCreateFormWidget.routeName,
+          path: CustomerCreateFormWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => CustomerCreateFormWidget(),
+        ),
+        FFRoute(
+          name: CustomerEditFormWidget.routeName,
+          path: CustomerEditFormWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) {
+            final customerId = params.getParam(
+              'customerId',
+              ParamType.String,
+            );
+            return CustomerEditFormWidget(customerId: customerId ?? '');
+          },
+        ),
+        FFRoute(
+          name: PriceListPageWidget.routeName,
+          path: PriceListPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const PriceListPageWidget(),
+        ),
+        FFRoute(
+          name: PriceListEditPageWidget.routeName,
+          path: PriceListEditPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) {
+            final priceListId = params.getParam(
+              'priceListId',
+              ParamType.String,
+            );
+            return PriceListEditPageWidget(priceListId: priceListId ?? '');
+          },
+        ),
+        FFRoute(
+          name: CustomerProfilePageWidget.routeName,
+          path: CustomerProfilePageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) {
+            final customerId = params.getParam(
+              'customerId',
+              ParamType.String,
+            );
+            if (customerId == null || customerId.isEmpty) {
+              return const CustomerProfilePageWidget(customerId: '');
+            }
+            return CustomerProfilePageWidget(customerId: customerId);
+          },
+        ),
+        FFRoute(
+          name: InvoiceListPageWidget.routeName,
+          path: InvoiceListPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => InvoiceListPageWidget(),
+        ),
+        FFRoute(
+          name: InvoiceProfilePageWidget.routeName,
+          path: InvoiceProfilePageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) {
+            final invoiceId = params.getParam(
+              'invoiceId',
+              ParamType.String,
+            );
+            return InvoiceProfilePageWidget(invoiceId: invoiceId ?? '');
+          },
+        ),
+        FFRoute(
+          name: DeletedOrdersPageWidget.routeName,
+          path: DeletedOrdersPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => DeletedOrdersPageWidget(),
+        ),
+        FFRoute(
+          name: DeletedOrderDetailPageWidget.routeName,
+          path: DeletedOrderDetailPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => DeletedOrderDetailPageWidget(
+            deletedOrderRef: params.getParam(
+              'deletedOrderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['deleted_orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: DeliveryReceiptPreviewPageWidget.routeName,
+          path: DeliveryReceiptPreviewPageWidget.routePath,
+          builder: (context, params) => DeliveryReceiptPreviewPageWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+            cashier: params.getParam(
+              'cashier',
+              ParamType.String,
+            ),
+          ),
+        ),
+        FFRoute(
+          name: CompanySelectionPageWidget.routeName,
+          path: CompanySelectionPageWidget.routePath,
+          builder: (context, params) => CompanySelectionPageWidget(),
+        ),
+        FFRoute(
+          name: AuditLogPageWidget.routeName,
+          path: AuditLogPageWidget.routePath,
+          builder: (context, params) => AuditLogPageWidget(),
+        ),
+        FFRoute(
+          name: DriverDeliveryPageWidget.routeName,
+          path: DriverDeliveryPageWidget.routePath,
+          builder: (context, params) => DriverDeliveryPageWidget(),
+        ),
+        FFRoute(
+          name: OrderDetailPageWidget.routeName,
+          path: OrderDetailPageWidget.routePath,
+          builder: (context, params) => OrderDetailPageWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: DeliveryOrderPrintWidget.routeName,
+          path: DeliveryOrderPrintWidget.routePath,
+          builder: (context, params) => DeliveryOrderPrintWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: ProductselectionCopyWidget.routeName,
+          path: ProductselectionCopyWidget.routePath,
+          builder: (context, params) => ProductselectionCopyWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: ReceiptPreviewpage2Widget.routeName,
+          path: ReceiptPreviewpage2Widget.routePath,
+          builder: (context, params) => ReceiptPreviewpage2Widget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+            cashier: params.getParam(
+              'cashier',
+              ParamType.String,
+            ),
+          ),
+        ),
+        FFRoute(
+          name: ProductionMenuPreviewPageWidget.routeName,
+          path: ProductionMenuPreviewPageWidget.routePath,
+          builder: (context, params) => ProductionMenuPreviewPageWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: DCSummaryCopyWidget.routeName,
+          path: DCSummaryCopyWidget.routePath,
+          builder: (context, params) => DCSummaryCopyWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: Orderlist1Widget.routeName,
+          path: Orderlist1Widget.routePath,
+          builder: (context, params) => Orderlist1Widget(
+            initialStatus: params.getParam(
+              'status',
+              ParamType.String,
+            ),
+            initialOrderType: params.getParam(
+              'orderType',
+              ParamType.String,
+            ),
+            initialStartDate: params.getParam(
+              'startDate',
+              ParamType.DateTime,
+            ),
+            initialEndDate: params.getParam(
+              'endDate',
+              ParamType.DateTime,
+            ),
+            initialLeftoverOnly:
+                params.getParam('leftoverOnly', ParamType.bool) ?? false,
+          ),
+        ),
+        FFRoute(
+          name: 'orderlist1Legacy',
+          path: Orderlist1Widget.legacyRoutePath,
+          builder: (context, params) => Orderlist1Widget(
+            initialStatus: params.getParam(
+              'status',
+              ParamType.String,
+            ),
+            initialOrderType: params.getParam(
+              'orderType',
+              ParamType.String,
+            ),
+            initialStartDate: params.getParam(
+              'startDate',
+              ParamType.DateTime,
+            ),
+            initialEndDate: params.getParam(
+              'endDate',
+              ParamType.DateTime,
+            ),
+            initialLeftoverOnly:
+                params.getParam('leftoverOnly', ParamType.bool) ?? false,
+          ),
+        ),
+        FFRoute(
+          name: CustomproductcreateWidget.routeName,
+          path: CustomproductcreateWidget.routePath,
+          builder: (context, params) => CustomproductcreateWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: MateriallistWidget.routeName,
+          path: MateriallistWidget.routePath,
+          builder: (context, params) => MateriallistWidget(
+            materialRef: params.getParam(
+              'materialRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['materials'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: MaterialcreateWidget.routeName,
+          path: MaterialcreateWidget.routePath,
+          builder: (context, params) => MaterialcreateWidget(
+            materialRef: params.getParam(
+              'materialRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['materials'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: ProductcreateWidget.routeName,
+          path: ProductcreateWidget.routePath,
+          builder: (context, params) => ProductcreateWidget(
+            productRef: params.getParam(
+              'productRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['product'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: ProductlistWidget.routeName,
+          path: ProductlistWidget.routePath,
+          builder: (context, params) => ProductlistWidget(
+            productRef: params.getParam(
+              'productRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['product'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: DOWidget.routeName,
+          path: DOWidget.routePath,
+          builder: (context, params) => DOWidget(
+            orderRef: params.getParam(
+              'orderRef',
+              ParamType.DocumentReference,
+              isList: false,
+              collectionNamePath: ['orders'],
+            ),
+          ),
+        ),
+        FFRoute(
+          name: HomePageWidget.routeName,
+          path: HomePageWidget.routePath,
+          builder: (context, params) => HomePageWidget(),
+        )
+      ].map((r) => r.toRoute(appStateNotifier)).toList(),
+    );
+
+extension NavParamExtensions on Map<String, String?> {
+  Map<String, String> get withoutNulls => Map.fromEntries(
+        entries
+            .where((e) => e.value != null)
+            .map((e) => MapEntry(e.key, e.value!)),
+      );
+}
+
+extension NavigationExtensions on BuildContext {
+  void goNamedAuth(
+    String name,
+    bool mounted, {
+    Map<String, String> pathParameters = const <String, String>{},
+    Map<String, String> queryParameters = const <String, String>{},
+    Object? extra,
+    bool ignoreRedirect = false,
+  }) =>
+      !mounted || GoRouter.of(this).shouldRedirect(ignoreRedirect)
+          ? null
+          : goNamed(
+              name,
+              pathParameters: pathParameters,
+              queryParameters: queryParameters,
+              extra: extra,
+            );
+
+  void pushNamedAuth(
+    String name,
+    bool mounted, {
+    Map<String, String> pathParameters = const <String, String>{},
+    Map<String, String> queryParameters = const <String, String>{},
+    Object? extra,
+    bool ignoreRedirect = false,
+  }) =>
+      !mounted || GoRouter.of(this).shouldRedirect(ignoreRedirect)
+          ? null
+          : pushNamed(
+              name,
+              pathParameters: pathParameters,
+              queryParameters: queryParameters,
+              extra: extra,
+            );
+
+  void safePop() {
+    // If there is only one route on the stack, navigate to the initial
+    // page instead of popping.
+    if (canPop()) {
+      pop();
+    } else {
+      go('/');
+    }
+  }
+}
+
+extension GoRouterExtensions on GoRouter {
+  AppStateNotifier get appState => AppStateNotifier.instance;
+  void prepareAuthEvent([bool ignoreRedirect = false]) =>
+      appState.hasRedirect() && !ignoreRedirect
+          ? null
+          : appState.updateNotifyOnAuthChange(false);
+  bool shouldRedirect(bool ignoreRedirect) =>
+      !ignoreRedirect && appState.hasRedirect();
+  void clearRedirectLocation() => appState.clearRedirectLocation();
+  void setRedirectLocationIfUnset(String location) =>
+      appState.updateNotifyOnAuthChange(false);
+}
+
+extension _GoRouterStateExtensions on GoRouterState {
+  Map<String, dynamic> get extraMap =>
+      extra != null ? extra as Map<String, dynamic> : {};
+  Map<String, dynamic> get allParams => <String, dynamic>{}
+    ..addAll(pathParameters)
+    ..addAll(uri.queryParameters)
+    ..addAll(extraMap);
+  TransitionInfo get transitionInfo => extraMap.containsKey(kTransitionInfoKey)
+      ? extraMap[kTransitionInfoKey] as TransitionInfo
+      : TransitionInfo.appDefault();
+}
+
+class FFParameters {
+  FFParameters(this.state, [this.asyncParams = const {}]);
+
+  final GoRouterState state;
+  final Map<String, Future<dynamic> Function(String)> asyncParams;
+
+  Map<String, dynamic> futureParamValues = {};
+
+  // Parameters are empty if the params map is empty or if the only parameter
+  // present is the special extra parameter reserved for the transition info.
+  bool get isEmpty =>
+      state.allParams.isEmpty ||
+      (state.allParams.length == 1 &&
+          state.extraMap.containsKey(kTransitionInfoKey));
+  bool isAsyncParam(MapEntry<String, dynamic> param) =>
+      asyncParams.containsKey(param.key) && param.value is String;
+  bool get hasFutures => state.allParams.entries.any(isAsyncParam);
+  Future<bool> completeFutures() => Future.wait(
+        state.allParams.entries.where(isAsyncParam).map(
+          (param) async {
+            final doc = await asyncParams[param.key]!(param.value)
+                .onError((_, __) => null);
+            if (doc != null) {
+              futureParamValues[param.key] = doc;
+              return true;
+            }
+            return false;
+          },
+        ),
+      ).onError((_, __) => [false]).then((v) => v.every((e) => e));
+
+  dynamic getParam<T>(
+    String paramName,
+    ParamType type, {
+    bool isList = false,
+    List<String>? collectionNamePath,
+    StructBuilder<T>? structBuilder,
+  }) {
+    if (futureParamValues.containsKey(paramName)) {
+      return futureParamValues[paramName];
+    }
+    if (!state.allParams.containsKey(paramName)) {
+      return null;
+    }
+    final param = state.allParams[paramName];
+    // Got parameter from `extras`, so just directly return it.
+    if (param is! String) {
+      return param;
+    }
+    // Return serialized value.
+    return deserializeParam<T>(
+      param,
+      type,
+      isList,
+      collectionNamePath: collectionNamePath,
+      structBuilder: structBuilder,
+    );
+  }
+}
+
+class FFRoute {
+  const FFRoute({
+    required this.name,
+    required this.path,
+    required this.builder,
+    this.requireAuth = true,
+    this.asyncParams = const {},
+    this.routes = const [],
+  });
+
+  final String name;
+  final String path;
+  final bool requireAuth;
+  final Map<String, Future<dynamic> Function(String)> asyncParams;
+  final Widget Function(BuildContext, FFParameters) builder;
+  final List<GoRoute> routes;
+
+  GoRoute toRoute(AppStateNotifier appStateNotifier) => GoRoute(
+        name: name,
+        path: path,
+        redirect: (context, state) {
+          if (state.uri.path == Orderlist1Widget.legacyRoutePath) {
+            return Orderlist1Widget.routePath;
+          }
+
+          if (appStateNotifier.shouldRedirect) {
+            final redirectLocation = appStateNotifier.getRedirectLocation();
+            appStateNotifier.clearRedirectLocation();
+            return redirectLocation;
+          }
+
+          if (requireAuth && !appStateNotifier.loggedIn) {
+            appStateNotifier.setRedirectLocationIfUnset(state.uri.toString());
+            return '/loginPage';
+          }
+
+          final path = state.uri.path;
+          final role = appStateNotifier.effectiveUserRole;
+
+          if (path == RegisterPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              appStateNotifier.setRedirectLocationIfUnset(path);
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !canCreateStaffAccounts(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path == CompanySelectionPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !isSuperAdminRole(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path == CompanySettingPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !canEditCompanyProfile(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path == UserListPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !canViewUserList(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path == RolePermissionsPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !canManageRolePermissions(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path == IndustrySettingsPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !isSuperAdminRole(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path == RegistrationRequestsPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !isSuperAdminRole(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path == AuditLogPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !canViewAuditLog(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path == InvoiceListPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !canViewCreditAndInvoices(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path.startsWith('/invoice/') &&
+              path != InvoiceListPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !canViewCreditAndInvoices(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path == DeletedOrdersPageWidget.routePath ||
+              path == DeletedOrderDetailPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !canViewDeletedOrders(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path == DriverAssignmentsPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !canAssignDriver(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (requireAuth && appStateNotifier.loggedIn) {
+            if (role == null && path != '/') {
+              return '/';
+            }
+            if (role != null && !isRouteAllowedForRole(path, role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          return null;
+        },
+        pageBuilder: (context, state) {
+          fixStatusBarOniOS16AndBelow(context);
+          final ffParams = FFParameters(state, asyncParams);
+          final page = ffParams.hasFutures
+              ? FutureBuilder(
+                  future: ffParams.completeFutures(),
+                  builder: (context, _) => builder(context, ffParams),
+                )
+              : builder(context, ffParams);
+          final child = appStateNotifier.loading
+              ? Center(
+                  child: SizedBox(
+                    width: 50.0,
+                    height: 50.0,
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        FlutterFlowTheme.of(context).primary,
+                      ),
+                    ),
+                  ),
+                )
+              : page;
+
+          final transitionInfo = state.transitionInfo;
+          return transitionInfo.hasTransition
+              ? CustomTransitionPage(
+                  key: state.pageKey,
+                  child: child,
+                  transitionDuration: transitionInfo.duration,
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) =>
+                          PageTransition(
+                    type: transitionInfo.transitionType,
+                    duration: transitionInfo.duration,
+                    reverseDuration: transitionInfo.duration,
+                    alignment: transitionInfo.alignment,
+                    child: child,
+                  ).buildTransitions(
+                    context,
+                    animation,
+                    secondaryAnimation,
+                    child,
+                  ),
+                )
+              : MaterialPage(key: state.pageKey, child: child);
+        },
+        routes: routes,
+      );
+}
+
+class TransitionInfo {
+  const TransitionInfo({
+    required this.hasTransition,
+    this.transitionType = PageTransitionType.fade,
+    this.duration = const Duration(milliseconds: 300),
+    this.alignment,
+  });
+
+  final bool hasTransition;
+  final PageTransitionType transitionType;
+  final Duration duration;
+  final Alignment? alignment;
+
+  static TransitionInfo appDefault() => TransitionInfo(hasTransition: false);
+}
+
+class RootPageContext {
+  const RootPageContext(this.isRootPage, [this.errorRoute]);
+  final bool isRootPage;
+  final String? errorRoute;
+
+  static bool isInactiveRootPage(BuildContext context) {
+    final rootPageContext = context.read<RootPageContext?>();
+    final isRootPage = rootPageContext?.isRootPage ?? false;
+    final location = GoRouterState.of(context).uri.toString();
+    return isRootPage &&
+        location != '/' &&
+        location != rootPageContext?.errorRoute;
+  }
+
+  static Widget wrap(Widget child, {String? errorRoute}) => Provider.value(
+        value: RootPageContext(true, errorRoute),
+        child: child,
+      );
+}
+
+extension GoRouterLocationExtension on GoRouter {
+  String getCurrentLocation() {
+    final RouteMatch lastMatch = routerDelegate.currentConfiguration.last;
+    final RouteMatchList matchList = lastMatch is ImperativeRouteMatch
+        ? lastMatch.matches
+        : routerDelegate.currentConfiguration;
+    return matchList.uri.toString();
+  }
+}

@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Custom code integrity (FlutterFlow freeze)
+        run: bash scripts/check_custom_integrity.sh
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        # FlutterFlow-generated pages produce thousands of lint infos/warnings.
+        # Fail CI only on analyzer errors (compile-time issues).
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Run tests
+        run: flutter test
+
+  build-apk:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Read app version
+        id: version
+        run: |
+          LABEL=$(grep "kAppVersionLabel" lib/app_version.dart | sed "s/.*= '//;s/';//")
+          BUILD=$(grep "kAppBuildNumber" lib/app_version.dart | sed "s/.*= '//;s/';//")
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "Building v${LABEL} (${BUILD})"
+
+      - name: Build release APK
+        run: flutter build apk --flavor production --release --build-name=${{ steps.version.outputs.label }} --build-number=${{ steps.version.outputs.build }}
+
+      - name: Verify APK output path
+        run: |
+          ls -la build/app/outputs/flutter-apk/
+          test -f build/app/outputs/flutter-apk/app-production-release.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfg-vday-v${{ steps.version.outputs.label }}-build${{ steps.version.outputs.build }}-apk
+          path: build/app/outputs/flutter-apk/app-production-release.apk
+          if-no-files-found: error
+
+  firestore-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        id: setup-java
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Configure JAVA_HOME for Firebase emulator
+        run: |
+          echo "JAVA_HOME=${{ steps.setup-java.outputs.path }}" >> "$GITHUB_ENV"
+          echo "${{ steps.setup-java.outputs.path }}/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Java 21
+        run: |
+          which java
+          java -version
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install rules test deps
+        working-directory: firebase
+        run: npm install
+
+      - name: Validate staging/production Firebase aliases
+        working-directory: firebase
+        run: |
+          node -e "
+          const fs = require('fs');
+          const rc = JSON.parse(fs.readFileSync('.firebaserc', 'utf8'));
+          if (!rc.projects?.staging || !rc.projects?.production) {
+            console.error('firebase/.firebaserc must define staging and production aliases');
+            process.exit(1);
+          }
+          console.log('Firebase aliases OK:', Object.keys(rc.projects).join(', '));
+          "
+
+      - name: Firestore and Storage rules tests
+        working-directory: firebase
+        run: npm run test:firebase
+

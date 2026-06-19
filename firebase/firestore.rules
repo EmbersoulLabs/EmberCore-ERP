@@ -1,0 +1,1321 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Tenant docs require companyRef. Before deploy run:
+    //   npm run verify:company-ref -- --strict
+    //   npm run backfill:company-ref   (if verify reports gaps)
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc(userId) {
+      return get(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function userExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function authUserDocId() {
+      return request.auth.uid;
+    }
+
+    function authUserExists() {
+      return exists(/databases/$(database)/documents/users/$(authUserDocId()));
+    }
+
+    function authUserDataOrNull() {
+      return authUserExists() ? userDoc(authUserDocId()).data : null;
+    }
+
+    function authUserRole() {
+      let userData = authUserDataOrNull();
+      let profileRole = userData != null && 'role' in userData ? userData.role : '';
+      return profileRole != ''
+        ? profileRole
+        : (
+            request.auth.token.role != null && request.auth.token.role != ''
+              ? request.auth.token.role
+              : ''
+          );
+    }
+
+    function isSuperAdminUser() {
+      return isSignedIn() && authUserRole() == 'superadmin';
+    }
+
+    function isAdminUser() {
+      return isSignedIn() && authUserRole() == 'admin';
+    }
+
+    function isPlatformAdminUser() {
+      return isSuperAdminUser() || isAdminUser();
+    }
+
+    function isStaffUser() {
+      return isSignedIn()
+        && authUserRole() in [
+          'superadmin', 'admin', 'director', 'manager',
+          'account', 'hr', 'payroll',
+          'senior_florist', 'florist'
+        ];
+    }
+
+    function roleDefaultHasPermissionForRole(role, permissionKey) {
+      return (
+        role == 'admin'
+        || (
+        (permissionKey == 'editOrderDetails'
+          && role in ['director', 'admin', 'manager'])
+        || (permissionKey == 'editPaidOrderDetails'
+          && role == 'director')
+        || (permissionKey == 'deleteOrders'
+          && role in ['director', 'admin', 'manager'])
+        || (permissionKey == 'assignDriver'
+          && role in ['director', 'admin', 'manager'])
+        || (permissionKey == 'createOrders'
+          && role in ['director', 'admin', 'manager', 'senior_florist', 'florist'])
+        || (permissionKey == 'updateOrderStatus'
+          && role in ['director', 'admin', 'manager', 'senior_florist', 'florist', 'driver'])
+        || (permissionKey == 'manageProducts'
+          && role in ['director', 'admin', 'manager', 'senior_florist', 'florist'])
+        || (permissionKey == 'viewOrders'
+          && role in ['director', 'admin', 'manager', 'account', 'senior_florist', 'florist', 'driver'])
+        || (permissionKey == 'exportOrdersCsv'
+          && role in ['director', 'admin', 'manager', 'senior_florist', 'florist'])
+        || (permissionKey == 'viewCustomers'
+          && role in ['director', 'admin', 'manager', 'account', 'senior_florist', 'florist'])
+        || (permissionKey == 'editCustomers'
+          && role in ['director', 'admin', 'manager', 'senior_florist', 'florist'])
+        || (permissionKey == 'deleteCustomers'
+          && role in ['director', 'admin'])
+        || (permissionKey == 'viewInvoices'
+          && role in ['director', 'admin', 'manager', 'account', 'senior_florist', 'florist'])
+        || (permissionKey == 'editInvoices'
+          && role in ['director', 'admin', 'manager', 'account'])
+        || (permissionKey == 'editPaidInvoices'
+          && role == 'director')
+        || (permissionKey == 'createInvoices'
+          && role in ['director', 'admin', 'manager', 'account'])
+        || (permissionKey == 'voidInvoices'
+          && role in ['director', 'admin', 'manager'])
+        || (permissionKey == 'markInvoicesPaid'
+          && role in ['director', 'admin', 'manager', 'account'])
+        || (permissionKey == 'createCreditCustomers'
+          && role in ['director', 'admin', 'manager'])
+        || (permissionKey == 'viewDeletedOrders'
+          && role in ['director', 'admin', 'manager', 'senior_florist', 'florist'])
+        || (permissionKey == 'restoreDeletedOrders'
+          && role in ['director', 'admin', 'manager', 'senior_florist', 'florist'])
+        || (permissionKey == 'permanentlyDeleteDeletedOrders'
+          && role in ['director', 'admin'])
+        || (permissionKey == 'viewStaffList'
+          && role in ['director', 'admin', 'manager'])
+        || (permissionKey == 'createStaff'
+          && role in ['director', 'admin'])
+        || (permissionKey == 'editStaffRoles'
+          && role in ['director', 'admin', 'manager'])
+        || (permissionKey == 'editCompanyProfile'
+          && role in ['director', 'admin'])
+        || (permissionKey == 'viewAuditLog'
+          && role in ['director', 'admin'])
+        || (permissionKey == 'printCashInvoice'
+          && role in ['director', 'admin', 'manager', 'account'])
+        || (permissionKey == 'accessSalesDashboard'
+          && role in ['director', 'admin', 'manager', 'account', 'hr', 'payroll', 'senior_florist', 'florist'])
+        )
+      );
+    }
+
+    function tenantRolePermissionsDoc() {
+      let companyId = authUserCanonicalCompanyId();
+      return companyId != null
+        ? /databases/$(database)/documents/role_permissions/$(companyId)
+        : null;
+    }
+
+    function tenantRolePermissionsData() {
+      let docPath = tenantRolePermissionsDoc();
+      return docPath != null && exists(docPath)
+        ? get(docPath).data
+        : null;
+    }
+
+    function rolePermissionOverrideForRole(role, permissionKey) {
+      let permsData = tenantRolePermissionsData();
+      return permsData != null
+        && 'roles' in permsData
+        && role in permsData.roles
+        && permissionKey in permsData.roles[role]
+          ? permsData.roles[role][permissionKey]
+          : null;
+    }
+
+    function effectiveAppPermission(permissionKey) {
+      let userData = authUserDataOrNull();
+      let role = userData != null && 'role' in userData ? userData.role : '';
+      return role == 'superadmin'
+        ? true
+        : (
+            userData != null
+            && 'permission_overrides' in userData
+            && permissionKey in userData.permission_overrides
+              ? userData.permission_overrides[permissionKey]
+              : (
+                  rolePermissionOverrideForRole(role, permissionKey) != null
+                    ? rolePermissionOverrideForRole(role, permissionKey)
+                    : roleDefaultHasPermissionForRole(role, permissionKey)
+                )
+          );
+    }
+
+    /// Floor staff checkout paths (matches app role matrix + florist default).
+    function canCreateOrCheckoutOrder() {
+      return isPlatformAdminUser()
+        || isDirectorUser()
+        || effectiveAppPermission('createOrders')
+        || isSeniorFloristUser();
+    }
+
+    function permissionOverridesChangedOnUserUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['permission_overrides']);
+    }
+
+    function isPaidInvoiceDoc() {
+      return resource.data.get('status', '') == 'paid';
+    }
+
+    function isPaidOrderData(orderData) {
+      let invoiceStatus = orderData.get('invoice_payment_status', '');
+      let amountPaid = orderData.get('amount_paid', 0);
+      let totalAmount = orderData.get('totalAmount', orderData.get('total', 0));
+      return invoiceStatus == 'paid'
+        || (totalAmount > 0 && amountPaid >= totalAmount)
+        || (
+          'balance_due' in orderData
+          && orderData.get('balance_due', 0) <= 0
+          && amountPaid > 0
+        );
+    }
+
+    function isPaidOrderDoc() {
+      return isPaidOrderData(resource.data);
+    }
+
+    /// Paid in full but still in sales workflow (delivery details after Payment Done).
+    function isClosedOrderData(orderData) {
+      let status = orderData.get('status', '');
+      let legacyStatus = orderData.get('orderstatus', '');
+      return status == 'completed'
+        || status == 'cancelled'
+        || legacyStatus == 'completed'
+        || legacyStatus == 'cancelled';
+    }
+
+    function isActiveSalesWorkflowOrderData(orderData) {
+      return !isClosedOrderData(orderData);
+    }
+
+    function canEditOrderDetailsOnOrder(orderData) {
+      return effectiveAppPermission('editOrderDetails')
+        && (
+          !isPaidOrderData(orderData)
+          || effectiveAppPermission('editPaidOrderDetails')
+          || isActiveSalesWorkflowOrderData(orderData)
+        );
+    }
+
+    function isPaidOrderItemParent() {
+      return resource.data.orderRef != null
+        && isPaidOrderData(get(resource.data.orderRef).data);
+    }
+
+    function canRecordOrderPayment() {
+      return effectiveAppPermission('createOrders')
+        || effectiveAppPermission('printCashInvoice');
+    }
+
+    function orderPaymentFieldKeys() {
+      return [
+        'paymentType',
+        'amount_paid',
+        'balance_due',
+        'cash_received',
+        'cash_change',
+        'totalAmount',
+        'total',
+        'material_usage_cost',
+        'material_cost_snapshot',
+        'material_cost_snapshotted_at',
+        'Order_Id',
+        'delivery_date',
+        'pickup_delivery',
+      ];
+    }
+
+    function isOrderPaymentOrCheckoutUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(orderPaymentFieldKeys());
+    }
+
+    function isOrderPaymentUpdate() {
+      return isOrderPaymentOrCheckoutUpdate()
+        && isStaffUser()
+        && !isDriverUser()
+        && docBelongsToAuthTenant(resource.data)
+        && incomingBelongsToAuthTenant()
+        && tenantUnchangedOnUpdate()
+        && !isPaidOrderDoc()
+        && canRecordOrderPayment();
+    }
+
+    function isOrderTotalsRecalculationUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['totalAmount', 'total', 'totalQty', 'ProductSelection'])
+        && isStaffUser()
+        && !isDriverUser()
+        && docBelongsToAuthTenant(resource.data)
+        && incomingBelongsToAuthTenant()
+        && tenantUnchangedOnUpdate()
+        && (
+          canCreateOrCheckoutOrder()
+          || canRecordOrderPayment()
+          || canEditOrderDetailsOnOrder(resource.data)
+        );
+    }
+
+    function isOrderCheckoutFinalizeUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'Order_Id',
+            'client_name',
+            'recipient_name',
+            'recipient_phone_number',
+            'address',
+            'PostalCode',
+            'region',
+            'delivery_date',
+            'delivery_time_slot',
+            'card_message',
+            'orderType',
+            'pickup_delivery',
+            'paymentType',
+            'status',
+            'orderstatus',
+            'amount_paid',
+            'balance_due',
+            'cash_received',
+            'cash_change',
+            'totalAmount',
+            'total',
+            'material_usage_cost',
+            'material_cost_snapshot',
+            'material_cost_snapshotted_at',
+            'totalQty',
+            'ProductSelection',
+            'companyRef',
+            'customerRef',
+            'customer_phone_number',
+            'created_time',
+          ])
+        && isStaffUser()
+        && !isDriverUser()
+        && docBelongsToAuthTenant(resource.data)
+        && incomingBelongsToAuthTenant()
+        && tenantUnchangedOnUpdate()
+        && (
+          !isPaidOrderDoc()
+          || isActiveSalesWorkflowOrderData(resource.data)
+        )
+        && (
+          canCreateOrCheckoutOrder()
+          || isPlatformAdminUser()
+          || canEditOrderDetailsOnOrder(resource.data)
+        );
+    }
+
+    /// Staff may stamp companyRef on draft orders missing tenant isolation.
+    function isOrderCompanyRefStampUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['companyRef'])
+        && isStaffUser()
+        && !isDriverUser()
+        && authUserCompanyRef() != null
+        && request.resource.data.companyRef != null
+        && companyRefsMatchCanonical(
+          request.resource.data.companyRef,
+          authUserCompanyRef())
+        && (
+          !('companyRef' in resource.data)
+          || resource.data.companyRef == null
+          || !companyRefsMatchCanonical(
+            resource.data.companyRef,
+            authUserCompanyRef())
+        );
+    }
+
+    /// Staff adds/edits line-item remark after catalog add (Product Selection dialog).
+    /// App schema field is `Remark` (capital R); accept legacy `remark` too.
+    function isOrderItemRemarkUpdate() {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      return isStaffUser()
+        && !isDriverUser()
+        && orderItemBelongsToAuthTenant()
+        && (
+          changedKeys.hasOnly(['Remark'])
+          || changedKeys.hasOnly(['remark'])
+        );
+    }
+
+    /// Order line item tenant: own companyRef and/or parent order companyRef.
+    function orderItemBelongsToAuthTenant() {
+      return catalogDocOwnedByAuthTenant(resource.data)
+        || (
+          resource.data.orderRef != null
+          && catalogDocOwnedByAuthTenant(get(resource.data.orderRef).data)
+        );
+    }
+
+    /// Same as [isOrderCompanyRefStampUpdate] for order line items.
+    function isOrderItemCompanyRefStampUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['companyRef'])
+        && isStaffUser()
+        && !isDriverUser()
+        && authUserCompanyRef() != null
+        && request.resource.data.companyRef != null
+        && companyRefsMatchCanonical(
+          request.resource.data.companyRef,
+          authUserCompanyRef())
+        && (
+          !('companyRef' in resource.data)
+          || resource.data.companyRef == null
+          || !companyRefsMatchCanonical(
+            resource.data.companyRef,
+            authUserCompanyRef())
+        );
+    }
+
+    /// Create Order Form — delivery / pick-up details before checkout payment.
+    function isOrderDeliveryDetailSubmitUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'client_name',
+            'recipient_name',
+            'recipient_phone_number',
+            'address',
+            'PostalCode',
+            'region',
+            'delivery_date',
+            'delivery_time_slot',
+            'card_message',
+            'orderType',
+            'pickup_delivery',
+            'customer_phone_number',
+            'customerRef',
+            'created_time',
+            'status',
+            'orderstatus',
+            'companyRef',
+          ])
+        && isStaffUser()
+        && !isDriverUser()
+        && docBelongsToAuthTenant(resource.data)
+        && incomingBelongsToAuthTenant()
+        && tenantUnchangedOnUpdate()
+        && (
+          !isPaidOrderDoc()
+          || isActiveSalesWorkflowOrderData(resource.data)
+        )
+        && (
+          canCreateOrCheckoutOrder()
+          || canRecordOrderPayment()
+          || effectiveAppPermission('editOrderDetails')
+          || isPlatformAdminUser()
+        );
+    }
+
+    function isOrderMaterialCostSnapshotUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'material_usage_cost',
+            'material_cost_snapshot',
+            'material_cost_snapshotted_at',
+          ])
+        && isStaffUser()
+        && !isDriverUser()
+        && docBelongsToAuthTenant(resource.data)
+        && incomingBelongsToAuthTenant()
+        && tenantUnchangedOnUpdate()
+        && (canCreateOrCheckoutOrder() || canRecordOrderPayment());
+    }
+
+    function isOrderUpdateByEditPermission() {
+      return isStaffUser()
+        && docBelongsToAuthTenant(resource.data)
+        && incomingBelongsToAuthTenant()
+        && tenantUnchangedOnUpdate()
+        && canEditOrderDetailsOnOrder(resource.data);
+    }
+
+    function isAssignDriverOrderUpdate() {
+      return isStaffUser()
+        && docBelongsToAuthTenant(resource.data)
+        && incomingBelongsToAuthTenant()
+        && tenantUnchangedOnUpdate()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['assigned_driver'])
+        && effectiveAppPermission('assignDriver');
+    }
+
+    function isOrderLineItemUpdateByPermission() {
+      return isStaffUser()
+        && docBelongsToAuthTenant(resource.data)
+        && incomingBelongsToAuthTenant()
+        && tenantUnchangedOnUpdate()
+        && effectiveAppPermission('editOrderDetails')
+        && (
+          !isPaidOrderItemParent()
+          || effectiveAppPermission('editPaidOrderDetails')
+          || (
+            resource.data.orderRef != null
+            && isActiveSalesWorkflowOrderData(get(resource.data.orderRef).data)
+          )
+        );
+    }
+
+    function canDeleteOrdersByPermission() {
+      return effectiveAppPermission('deleteOrders')
+        && docBelongsToAuthTenant(resource.data);
+    }
+
+    function isSeniorFloristUser() {
+      return isSignedIn()
+        && authUserRole() in ['senior_florist', 'florist'];
+    }
+
+    function isManagerUser() {
+      return isSignedIn() && authUserRole() == 'manager';
+    }
+
+    function isDirectorUser() {
+      return isSignedIn() && authUserRole() == 'director';
+    }
+
+    function canManageRolePermissionsDoc() {
+      return isSuperAdminUser() || isAdminUser() || isDirectorUser();
+    }
+
+    function rolePermissionsDocMatchesAuthTenant(docId) {
+      return authUserCanonicalCompanyId() != null
+        && canonicalCompanyDocId(docId) == authUserCanonicalCompanyId();
+    }
+
+    function rolePermissionsPayloadMatchesDocId(docId) {
+      return request.resource.data.companyRef != null
+        && canonicalCompanyDocId(request.resource.data.companyRef.id)
+            == canonicalCompanyDocId(docId);
+    }
+
+    // Tenant isolation requires companyRef on business docs (run verify:company-ref before deploy).
+    function incomingRolePermissionsBelongsToAuthTenant() {
+      return canCrossTenantAccess()
+        || (authUserCompanyRef() != null
+            && request.resource.data.companyRef == authUserCompanyRef())
+        || (
+          authUserCanonicalCompanyId() != null
+          && request.resource.data.companyRef != null
+          && canonicalCompanyDocId(request.resource.data.companyRef.id)
+              == authUserCanonicalCompanyId()
+        );
+    }
+
+    function canManageCreditInvoices() {
+      return isSuperAdminUser()
+        || isAdminUser()
+        || isManagerUser()
+        || authUserRole() == 'account';
+    }
+
+    function canViewCreditInvoices() {
+      return canManageCreditInvoices()
+        || authUserRole() in ['senior_florist', 'florist'];
+    }
+
+    function canManageStaffProfiles() {
+      return isPlatformAdminUser() || isManagerUser() || isDirectorUser();
+    }
+
+    function isOperationsStaffUser() {
+      return isStaffUser();
+    }
+
+    function authUserCompanyRefFromClaims() {
+      return request.auth.token.companyId != null
+          && request.auth.token.companyId != ''
+        ? /databases/$(database)/documents/Companies/$(canonicalCompanyDocId(request.auth.token.companyId))
+        : null;
+    }
+
+    function authUserCompanyRef() {
+      return authUserExists()
+          && 'companyRef' in userDoc(authUserDocId()).data
+          && userDoc(authUserDocId()).data.companyRef != null
+        ? userDoc(authUserDocId()).data.companyRef
+        : authUserCompanyRefFromClaims();
+    }
+
+    /// Maps legacy typo company doc id to the canonical production id.
+    function canonicalCompanyDocId(companyId) {
+      return companyId == 'Ic3Dhfby8f35Md0E1vZC'
+        ? 'lc3Dhfby8f35Md0E1vZC'
+        : companyId;
+    }
+
+    function authUserCanonicalCompanyId() {
+      return authUserCompanyRef() != null
+        ? canonicalCompanyDocId(authUserCompanyRef().id)
+        : null;
+    }
+
+    /// product_categories doc id is the company id (canonical).
+    function companyCategoryDocMatchesAuthTenant(categoryDocId) {
+      return authUserCanonicalCompanyId() != null
+        && canonicalCompanyDocId(categoryDocId) == authUserCanonicalCompanyId();
+    }
+
+    function incomingProductCategoriesBelongsToAuthTenant() {
+      return canCrossTenantAccess()
+        || (authUserCompanyRef() != null
+            && request.resource.data.companyRef == authUserCompanyRef())
+        || (
+          authUserCanonicalCompanyId() != null
+          && request.resource.data.companyRef != null
+          && canonicalCompanyDocId(request.resource.data.companyRef.id)
+              == authUserCanonicalCompanyId()
+        );
+    }
+
+    /// Only superadmin may access all companies (cross-tenant).
+    function canCrossTenantAccess() {
+      return isSuperAdminUser();
+    }
+
+    /// Document id from a companyRef field (Path from get().data or Reference on write).
+    function companyRefDocId(companyRef) {
+      return companyRef == null
+        ? null
+        : companyRef is path
+          ? companyRef[4]
+          : companyRef.id;
+    }
+
+    /// Orders use canonical companyRef; profiles may still reference the legacy typo id.
+    function companyRefCanonicalId(companyRef) {
+      let docId = companyRefDocId(companyRef);
+      return docId != null ? canonicalCompanyDocId(docId) : null;
+    }
+
+    function companyRefsMatchCanonical(refA, refB) {
+      return refA != null
+        && refB != null
+        && (
+          refA == refB
+          || (
+            companyRefCanonicalId(refA) != null
+            && companyRefCanonicalId(refA) == companyRefCanonicalId(refB)
+          )
+        );
+    }
+
+    /// Existing doc belongs to caller's tenant.
+    function docBelongsToAuthTenant(docData) {
+      return canCrossTenantAccess()
+        || (
+          isStaffUser()
+          && authUserCompanyRef() != null
+          && (
+            !('companyRef' in docData)
+            || docData.companyRef == null
+          )
+        )
+        || (
+          authUserCompanyRef() != null
+          && 'companyRef' in docData
+          && docData.companyRef != null
+          && companyRefsMatchCanonical(docData.companyRef, authUserCompanyRef())
+        );
+    }
+
+    function orderItemReadableByStaff() {
+      return canReadOrders()
+        && (
+          docBelongsToAuthTenant(resource.data)
+          || (
+            resource.data.orderRef != null
+            && docBelongsToAuthTenant(get(resource.data.orderRef).data)
+          )
+          || (
+            isDriverUser()
+            && resource.data.orderRef != null
+            && isOrderAssignedToAuthDriver(get(resource.data.orderRef).data)
+          )
+        );
+    }
+
+    /// Write payload targets caller's tenant.
+    function incomingBelongsToAuthTenant() {
+      return canCrossTenantAccess()
+        || (
+          isStaffUser()
+          && authUserCompanyRef() != null
+          && resource != null
+          && docBelongsToAuthTenant(resource.data)
+        )
+        || (
+          isStaffUser()
+          && authUserCompanyRef() != null
+          && (
+            !('companyRef' in request.resource.data)
+            || request.resource.data.companyRef == null
+          )
+        )
+        || (
+          authUserCompanyRef() != null
+          && 'companyRef' in request.resource.data
+          && request.resource.data.companyRef != null
+          && companyRefsMatchCanonical(
+              request.resource.data.companyRef,
+              authUserCompanyRef())
+        );
+    }
+
+    /// Updates must not re-assign a document to another tenant.
+    function tenantUnchangedOnUpdate() {
+      return canCrossTenantAccess()
+        || (
+          isStaffUser()
+          && authUserCompanyRef() != null
+          && docBelongsToAuthTenant(resource.data)
+          && (
+            !('companyRef' in request.resource.data)
+            || request.resource.data.companyRef == null
+            || companyRefsMatchCanonical(
+                request.resource.data.companyRef,
+                authUserCompanyRef())
+          )
+        );
+    }
+
+    /// Audit logs store companyId (string) and/or companyRef.
+    function auditLogBelongsToAuthTenant(docData) {
+      return canCrossTenantAccess()
+        || ('companyId' in docData
+            && authUserCompanyRef() != null
+            && canonicalCompanyDocId(docData.companyId) == authUserCanonicalCompanyId())
+        || ('companyRef' in docData
+            && docData.companyRef != null
+            && authUserCompanyRef() != null
+            && docData.companyRef == authUserCompanyRef());
+    }
+
+    function isDriverUser() {
+      return isSignedIn() && authUserRole() == 'driver';
+    }
+
+    function authUserDocRef() {
+      return /databases/$(database)/documents/users/$(authUserDocId());
+    }
+
+    function isOrderAssignedToAuthDriver(docData) {
+      return isDriverUser()
+        && 'assigned_driver' in docData
+        && docData.assigned_driver == authUserDocRef();
+    }
+
+    function canReadOrders() {
+      return isStaffUser() || isDriverUser();
+    }
+
+    function isDriverStatusUpdate() {
+      return isDriverUser()
+        && (docBelongsToAuthTenant(resource.data)
+            || isOrderAssignedToAuthDriver(resource.data))
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'status',
+              'orderstatus',
+              'delivery_time_actual',
+              'delivery_proof_url',
+              'delivery_proof_urls',
+              'delivery_proof_at',
+            ]);
+    }
+
+    /// Driver records partial delivery on an order assigned to them.
+    function isDriverPartialDeliveryOrderUpdate() {
+      return isDriverUser()
+        && isOrderAssignedToAuthDriver(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'partial_delivery_run_count',
+              'partial_delivery_runs',
+              'delivery_date',
+              'status',
+              'orderstatus',
+              'delivery_time_actual',
+            ]);
+    }
+
+    /// Driver updates delivered quantities on line items for assigned orders.
+    function isDriverPartialDeliveryItemUpdate() {
+      return isDriverUser()
+        && resource.data.orderRef != null
+        && isOrderAssignedToAuthDriver(get(resource.data.orderRef).data)
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['delivered_qty', 'status']);
+    }
+
+    function isPlatformAdminOrderUpdate() {
+      return isPlatformAdminUser()
+        && docBelongsToAuthTenant(resource.data)
+        && incomingBelongsToAuthTenant()
+        && tenantUnchangedOnUpdate()
+        && (
+          isSuperAdminUser()
+          || !isPaidOrderDoc()
+          || effectiveAppPermission('editPaidOrderDetails')
+          || isActiveSalesWorkflowOrderData(resource.data)
+        );
+    }
+
+    function isSeniorFloristOrderUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'status',
+              'orderstatus',
+              'delivery_time_actual',
+              'client_name',
+              'Order_Id',
+              'paymentType',
+              'recipient_name',
+              'address',
+              'delivery_date',
+              'orderType',
+              'pickup_delivery',
+              'totalAmount',
+              'total',
+              'totalQty',
+              'ProductSelection',
+              'companyRef',
+            ])
+        && isSeniorFloristUser()
+        && docBelongsToAuthTenant(resource.data)
+        && incomingBelongsToAuthTenant()
+        && tenantUnchangedOnUpdate();
+    }
+
+    function isCreditFinanceOrderUpdate() {
+      return canManageCreditInvoices()
+        && docBelongsToAuthTenant(resource.data)
+        && incomingBelongsToAuthTenant()
+        && tenantUnchangedOnUpdate();
+    }
+
+    function isStaffDocUpdate() {
+      return isPlatformAdminUser()
+        && docBelongsToAuthTenant(resource.data)
+        && incomingBelongsToAuthTenant()
+        && tenantUnchangedOnUpdate();
+    }
+
+    /// Lightweight tenant check for product / material / price list docs.
+    /// Avoids docBelongsToAuthTenant + incomingBelongsToAuthTenant + tenantUnchangedOnUpdate
+    /// chain that hits the 1000-expression limit on catalog updates.
+    function catalogDocOwnedByAuthTenant(docData) {
+      return canCrossTenantAccess()
+        || (
+          authUserCompanyRef() != null
+          && 'companyRef' in docData
+          && docData.companyRef != null
+          && companyRefsMatchCanonical(docData.companyRef, authUserCompanyRef())
+        )
+        || (
+          isStaffUser()
+          && authUserCompanyRef() != null
+          && (
+            !('companyRef' in docData)
+            || docData.companyRef == null
+          )
+        );
+    }
+
+    function catalogIncomingCompanyRefAllowed() {
+      return canCrossTenantAccess()
+        || (
+          authUserCompanyRef() != null
+          && (
+            !('companyRef' in request.resource.data)
+            || request.resource.data.companyRef == null
+            || companyRefsMatchCanonical(
+                request.resource.data.companyRef,
+                authUserCompanyRef())
+          )
+        );
+    }
+
+    function isCatalogDocCreate() {
+      return isStaffUser()
+        && catalogIncomingCompanyRefAllowed();
+    }
+
+    /// Product / custom catalog edits (price, photo, active, etc.).
+    function isCatalogDocUpdate() {
+      return isStaffUser()
+        && catalogDocOwnedByAuthTenant(resource.data)
+        && catalogIncomingCompanyRefAllowed();
+    }
+
+    function isCatalogDocDelete() {
+      return isStaffUser()
+        && catalogDocOwnedByAuthTenant(resource.data);
+    }
+
+    function targetUserRole(userId) {
+      return userDoc(userId).data.role;
+    }
+
+    function isProtectedStaffRole(role) {
+      return role in ['superadmin', 'admin', 'director', 'manager'];
+    }
+
+    function canDeleteStaffProfile(userId) {
+      return isSignedIn()
+        && userExists(userId)
+        && !isSelfUser(userId)
+        && (
+          isSuperAdminUser()
+          || (
+            docBelongsToAuthTenant(userDoc(userId).data)
+            && (
+              (isDirectorUser()
+                && targetUserRole(userId) != 'superadmin'
+                && targetUserRole(userId) != 'director')
+              || (isAdminUser() && !isProtectedStaffRole(targetUserRole(userId)))
+              || (isManagerUser() && !isProtectedStaffRole(targetUserRole(userId)))
+            )
+          )
+        );
+    }
+
+    function authUserCompanyId() {
+      return authUserCompanyRef() != null
+        ? canonicalCompanyDocId(authUserCompanyRef().id)
+        : null;
+    }
+
+    function counterDocBelongsToAuthTenant(counterId) {
+      return canCrossTenantAccess()
+        || counterId.matches('default_.*')
+        || (authUserCompanyId() != null
+            && counterId.matches('^' + authUserCompanyId() + '_.*'));
+    }
+
+    function orderDocData(orderId) {
+      return get(/databases/$(database)/documents/orders/$(orderId)).data;
+    }
+
+    function isSelfUser(userId) {
+      return isSignedIn()
+        && (
+          request.auth.uid == userId
+          || (userExists(userId)
+              && 'uid' in userDoc(userId).data
+              && userDoc(userId).data.uid == request.auth.uid)
+          || (userExists(userId)
+              && 'email' in userDoc(userId).data
+              && userDoc(userId).data.email == request.auth.token.email)
+        );
+    }
+
+    function staffRegistrationIntentPath(emailKey) {
+      return /databases/$(database)/documents/staff_registration_intents/$(emailKey);
+    }
+
+    function staffRegistrationIntentExists(emailKey) {
+      return exists(staffRegistrationIntentPath(emailKey));
+    }
+
+    function staffRegistrationIntentData(emailKey) {
+      return get(staffRegistrationIntentPath(emailKey)).data;
+    }
+
+    /// Add Staff: admin writes intent, new Auth user completes users/{uid} once.
+    function staffRegistrationIntentMatchesCreate() {
+      let profileEmail = request.resource.data.get('email', '');
+      return profileEmail != ''
+        && request.auth.token.email == profileEmail
+        && staffRegistrationIntentExists(profileEmail)
+        && staffRegistrationIntentData(profileEmail).email == profileEmail
+        && staffRegistrationIntentData(profileEmail).role == request.resource.data.role
+        && staffRegistrationIntentData(profileEmail).companyRef != null
+        && request.resource.data.companyRef != null
+        && companyRefCanonicalId(staffRegistrationIntentData(profileEmail).companyRef)
+            == companyRefCanonicalId(request.resource.data.companyRef);
+    }
+
+    /// Add Staff intent — superadmin may target any company; others own tenant only.
+    function staffRegistrationIntentWriteAllowed(emailKey) {
+      return canManageStaffProfiles()
+        && request.resource.data.email == emailKey
+        && request.resource.data.role != null
+        && request.resource.data.companyRef != null
+        && (
+          canCrossTenantAccess()
+          || (
+            authUserCompanyRef() != null
+            && companyRefsMatchCanonical(
+              request.resource.data.companyRef,
+              authUserCompanyRef())
+          )
+        );
+    }
+
+    // --- public user registration requests (login page signup) ---
+    function isValidUserRegistrationRequest(emailKey) {
+      return request.resource.data.email == emailKey
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() > 0
+        && request.resource.data.account_type in ['private', 'company']
+        && request.resource.data.status == 'pending'
+        && (
+          request.resource.data.account_type == 'private'
+          || (
+            request.resource.data.company_name is string
+            && request.resource.data.company_name.size() > 0
+          )
+        );
+    }
+
+    match /user_registration_requests/{emailKey} {
+      allow read: if canManageStaffProfiles()
+        || (isSignedIn() && request.auth.token.email == emailKey);
+      allow create: if isValidUserRegistrationRequest(emailKey);
+      allow update: if canManageStaffProfiles()
+        || (
+          !isSignedIn()
+          && resource.data.status == 'rejected'
+          && isValidUserRegistrationRequest(emailKey)
+        );
+      allow delete: if canManageStaffProfiles();
+    }
+
+    // --- staff registration intents (Add Staff gate) ---
+    match /staff_registration_intents/{emailKey} {
+      allow read: if isSignedIn()
+        && (
+          canManageStaffProfiles()
+          || request.auth.token.email == emailKey
+        );
+      allow create, update: if staffRegistrationIntentWriteAllowed(emailKey);
+      allow delete: if canManageStaffProfiles()
+        || (isSignedIn() && request.auth.token.email == emailKey);
+    }
+
+    // --- users ---
+    match /users/{userId} {
+      allow read: if isSignedIn() && (isSelfUser(userId) || isStaffUser());
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.uid == request.auth.uid
+        && request.auth.token.email != null
+        && staffRegistrationIntentMatchesCreate()
+        && request.resource.data.role in [
+          'senior_florist', 'florist', 'driver', 'admin', 'director',
+          'manager', 'account', 'hr', 'payroll'
+        ];
+      allow update: if isSignedIn()
+        && (
+          (isSuperAdminUser() && (isSelfUser(userId) || canManageStaffProfiles()))
+          || (
+            (isSelfUser(userId) || canManageStaffProfiles())
+            && !permissionOverridesChangedOnUserUpdate()
+          )
+        );
+      allow delete: if canDeleteStaffProfile(userId);
+
+      match /fcm_tokens/{tokenId} {
+        allow read, write, delete: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    // --- orders (core) ---
+    match /orders/{orderId} {
+      allow read: if canReadOrders()
+        && (
+          docBelongsToAuthTenant(resource.data)
+          || (isDriverUser() && isOrderAssignedToAuthDriver(resource.data))
+        );
+      allow create: if isStaffUser() && incomingBelongsToAuthTenant();
+      allow update: if isAdminUser() && docBelongsToAuthTenant(resource.data)
+        || isDriverStatusUpdate()
+        || isDriverPartialDeliveryOrderUpdate()
+        || isOrderPaymentUpdate()
+        || isOrderMaterialCostSnapshotUpdate()
+        || isOrderTotalsRecalculationUpdate()
+        || isOrderCompanyRefStampUpdate()
+        || isOrderCheckoutFinalizeUpdate()
+        || isOrderDeliveryDetailSubmitUpdate()
+        || isSeniorFloristOrderUpdate()
+        || isPlatformAdminOrderUpdate()
+        || isAssignDriverOrderUpdate()
+        || isCreditFinanceOrderUpdate()
+        || isOrderUpdateByEditPermission();
+      allow delete: if isPlatformAdminUser() || canDeleteOrdersByPermission();
+    }
+
+    match /orders/{parent}/internal_messages/{document} {
+      allow read: if canReadOrders()
+        && docBelongsToAuthTenant(orderDocData(parent));
+      allow create, update: if isOperationsStaffUser()
+        && docBelongsToAuthTenant(orderDocData(parent))
+        && incomingBelongsToAuthTenant();
+      allow delete: if isPlatformAdminUser();
+    }
+
+    match /{path=**}/internal_messages/{document} {
+      allow read: if canReadOrders();
+    }
+
+    // --- order line items ---
+    match /Order_item/{itemId} {
+      allow read: if orderItemReadableByStaff();
+      allow create: if isStaffUser() && incomingBelongsToAuthTenant();
+      allow update: if isOrderItemRemarkUpdate()
+        || isDriverPartialDeliveryItemUpdate()
+        || isOrderItemCompanyRefStampUpdate()
+        || (isStaffDocUpdate()
+        && (isSuperAdminUser()
+            || !isPaidOrderItemParent()
+            || effectiveAppPermission('editPaidOrderDetails'))
+        || isOrderLineItemUpdateByPermission());
+      allow delete: if isPlatformAdminUser() || canDeleteOrdersByPermission();
+    }
+
+    // --- catalog ---
+    match /product/{document} {
+      allow read: if isSignedIn() && docBelongsToAuthTenant(resource.data);
+      allow create: if isCatalogDocCreate();
+      allow update: if isCatalogDocUpdate();
+      allow delete: if isCatalogDocDelete();
+    }
+
+    match /materials/{document} {
+      allow read: if isSignedIn() && docBelongsToAuthTenant(resource.data);
+      allow create: if isCatalogDocCreate();
+      allow update: if isCatalogDocUpdate();
+      allow delete: if isCatalogDocDelete();
+    }
+
+    match /price_lists/{document} {
+      allow read: if isSignedIn() && docBelongsToAuthTenant(resource.data);
+      allow create: if isCatalogDocCreate();
+      allow update: if isCatalogDocUpdate();
+      allow delete: if isCatalogDocDelete();
+    }
+
+    match /material_categories/{document} {
+      allow read: if isSignedIn()
+        && isStaffUser()
+        && (
+          canCrossTenantAccess()
+          || companyCategoryDocMatchesAuthTenant(document)
+        );
+      allow create: if isStaffUser()
+        && companyCategoryDocMatchesAuthTenant(document)
+        && incomingProductCategoriesBelongsToAuthTenant();
+      allow update: if isStaffUser()
+        && companyCategoryDocMatchesAuthTenant(document)
+        && incomingProductCategoriesBelongsToAuthTenant();
+      allow delete: if isPlatformAdminUser()
+        && companyCategoryDocMatchesAuthTenant(document);
+    }
+
+    match /product_categories/{document} {
+      allow read: if isSignedIn()
+        && isStaffUser()
+        && (
+          canCrossTenantAccess()
+          || companyCategoryDocMatchesAuthTenant(document)
+        );
+      allow create: if isStaffUser()
+        && companyCategoryDocMatchesAuthTenant(document)
+        && incomingProductCategoriesBelongsToAuthTenant();
+      allow update: if isStaffUser()
+        && companyCategoryDocMatchesAuthTenant(document)
+        && incomingProductCategoriesBelongsToAuthTenant();
+      allow delete: if isPlatformAdminUser()
+        && companyCategoryDocMatchesAuthTenant(document);
+    }
+
+    match /tenant_platform_config/{document} {
+      allow read: if isSignedIn() && isStaffUser();
+      allow create, update, delete: if isSuperAdminUser();
+    }
+
+    match /staff_roles/{document} {
+      allow read: if isSignedIn()
+        && isStaffUser()
+        && (
+          canCrossTenantAccess()
+          || companyCategoryDocMatchesAuthTenant(document)
+        );
+      allow create: if canManageRolePermissionsDoc()
+        && companyCategoryDocMatchesAuthTenant(document)
+        && incomingProductCategoriesBelongsToAuthTenant();
+      allow update: if canManageRolePermissionsDoc()
+        && companyCategoryDocMatchesAuthTenant(document)
+        && incomingProductCategoriesBelongsToAuthTenant();
+      allow delete: if canManageRolePermissionsDoc()
+        && companyCategoryDocMatchesAuthTenant(document);
+    }
+
+    match /role_permissions/{document} {
+      allow read: if isSignedIn()
+        && isStaffUser()
+        && (
+          canCrossTenantAccess()
+          || rolePermissionsDocMatchesAuthTenant(document)
+        );
+      allow create, update: if canManageRolePermissionsDoc()
+        && (
+          (
+            canCrossTenantAccess()
+            && rolePermissionsPayloadMatchesDocId(document)
+          )
+          || (
+            rolePermissionsDocMatchesAuthTenant(document)
+            && incomingRolePermissionsBelongsToAuthTenant()
+          )
+        );
+      allow delete: if isSuperAdminUser()
+        && (
+          canCrossTenantAccess()
+          || rolePermissionsDocMatchesAuthTenant(document)
+        );
+    }
+
+    match /customProduct/{document} {
+      allow read: if isSignedIn() && docBelongsToAuthTenant(resource.data);
+      allow create: if isCatalogDocCreate();
+      allow update: if isCatalogDocUpdate();
+      allow delete: if isCatalogDocDelete();
+    }
+
+    // --- company ---
+    match /Companies/{document} {
+      allow read: if isSignedIn()
+        || resource.data.is_active == true;
+      allow create, delete: if isSignedIn() && isSuperAdminUser();
+      allow update: if isSignedIn() && isPlatformAdminUser();
+    }
+
+    // --- counters ---
+    match /counters/{document} {
+      allow read: if isStaffUser();
+      allow create, update: if isStaffUser();
+      allow delete: if isPlatformAdminUser();
+    }
+
+    match /counter/{document} {
+      allow read: if (isStaffUser() || isDriverUser())
+        && counterDocBelongsToAuthTenant(document);
+      allow create, update: if isStaffUser()
+        && counterDocBelongsToAuthTenant(document);
+      allow delete: if isPlatformAdminUser();
+    }
+
+    // --- audit ---
+    match /audit_logs/{document} {
+      allow read: if isSignedIn()
+        && auditLogBelongsToAuthTenant(resource.data)
+        && (
+          isPlatformAdminUser()
+          || effectiveAppPermission('viewAuditLog')
+        );
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    // --- deleted orders archive (admin soft-delete audit trail) ---
+    match /deleted_orders/{document} {
+      allow read: if isOperationsStaffUser()
+        && docBelongsToAuthTenant(resource.data);
+      allow create: if isPlatformAdminUser()
+        && incomingBelongsToAuthTenant();
+      allow update: if isOperationsStaffUser()
+        && docBelongsToAuthTenant(resource.data)
+        && tenantUnchangedOnUpdate()
+        && incomingBelongsToAuthTenant();
+      allow delete: if isPlatformAdminUser()
+        && docBelongsToAuthTenant(resource.data);
+    }
+
+    // --- customer profiles ---
+    match /customers/{document} {
+      allow read: if (isOperationsStaffUser() || canViewCreditInvoices())
+        && docBelongsToAuthTenant(resource.data);
+      allow create: if (isOperationsStaffUser() || canManageCreditInvoices())
+        && incomingBelongsToAuthTenant();
+      allow update: if (isOperationsStaffUser() || canManageCreditInvoices())
+        && docBelongsToAuthTenant(resource.data)
+        && tenantUnchangedOnUpdate()
+        && incomingBelongsToAuthTenant();
+      allow delete: if isPlatformAdminUser()
+        && docBelongsToAuthTenant(resource.data);
+    }
+
+    // --- credit customer invoices ---
+    match /invoices/{document} {
+      allow read: if canViewCreditInvoices()
+        && docBelongsToAuthTenant(resource.data);
+      allow create: if canManageCreditInvoices()
+        && incomingBelongsToAuthTenant();
+      allow update: if canManageCreditInvoices()
+        && incomingBelongsToAuthTenant()
+        && docBelongsToAuthTenant(resource.data)
+        && tenantUnchangedOnUpdate()
+        && (!isPaidInvoiceDoc() || effectiveAppPermission('editPaidInvoices'));
+      allow delete: if canManageCreditInvoices()
+        && docBelongsToAuthTenant(resource.data);
+    }
+
+    // --- staff in-app notices (order created / driver assigned) ---
+    match /staff_notices/{document} {
+      function isNoticeRecipient() {
+        return isSignedIn()
+          && resource.data.recipient_user_ref
+            == /databases/$(database)/documents/users/$(authUserDocId());
+      }
+
+      allow read: if isNoticeRecipient()
+        && docBelongsToAuthTenant(resource.data);
+      allow create: if incomingBelongsToAuthTenant()
+        && (
+          (request.resource.data.type == 'special_procurement_reminder'
+            && isSuperAdminUser())
+          || (request.resource.data.type != 'special_procurement_reminder'
+            && (isOperationsStaffUser() || isPlatformAdminUser()))
+        );
+      allow update: if isNoticeRecipient()
+        && docBelongsToAuthTenant(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read_at']);
+      allow delete: if false;
+    }
+  }
+}
