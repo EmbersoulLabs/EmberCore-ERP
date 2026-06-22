@@ -137,6 +137,13 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         brightness: Brightness.light,
         useMaterial3: false,
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFF0A2540),
+          secondary: Color(0xFF2563EB),
+          surface: Color(0xFFFFFFFF),
+          error: Color(0xFFDC2626),
+        ),
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,

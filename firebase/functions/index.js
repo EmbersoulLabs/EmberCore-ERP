@@ -16,6 +16,7 @@ const {
   bootstrapEmbercorePlatform,
   readBootstrapConfig,
 } = require("./bootstrap_platform");
+const { parseOrderMessageWithGemini } = require("./order_import_parser");
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -335,5 +336,60 @@ exports.bootstrapEmbercorePlatform = functions
       return res.status(500).json({
         error: error.message || "Bootstrap failed",
       });
+    }
+  });
+
+/**
+ * Callable: parseOrderImport
+ * AI-assisted order field extraction (Gemini). Client merges with local regex parser.
+ */
+exports.parseOrderImport = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 60,
+    memory: "256MB",
+    secrets: ["GEMINI_API_KEY"],
+  })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Sign in to use order import.",
+      );
+    }
+
+    const rawText = String(data?.text || "").trim();
+    if (!rawText) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "text is required",
+      );
+    }
+    if (rawText.length > 12000) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "text is too long",
+      );
+    }
+
+    const parseContext = {
+      industryKey: data?.industryKey ? String(data.industryKey) : undefined,
+      orderIdPrefix: data?.orderIdPrefix
+        ? String(data.orderIdPrefix)
+        : undefined,
+    };
+
+    try {
+      const parsed = await parseOrderMessageWithGemini(rawText, parseContext);
+      return { parsed, source: "gemini" };
+    } catch (error) {
+      functions.logger.error("parseOrderImport failed", {
+        uid: context.auth.uid,
+        error: error.message || error,
+      });
+      throw new functions.https.HttpsError(
+        "internal",
+        error.message || "Order import parsing failed",
+      );
     }
   });

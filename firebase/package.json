@@ -33,6 +33,8 @@
     "bootstrap:staging": "node scripts/bootstrap_staging_admin.js --project tfg-vday-record-staging",
     "bootstrap:staging:dry-run": "node scripts/bootstrap_staging_admin.js --project tfg-vday-record-staging --dry-run",
     "bootstrap:embercore:cli": "node scripts/bootstrap_embercore_cli.js",
+    "enable:module:embercore": "node scripts/enable_tenant_module.js --company demo_company",
+    "init:storage:embercore": "node scripts/init_firebase_storage.js --project embercore-erp --location asia-southeast1",
     "smoke:embercore": "node scripts/embercore_smoke_check.js",
     "reset:permissions:staging:dry-run": "node scripts/reset_permission_overrides.js --project tfg-vday-record-staging --mode deny-all --dry-run",
     "reset:permissions:staging": "node scripts/reset_permission_overrides.js --project tfg-vday-record-staging --mode deny-all",

@@ -2,14 +2,24 @@
 const Map<String, Map<String, String>> orderStrings = {
   // Titles
   'order.list.title': {
-    'en': 'Order List',
-    'zh': '订单列表',
-    'ms': 'Senarai Pesanan',
+    'en': 'Order Management',
+    'zh': '订单管理',
+    'ms': 'Pengurusan Pesanan',
+  },
+  'order.list.subtitle': {
+    'en': 'Manage delivery, pickup, and retail orders',
+    'zh': '管理配送、自取与零售订单',
+    'ms': 'Urus pesanan penghantaran, ambil & runcit',
   },
   'order.detail.title': {
     'en': 'Order Detail',
     'zh': '订单详情',
     'ms': 'Butiran Pesanan',
+  },
+  'order.detail.unnamedCustomer': {
+    'en': 'Customer not set',
+    'zh': '未填写客户',
+    'ms': 'Pelanggan belum ditetapkan',
   },
   'order.detail.sectionDetails': {
     'en': 'Order Details',
@@ -135,6 +145,61 @@ const Map<String, Map<String, String>> orderStrings = {
     'zh': '状态',
     'ms': 'Status',
   },
+  'order.col.phone': {
+    'en': 'Phone',
+    'zh': '电话',
+    'ms': 'Telefon',
+  },
+  'order.col.timeSlot': {
+    'en': 'Time slot',
+    'zh': '时段',
+    'ms': 'Slot masa',
+  },
+  'order.col.paymentStatus': {
+    'en': 'Payment status',
+    'zh': '付款状态',
+    'ms': 'Status bayaran',
+  },
+  'order.col.driver': {
+    'en': 'Driver',
+    'zh': '司机',
+    'ms': 'Pemandu',
+  },
+  'order.col.total': {
+    'en': 'Total',
+    'zh': '金额',
+    'ms': 'Jumlah',
+  },
+  'order.col.action': {
+    'en': 'Action',
+    'zh': '操作',
+    'ms': 'Tindakan',
+  },
+  'order.col.view': {
+    'en': 'View',
+    'zh': '查看',
+    'ms': 'Lihat',
+  },
+  'order.field.paymentStatus': {
+    'en': 'Payment status',
+    'zh': '付款状态',
+    'ms': 'Status bayaran',
+  },
+  'order.payment.paid': {
+    'en': 'Paid',
+    'zh': '已付款',
+    'ms': 'Dibayar',
+  },
+  'order.payment.unpaid': {
+    'en': 'Unpaid',
+    'zh': '未付款',
+    'ms': 'Belum bayar',
+  },
+  'order.payment.partial': {
+    'en': 'Partial',
+    'zh': '部分付款',
+    'ms': 'Separa',
+  },
 
   // Type chips
   'order.type.all': {
@@ -245,8 +310,13 @@ const Map<String, Map<String, String>> orderStrings = {
   },
   'order.action.assignDriver': {
     'en': 'Assign Driver',
-    'zh': '指派司机',
+    'zh': '分配司机',
     'ms': 'Tugaskan Pemandu',
+  },
+  'order.assign.selectOne': {
+    'en': 'Select exactly one order to assign a driver.',
+    'zh': '请只选择一笔订单以分配司机。',
+    'ms': 'Pilih satu pesanan untuk menugaskan pemandu.',
   },
   'order.action.printReceipt': {
     'en': 'Print invoice or receipt',

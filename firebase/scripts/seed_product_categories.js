@@ -29,13 +29,7 @@ const THE_FLOWER_GUY_CATEGORIES = [
   "Ad-Hoc",
 ];
 
-const GENERIC_DEFAULTS = [
-  "Hand Bouquet",
-  "Wreath",
-  "Opening Stand",
-  "Table arrangement",
-  "AdHoc",
-];
+const GENERIC_DEFAULTS = ["AdHoc"];
 
 function canonicalCompanyId(id) {
   if (!id) {

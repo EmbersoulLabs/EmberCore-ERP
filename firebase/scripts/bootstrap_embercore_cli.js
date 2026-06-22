@@ -33,6 +33,7 @@ const GENERIC_PLATFORM_CONFIG = {
     "products",
     "reports",
     "customerBroadcast",
+    "whatsappImport",
   ],
   order_types: ["OnSite", "WalkIn", "Remote"],
   order_id_prefix: "EC",
@@ -308,13 +309,7 @@ async function main() {
     DEFAULT_COMPANY_ID,
     {
       companyRef: companyRef(),
-      categories: [
-        "Hand Bouquet",
-        "Wreath",
-        "Opening Stand",
-        "Table arrangement",
-        "AdHoc",
-      ],
+      categories: ["AdHoc"],
     },
   );
 

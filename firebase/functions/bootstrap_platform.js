@@ -23,6 +23,7 @@ const GENERIC_PLATFORM_CONFIG = {
     "products",
     "reports",
     "customerBroadcast",
+    "whatsappImport",
   ],
   order_types: ["OnSite", "WalkIn", "Remote"],
   order_id_prefix: "EC",
@@ -57,13 +58,7 @@ const GENERIC_PLATFORM_CONFIG = {
 };
 
 const DEFAULT_STAFF_ROLES = ["admin", "senior_florist", "florist", "driver"];
-const DEFAULT_CATEGORIES = [
-  "Hand Bouquet",
-  "Wreath",
-  "Opening Stand",
-  "Table arrangement",
-  "AdHoc",
-];
+const DEFAULT_CATEGORIES = ["AdHoc"];
 
 function readBootstrapConfig() {
   const secret =
@@ -245,7 +240,7 @@ async function ensureDemoProduct(db, companyRef, companyId) {
   const ref = db.collection("product").doc();
   await ref.set({
     name: "Demo Rose Bouquet",
-    category: "Hand Bouquet",
+    category: "AdHoc",
     price: 88,
     is_active: true,
     companyRef,

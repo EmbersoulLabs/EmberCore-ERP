@@ -7,6 +7,7 @@ import '/backend/schema/order_item_record.dart';
 import '/backend/schema/orders_record.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/l10n/tr.dart';
+import '/theme/ember_brand.dart';
 
 /// Single order row for [Orderlist1Widget] with the requested columns.
 class OrderListItemCard extends StatelessWidget {
@@ -32,28 +33,35 @@ class OrderListItemCard extends StatelessWidget {
     final theme = FlutterFlowTheme.of(context);
     final statusColor = orderListStatusColor(order.status);
     final statusLabel = orderListStatusLabel(context, order);
+    final paymentLabel = orderListPaymentStatus(context, order);
+    final paymentColor = order.balanceDue > 0.009
+        ? EmberBrand.amber
+        : EmberBrand.teal;
     final cells = <String>[
       orderListOrderId(order),
       orderListCustomer(order),
-      orderListRecipient(order),
-      orderListAddress(order),
-      orderListDeliveryDate(order, locale: locale),
+      orderListPhone(order),
       orderListPickupDelivery(context, order),
-      orderListProductSummaryLocalized(context, items),
+      orderListDeliveryDateOnly(order, locale: locale),
+      orderListDeliveryTimeSlot(order),
       statusLabel,
+      paymentLabel,
+      orderListDriverLabel(order),
+      orderListTotal(order),
+      tr(context, 'order.col.view'),
     ];
 
     return Material(
-      color: theme.secondaryBackground,
+      color: EmberBrand.card,
       child: InkWell(
         onTap: onTap,
         child: Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: theme.alternate, width: 1.0),
+              bottom: BorderSide(color: EmberBrand.border, width: 1.0),
             ),
           ),
-          padding: const EdgeInsets.fromLTRB(6.0, 6.0, 8.0, 6.0),
+          padding: const EdgeInsets.fromLTRB(6.0, 10.0, 8.0, 10.0),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -62,24 +70,45 @@ class OrderListItemCard extends StatelessWidget {
                 onChanged: onCheckedChanged,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
-                activeColor: theme.primary,
-                checkColor: theme.info,
+                activeColor: EmberBrand.navy,
+                checkColor: Colors.white,
               ),
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
+                    final opsWide =
+                        constraints.maxWidth >= kOrderListOpsBreakpoint;
+                    if (opsWide) {
+                      return _OpsWideRow(
+                        cells: cells,
+                        statusColor: statusColor,
+                        paymentColor: paymentColor,
+                        theme: theme,
+                        onView: onTap,
+                      );
+                    }
                     final wide =
                         constraints.maxWidth >= kOrderListTableBreakpoint;
                     if (wide) {
-                      return _WideRow(
-                        cells: cells,
+                      return _LegacyWideRow(
+                        order: order,
+                        items: items,
                         statusColor: statusColor,
+                        statusLabel: statusLabel,
+                        paymentLabel: paymentLabel,
+                        paymentColor: paymentColor,
+                        locale: locale,
                         theme: theme,
                       );
                     }
                     return _NarrowColumn(
-                      cells: cells,
+                      order: order,
+                      items: items,
                       statusColor: statusColor,
+                      statusLabel: statusLabel,
+                      paymentLabel: paymentLabel,
+                      paymentColor: paymentColor,
+                      locale: locale,
                       theme: theme,
                     );
                   },
@@ -105,11 +134,10 @@ class OrderListTableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FlutterFlowTheme.of(context);
     final columns = orderListColumnLabels(context);
     return Container(
-      color: theme.primary.withValues(alpha: 0.08),
-      padding: const EdgeInsets.fromLTRB(6.0, 6.0, 8.0, 6.0),
+      color: EmberBrand.background,
+      padding: const EdgeInsets.fromLTRB(6.0, 8.0, 8.0, 8.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -119,15 +147,15 @@ class OrderListTableHeader extends StatelessWidget {
             onChanged: onSelectAllChanged,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             visualDensity: VisualDensity.compact,
-            activeColor: theme.primary,
-            checkColor: theme.info,
+            activeColor: EmberBrand.navy,
+            checkColor: Colors.white,
           ),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final wide =
-                    constraints.maxWidth >= kOrderListTableBreakpoint;
-                if (wide) {
+                final opsWide =
+                    constraints.maxWidth >= kOrderListOpsBreakpoint;
+                if (opsWide) {
                   return Row(
                     children: [
                       for (var i = 0; i < columns.length; i++)
@@ -151,9 +179,10 @@ class OrderListTableHeader extends StatelessWidget {
   }
 
   TextStyle _headerStyle(BuildContext context) => GoogleFonts.inter(
-        fontSize: 12.0,
+        fontSize: 11.5,
         fontWeight: FontWeight.w700,
-        color: FlutterFlowTheme.of(context).primaryText,
+        color: EmberBrand.textSecondary,
+        letterSpacing: 0.2,
       );
 
   Widget _headerCell(BuildContext context, String label) => Text(
@@ -170,30 +199,37 @@ int _columnFlex(int index) {
     case 2:
       return 2;
     case 3:
-      return 3;
-    case 4:
-      return 2;
-    case 5:
       return 1;
-    case 6:
-      return 4;
-    case 7:
+    case 4:
+    case 5:
       return 2;
+    case 6:
+    case 7:
+    case 8:
+      return 2;
+    case 9:
+      return 2;
+    case 10:
+      return 1;
     default:
       return 1;
   }
 }
 
-class _WideRow extends StatelessWidget {
-  const _WideRow({
+class _OpsWideRow extends StatelessWidget {
+  const _OpsWideRow({
     required this.cells,
     required this.statusColor,
+    required this.paymentColor,
     required this.theme,
+    required this.onView,
   });
 
   final List<String> cells;
   final Color statusColor;
+  final Color paymentColor;
   final FlutterFlowTheme theme;
+  final VoidCallback onView;
 
   @override
   Widget build(BuildContext context) {
@@ -203,14 +239,83 @@ class _WideRow extends StatelessWidget {
         for (var i = 0; i < cells.length; i++)
           Expanded(
             flex: _columnFlex(i),
-            child: i == cells.length - 1
-                ? _StatusChip(label: cells[i], color: statusColor)
-                : _CellText(
-                    text: cells[i],
-                    bold: i == 0,
-                    theme: theme,
-                  ),
+            child: switch (i) {
+              6 => _StatusChip(label: cells[i], color: statusColor),
+              7 => _StatusChip(label: cells[i], color: paymentColor),
+              10 => IconButton(
+                  onPressed: onView,
+                  icon: const Icon(Icons.arrow_forward_ios, size: 14),
+                  color: EmberBrand.electricBlue,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              _ => _CellText(
+                  text: cells[i],
+                  bold: i == 0,
+                  theme: theme,
+                ),
+            },
           ),
+      ],
+    );
+  }
+}
+
+class _LegacyWideRow extends StatelessWidget {
+  const _LegacyWideRow({
+    required this.order,
+    required this.items,
+    required this.statusColor,
+    required this.statusLabel,
+    required this.paymentLabel,
+    required this.paymentColor,
+    required this.locale,
+    required this.theme,
+  });
+
+  final OrdersRecord order;
+  final List<OrderItemRecord> items;
+  final Color statusColor;
+  final String statusLabel;
+  final String paymentLabel;
+  final Color paymentColor;
+  final String? locale;
+  final FlutterFlowTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _CellText(
+                text: orderListOrderId(order),
+                bold: true,
+                theme: theme,
+              ),
+            ),
+            _StatusChip(label: statusLabel, color: statusColor),
+          ],
+        ),
+        const SizedBox(height: 4),
+        _CellText(
+          text:
+              '${orderListCustomer(order)} · ${orderListPhone(order)} · ${orderListTotal(order)}',
+          theme: theme,
+        ),
+        _CellText(
+          text:
+              '${orderListPickupDelivery(context, order)} · ${orderListDeliveryDate(order, locale: locale)}',
+          theme: theme,
+        ),
+        _CellText(
+          text: orderListProductSummaryLocalized(context, items),
+          theme: theme,
+        ),
+        const SizedBox(height: 4),
+        _StatusChip(label: paymentLabel, color: paymentColor),
       ],
     );
   }
@@ -218,13 +323,23 @@ class _WideRow extends StatelessWidget {
 
 class _NarrowColumn extends StatelessWidget {
   const _NarrowColumn({
-    required this.cells,
+    required this.order,
+    required this.items,
     required this.statusColor,
+    required this.statusLabel,
+    required this.paymentLabel,
+    required this.paymentColor,
+    required this.locale,
     required this.theme,
   });
 
-  final List<String> cells;
+  final OrdersRecord order;
+  final List<OrderItemRecord> items;
   final Color statusColor;
+  final String statusLabel;
+  final String paymentLabel;
+  final Color paymentColor;
+  final String? locale;
   final FlutterFlowTheme theme;
 
   @override
@@ -237,7 +352,7 @@ class _NarrowColumn extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                cells[0],
+                orderListOrderId(order),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(
@@ -249,14 +364,26 @@ class _NarrowColumn extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            _StatusChip(label: cells[7], color: statusColor),
+            _StatusChip(label: statusLabel, color: statusColor),
           ],
         ),
         const SizedBox(height: 3),
-        _compactLine(tr(context, 'order.col.customer'), cells[1]),
-        _compactLine(tr(context, 'order.col.recipient'), cells[2]),
-        _compactLine(tr(context, 'order.col.deliveryDate'), '${cells[4]} · ${cells[5]}'),
-        _compactLine(tr(context, 'order.col.product'), cells[6], maxLines: 2),
+        _compactLine(tr(context, 'order.col.customer'), orderListCustomer(order)),
+        _compactLine(tr(context, 'order.col.phone'), orderListPhone(order)),
+        _compactLine(
+          tr(context, 'order.col.deliveryDate'),
+          orderListDeliveryDate(order, locale: locale),
+        ),
+        _compactLine(
+          tr(context, 'order.col.paymentStatus'),
+          paymentLabel,
+        ),
+        _compactLine(tr(context, 'order.col.total'), orderListTotal(order)),
+        _compactLine(
+          tr(context, 'order.col.product'),
+          orderListProductSummaryLocalized(context, items),
+          maxLines: 2,
+        ),
       ],
     );
   }
@@ -329,18 +456,19 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(6.0),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Text(
         label,
         textAlign: TextAlign.center,
         style: GoogleFonts.inter(
-          fontSize: 12.0,
-          fontWeight: FontWeight.w700,
-          color: FlutterFlowTheme.of(context).primaryText,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: color,
         ),
       ),
     );

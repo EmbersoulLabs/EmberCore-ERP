@@ -4,7 +4,10 @@ import '/backend/schema/companies_record.dart';
 import '/backend/tenant_context.dart';
 import '/backend/user_query_helpers.dart';
 import '/components/company_logo_editor.dart';
-import '/components/home_nav_button.dart';
+import '/components/ember_app_shell.dart';
+import '/components/ember_section_card.dart';
+import '/theme/ember_brand.dart';
+import '/theme/ember_navigation.dart';
 import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -255,46 +258,12 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
         FocusScope.of(context).unfocus();
         FocusManager.instance.primaryFocus?.unfocus();
       },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: Color(0xFFFBF9F5),
-        appBar: AppBar(
-          backgroundColor: Color(0xFFFBF9F5),
-          automaticallyImplyLeading: false,
-          leading: FlutterFlowIconButton(
-            borderColor: Colors.transparent,
-            borderRadius: 20.0,
-            borderWidth: 1.0,
-            buttonSize: 40.0,
-            icon: Icon(
-              Icons.arrow_back_ios,
-              color: Color(0xFF101518),
-              size: 24.0,
-            ),
-            onPressed: () => context.safePop(),
-          ),
-          title: Text(
-            'Company Profile',
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.readexPro(
-                    fontWeight: FontWeight.w600,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Color(0xFF101518),
-                  fontSize: 28.0,
-                  letterSpacing: 0.0,
-                  fontWeight: FontWeight.w600,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: const [
-            HomeNavIconButton(),
-          ],
-          centerTitle: true,
-          elevation: 0.0,
-        ),
+      child: EmberAppShell(
+        selectedPath: CompanySettingPageWidget.routePath,
+        title: tr(context, 'settings.businessProfile'),
+        subtitle: tr(context, 'settings.businessProfile.subtitle'),
+        showBackButton: true,
+        navGroups: buildEmberNavGroups(context),
         body: SafeArea(
           top: true,
           child: _loading
@@ -311,7 +280,7 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
                       ),
                     )
                   : Padding(
-          padding: EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(20.0),
           child: Column(
               mainAxisSize: MainAxisSize.max,
               children: [
@@ -320,7 +289,9 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
                     key: _model.formKey,
                     autovalidateMode: AutovalidateMode.disabled,
                     child: SingleChildScrollView(
-                      child: Column(
+                      child: EmberSectionCard(
+                        title: tr(context, 'settings.businessProfile'),
+                        child: Column(
                         mainAxisSize: MainAxisSize.max,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1102,6 +1073,7 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
                     ),
                   ),
                 ),
+              ),
                 if (canViewUserList(AppStateNotifier.instance.userRole))
                   Padding(
                     padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 12.0),
@@ -1198,7 +1170,7 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
                         iconPadding:
                             EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
                         iconColor: Colors.white,
-                        color: Color(0xFF507583),
+                        color: EmberBrand.navy,
                         textStyle:
                             FlutterFlowTheme.of(context).titleMedium.override(
                                   font: GoogleFonts.inter(
@@ -1216,7 +1188,7 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
                                       .fontStyle,
                                 ),
                         elevation: 0.0,
-                        borderSide: BorderSide(
+                        borderSide: const BorderSide(
                           color: Colors.transparent,
                           width: 1.0,
                         ),

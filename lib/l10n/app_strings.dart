@@ -7,6 +7,7 @@ import 'strings/invoice_strings.dart';
 import 'strings/report_strings.dart';
 import 'strings/admin_strings.dart';
 import 'strings/dashboard_strings.dart';
+import 'strings/brand_strings.dart';
 
 /// Merged translation catalog for the app.
 const Map<String, Map<String, String>> kAppStrings = {
@@ -19,4 +20,5 @@ const Map<String, Map<String, String>> kAppStrings = {
   ...reportStrings,
   ...adminStrings,
   ...dashboardStrings,
+  ...brandStrings,
 };

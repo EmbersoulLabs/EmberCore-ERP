@@ -76,6 +76,70 @@ class WhatsAppParsedOrderDetails {
       deliveryDate != null ||
       orderType != null ||
       productHint != null;
+
+  static WhatsAppParsedOrderDetails? fromRemoteMap(Map<String, dynamic>? data) {
+    if (data == null || data.isEmpty) {
+      return null;
+    }
+    DateTime? deliveryDate;
+    final rawDate = data['deliveryDate'];
+    if (rawDate is String && rawDate.trim().isNotEmpty) {
+      deliveryDate = DateTime.tryParse(rawDate.trim());
+    }
+    double? productPrice;
+    final rawPrice = data['productPrice'];
+    if (rawPrice is num) {
+      productPrice = rawPrice.toDouble();
+    }
+    String? readString(String key) {
+      final value = data[key];
+      if (value is! String) {
+        return null;
+      }
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    return WhatsAppParsedOrderDetails(
+      orderId: readString('orderId'),
+      clientName: readString('clientName'),
+      recipientName: readString('recipientName'),
+      phone: readString('phone'),
+      address: readString('address'),
+      postalCode: readString('postalCode'),
+      region: readString('region'),
+      deliveryTimeSlot: readString('deliveryTimeSlot'),
+      cardMessage: readString('cardMessage'),
+      deliveryDate: deliveryDate,
+      orderType: readString('orderType'),
+      productHint: readString('productHint'),
+      productPrice: productPrice,
+      needsReferencePhoto: data['needsReferencePhoto'] == true,
+    );
+  }
+}
+
+/// Prefer regex order IDs; AI fills gaps in customer, product, and delivery fields.
+WhatsAppParsedOrderDetails mergeParsedOrderDetails(
+  WhatsAppParsedOrderDetails local,
+  WhatsAppParsedOrderDetails ai,
+) {
+  return WhatsAppParsedOrderDetails(
+    orderId: local.orderId ?? ai.orderId,
+    clientName: ai.clientName ?? local.clientName,
+    recipientName: ai.recipientName ?? local.recipientName,
+    phone: ai.phone ?? local.phone,
+    address: ai.address ?? local.address,
+    postalCode: ai.postalCode ?? local.postalCode,
+    region: ai.region ?? local.region,
+    deliveryTimeSlot: ai.deliveryTimeSlot ?? local.deliveryTimeSlot,
+    cardMessage: ai.cardMessage ?? local.cardMessage,
+    deliveryDate: ai.deliveryDate ?? local.deliveryDate,
+    orderType: ai.orderType ?? local.orderType,
+    productHint: ai.productHint ?? local.productHint,
+    productPrice: ai.productPrice ?? local.productPrice,
+    needsReferencePhoto: local.needsReferencePhoto || ai.needsReferencePhoto,
+  );
 }
 
 final _orderIdPatterns = [

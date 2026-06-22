@@ -18,7 +18,10 @@ import '/backend/tenant_context.dart';
 import '/backend/tenant_query_helpers.dart';
 import '/backend/user_query_helpers.dart';
 import '/components/driver_delivery_order_card.dart';
-import '/components/home_nav_button.dart';
+import '/components/ember_app_shell.dart';
+import '/components/ember_delivery_board.dart';
+import '/theme/ember_brand.dart';
+import '/theme/ember_navigation.dart';
 import '/flutter_flow/flutter_flow_choice_chips.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -241,47 +244,20 @@ class _DriverAssignmentsPageWidgetState
       );
     }
 
-    return GestureDetector(
-      behavior: HitTestBehavior.deferToChild,
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        backgroundColor: theme.primaryBackground,
-        appBar: AppBar(
-          backgroundColor: theme.primaryBackground,
-          automaticallyImplyLeading: false,
-          leading: FlutterFlowIconButton(
-            borderRadius: 30,
-            buttonSize: 60,
-            icon: Icon(Icons.arrow_back_rounded, color: theme.primaryText),
-            onPressed: () => context.safePop(),
-          ),
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                tr(context, 'order.driver.title'),
-                style: theme.headlineMedium.override(
-                  font: GoogleFonts.interTight(fontWeight: FontWeight.w600),
-                  fontSize: 22,
-                ),
-              ),
-            ],
-          ),
-          actions: const [HomeNavIconButton()],
-          elevation: 0,
-        ),
-        body: SafeArea(
-          child: _loadingDrivers
-              ? const Center(child: CircularProgressIndicator())
-              : _driverLoadError != null
-                  ? _buildDriverLoadError(theme)
-                  : _drivers.isEmpty
-                      ? _buildNoDrivers(theme)
-                      : _buildContent(theme),
-        ),
+    return EmberAppShell(
+      selectedPath: DriverAssignmentsPageWidget.routePath,
+      title: tr(context, 'settings.delivery.title'),
+      subtitle: tr(context, 'settings.delivery.subtitle'),
+      showBackButton: true,
+      navGroups: buildEmberNavGroups(context),
+      body: SafeArea(
+        child: _loadingDrivers
+            ? const Center(child: CircularProgressIndicator())
+            : _driverLoadError != null
+                ? _buildDriverLoadError(theme)
+                : _drivers.isEmpty
+                    ? _buildNoDrivers(theme)
+                    : _buildContent(theme),
       ),
     );
   }
@@ -339,11 +315,7 @@ class _DriverAssignmentsPageWidgetState
   Widget _buildDriverSelector(FlutterFlowTheme theme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.secondaryBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.alternate),
-      ),
+      decoration: EmberBrand.cardDecoration(),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<DocumentReference>(
           isExpanded: true,
@@ -523,33 +495,106 @@ class _DriverAssignmentsPageWidgetState
                       ),
                     ),
                   )
-                else ...[
-                  Text(
-                    tr(context, 'order.driver.assignedCount',
-                        params: {'count': '${orders.length}'}),
-                    style: theme.titleMedium.override(
-                      font: GoogleFonts.interTight(fontWeight: FontWeight.w600),
-                    ),
+                else if (_tabStatus == null)
+                  ..._buildDeliveryGroups(theme, orders, allItems)
+                else
+                  EmberDeliveryGroupSection(
+                    title: driverDeliveryTabKeyFromLabel(
+                          _model.choiceChipsValue,
+                        )?.label(context) ??
+                        tr(context, 'order.driver.assignedCount',
+                            params: {'count': '${orders.length}'}),
+                    count: orders.length,
+                    child: _buildOrderCardList(allItems, orders),
                   ),
-                  const SizedBox(height: 12),
-                  for (final order in orders)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: DriverDeliveryOrderCard(
-                        order: order,
-                        items: orderListItemsForOrder(allItems, order),
-                        locale: FFLocalizations.of(context).languageCode,
-                        showDriverActions: false,
-                        showOrderDetailNav: true,
-                        onTap: () => openOrderDetail(context, order.reference),
-                      ),
-                    ),
-                ],
               ],
             );
           },
         );
       },
+    );
+  }
+
+  List<Widget> _buildDeliveryGroups(
+    FlutterFlowTheme theme,
+    List<OrdersRecord> orders,
+    List<OrderItemRecord> allItems,
+  ) {
+    final assigned = orders
+        .where(
+          (order) =>
+              order.status == OrderStatus.processing ||
+              order.status == OrderStatus.ready_to_delivery,
+        )
+        .toList();
+    final outForDelivery = orders
+        .where((order) => order.status == OrderStatus.out_of_delivery)
+        .toList();
+    final completed = orders
+        .where((order) => order.status == OrderStatus.completed)
+        .toList();
+
+    final sections = <Widget>[];
+
+    void addSection({
+      required String title,
+      required List<OrdersRecord> group,
+      required Color accent,
+    }) {
+      if (group.isEmpty) {
+        return;
+      }
+      sections.add(
+        EmberDeliveryGroupSection(
+          title: title,
+          count: group.length,
+          accentColor: accent,
+          child: _buildOrderCardList(allItems, group),
+        ),
+      );
+    }
+
+    addSection(
+      title: DriverDeliveryTabKey.assigned.label(context),
+      group: assigned,
+      accent: EmberBrand.teal,
+    );
+    addSection(
+      title: DriverDeliveryTabKey.outForDelivery.label(context),
+      group: outForDelivery,
+      accent: EmberBrand.electricBlue,
+    );
+    addSection(
+      title: DriverDeliveryTabKey.completed.label(context),
+      group: completed,
+      accent: EmberBrand.navy,
+    );
+
+    return sections;
+  }
+
+  Widget _buildOrderCardList(
+    List<OrderItemRecord> allItems,
+    List<OrdersRecord> orders,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        children: [
+          for (final order in orders)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: DriverDeliveryOrderCard(
+                order: order,
+                items: orderListItemsForOrder(allItems, order),
+                locale: FFLocalizations.of(context).languageCode,
+                showDriverActions: false,
+                showOrderDetailNav: true,
+                onTap: () => openOrderDetail(context, order.reference),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -564,11 +609,7 @@ class _DriverAssignmentsPageWidgetState
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.secondaryBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.alternate),
-      ),
+      decoration: EmberBrand.cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

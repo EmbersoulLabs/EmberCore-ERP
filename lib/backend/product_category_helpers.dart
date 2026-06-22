@@ -10,13 +10,7 @@ import '/backend/tenant_query_helpers.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 
 /// Generic fallback for companies without a saved category list.
-const defaultProductCategories = [
-  'Hand Bouquet',
-  'Wreath',
-  'Opening Stand',
-  'Table arrangement',
-  'AdHoc',
-];
+const defaultProductCategories = ['AdHoc'];
 
 /// The Flower Guy Pte Ltd — canonical production company.
 const theFlowerGuyProductCategories = [

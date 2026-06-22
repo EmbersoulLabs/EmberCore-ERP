@@ -4,32 +4,28 @@ import '/backend/driver_delivery_filter_helpers.dart';
 import '/backend/driver_delivery_tab_labels.dart';
 import '/backend/daily_sales_report_service.dart';
 import '/backend/driver_route_helpers.dart';
-import '/backend/order_status_helpers.dart';
 import '/backend/tenant_context.dart';
 import '/backend/tenant_query_helpers.dart';
 import '/backend/user_query_helpers.dart';
+import '/backend/order_list_display_helpers.dart';
+import '/backend/schema/enums/enums.dart';
+import '/components/driver_delivery_order_card.dart';
+import '/components/ember_app_shell.dart';
+import '/components/home_nav_button.dart';
 import '/flutter_flow/nav/nav.dart';
 import '/index.dart';
-import '/backend/order_list_display_helpers.dart';
-import '/components/staff_notice_app_bar_button.dart';
-import '/components/driver_delivery_order_card.dart';
-import '/components/home_nav_button.dart';
-import '/components/language_picker_button.dart';
-import '/backend/schema/enums/enums.dart';
+import '/theme/ember_brand.dart';
 import '/flutter_flow/flutter_flow_choice_chips.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
 import '/services/google_maps_service.dart';
 import '/l10n/locale_text.dart';
-import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'driver_delivery_page_model.dart';
 export 'driver_delivery_page_model.dart';
 
@@ -85,7 +81,6 @@ class DriverDeliveryPageWidget extends StatefulWidget {
 class _DriverDeliveryPageWidgetState extends State<DriverDeliveryPageWidget> {
   late DriverDeliveryPageModel _model;
 
-  final scaffoldKey = GlobalKey<ScaffoldState>();
   DocumentReference? _driverRef;
   bool _profileLoading = true;
   OrderStatus? _tabStatus;
@@ -290,65 +285,31 @@ class _DriverDeliveryPageWidgetState extends State<DriverDeliveryPageWidget> {
         FocusScope.of(context).unfocus();
         FocusManager.instance.primaryFocus?.unfocus();
       },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-        appBar: AppBar(
-          backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-          automaticallyImplyLeading: false,
-          title: Text(
-            loc(
-              context,
-              en: 'My Deliveries',
-              zh: '我的派送',
-              ms: 'Penghantaran Saya',
-            ),
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.interTight(
-                    fontWeight: FontWeight.w600,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  letterSpacing: 0.0,
-                  fontWeight: FontWeight.w600,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: [
-            const StaffNoticeAppBarButton(),
-            const LanguagePickerButton(),
-            const HomeNavIconButton(),
-            Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 8.0, 0.0),
-              child: FlutterFlowIconButton(
-                borderRadius: 20.0,
-                buttonSize: 40.0,
-                icon: Icon(
-                  Icons.logout,
-                  color: FlutterFlowTheme.of(context).primaryText,
-                  size: 24.0,
-                ),
-                onPressed: () async => _logout(),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 16.0, 0.0),
-              child: FlutterFlowIconButton(
-                borderRadius: 20.0,
-                buttonSize: 40.0,
-                icon: Icon(
-                  Icons.refresh,
-                  color: FlutterFlowTheme.of(context).primaryText,
-                  size: 24.0,
-                ),
-                onPressed: () => safeSetState(() {}),
-              ),
-            ),
-          ],
-          centerTitle: false,
-          elevation: 0.0,
+      child: EmberAppShell(
+        selectedPath: DriverDeliveryPageWidget.routePath,
+        title: loc(
+          context,
+          en: 'My Deliveries',
+          zh: '我的派送',
+          ms: 'Penghantaran Saya',
         ),
+        subtitle: loc(
+          context,
+          en: 'All orders assigned to you',
+          zh: '所有指派给你的订单',
+          ms: 'Semua pesanan ditugaskan kepada anda',
+        ),
+        extraActions: [
+          const HomeNavIconButton.onPrimary(),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+            onPressed: () => safeSetState(() {}),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.white),
+            onPressed: () async => _logout(),
+          ),
+        ],
         body: SafeArea(
           top: true,
           child: ListView(
@@ -367,20 +328,6 @@ class _DriverDeliveryPageWidgetState extends State<DriverDeliveryPageWidget> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                        child: Text(
-                          loc(
-                            context,
-                            en: 'All orders assigned to you',
-                            zh: '所有指派给你的订单',
-                            ms: 'Semua pesanan ditugaskan kepada anda',
-                          ),
-                          style: FlutterFlowTheme.of(context).labelMedium.override(
-                                color: FlutterFlowTheme.of(context).secondaryText,
-                              ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                         child: _buildDateFilter(context),
                       ),
                       Padding(
@@ -391,69 +338,40 @@ class _DriverDeliveryPageWidgetState extends State<DriverDeliveryPageWidget> {
                           onChanged: (val) =>
                               _onTabChipChanged(val?.firstOrNull),
                             selectedChipStyle: ChipStyle(
-                              backgroundColor:
-                                  FlutterFlowTheme.of(context).primary,
+                              backgroundColor: EmberBrand.electricBlue,
                               textStyle: FlutterFlowTheme.of(context)
                                   .titleSmall
                                   .override(
                                     font: GoogleFonts.interTight(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .fontStyle,
+                                      fontWeight: FontWeight.w600,
                                     ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontStyle,
+                                    color: Colors.white,
                                   ),
-                              iconColor: FlutterFlowTheme.of(context)
-                                  .primaryBackground,
+                              iconColor: Colors.white,
                               iconSize: 18.0,
                               labelPadding: EdgeInsetsDirectional.fromSTEB(
                                   16.0, 8.0, 16.0, 8.0),
                               elevation: 0.0,
-                              borderColor: FlutterFlowTheme.of(context).primary,
+                              borderColor: EmberBrand.electricBlue,
                               borderWidth: 1.0,
                               borderRadius: BorderRadius.circular(20.0),
                             ),
                             unselectedChipStyle: ChipStyle(
-                              backgroundColor: FlutterFlowTheme.of(context)
-                                  .secondaryBackground,
+                              backgroundColor: EmberBrand.card,
                               textStyle: FlutterFlowTheme.of(context)
                                   .titleSmall
                                   .override(
                                     font: GoogleFonts.interTight(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .fontStyle,
+                                      fontWeight: FontWeight.w500,
                                     ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryText,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontStyle,
+                                    color: EmberBrand.textSecondary,
                                   ),
-                              iconColor:
-                                  FlutterFlowTheme.of(context).secondaryText,
+                              iconColor: EmberBrand.textSecondary,
                               iconSize: 18.0,
                               labelPadding: EdgeInsetsDirectional.fromSTEB(
                                   16.0, 8.0, 16.0, 8.0),
                               elevation: 0.0,
-                              borderColor:
-                                  FlutterFlowTheme.of(context).alternate,
+                              borderColor: EmberBrand.border,
                               borderWidth: 1.0,
                               borderRadius: BorderRadius.circular(20.0),
                             ),
@@ -569,8 +487,7 @@ class _DriverDeliveryPageWidgetState extends State<DriverDeliveryPageWidget> {
                                       options: FFButtonOptions(
                                         width: double.infinity,
                                         height: 44.0,
-                                        color: FlutterFlowTheme.of(context)
-                                            .primary,
+                                        color: EmberBrand.navy,
                                         textStyle: FlutterFlowTheme.of(context)
                                             .titleSmall
                                             .override(
@@ -635,33 +552,6 @@ class _DriverDeliveryPageWidgetState extends State<DriverDeliveryPageWidget> {
                     ],
                   ),
                 ],
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 32.0),
-                child: FFButtonWidget(
-                  onPressed: () async => _logout(),
-                  text: 'Logout',
-                  icon: const Icon(
-                    Icons.logout,
-                    size: 20.0,
-                  ),
-                  options: FFButtonOptions(
-                    width: double.infinity,
-                    height: 48.0,
-                    color: FlutterFlowTheme.of(context).secondaryBackground,
-                    textStyle: FlutterFlowTheme.of(context).titleSmall.override(
-                          font: GoogleFonts.interTight(
-                            fontWeight: FontWeight.w600,
-                          ),
-                          color: FlutterFlowTheme.of(context).primaryText,
-                        ),
-                    borderSide: BorderSide(
-                      color: FlutterFlowTheme.of(context).alternate,
-                      width: 1.0,
-                    ),
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                ),
               ),
             ],
           ),

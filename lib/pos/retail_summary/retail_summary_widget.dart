@@ -10,7 +10,9 @@ import '/backend/order_id_service.dart';
 import '/backend/order_item_helpers.dart';
 import '/backend/tenant_context.dart';
 import '/backend/user_query_helpers.dart';
-import '/components/home_nav_button.dart';
+import '/components/ember_app_shell.dart';
+import '/theme/ember_brand.dart';
+import '/theme/ember_navigation.dart';
 import '/backend/cash_payment_helpers.dart';
 import '/backend/order_balance_helpers.dart';
 import '/backend/order_production_menu_helpers.dart';
@@ -102,138 +104,127 @@ class _RetailSummaryWidgetState extends State<RetailSummaryWidget> {
         FocusScope.of(context).unfocus();
         FocusManager.instance.primaryFocus?.unfocus();
       },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+      child: EmberAppShell(
+        selectedPath: RetailSummaryWidget.routePath,
+        title: tr(context, 'pos.summary.title'),
+        subtitle: tr(context, 'pos.summary.subtitle'),
+        showBackButton: true,
+        navGroups: buildEmberNavGroups(context),
         body: SafeArea(
           top: true,
-          child: SingleChildScrollView(
-            primary: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                Container(
-                  width: double.infinity,
-                  height: 80.0,
-                  decoration: BoxDecoration(
-                    color: FlutterFlowTheme.of(context).primary,
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.max,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            FlutterFlowIconButton(
-                              borderRadius: 20.0,
-                              buttonSize: 40.0,
-                              fillColor: Color(0x4DFFFFFF),
-                              icon: Icon(
-                                Icons.arrow_back,
-                                color: FlutterFlowTheme.of(context)
-                                    .primaryBackground,
-                                size: 20.0,
-                              ),
-                              onPressed: () async {
-                                context.safePop();
-                              },
-                            ),
-                            Text(
-                              tr(context, 'pos.summary.title'),
-                              style: FlutterFlowTheme.of(context)
-                                  .titleLarge
-                                  .override(
-                                    font: GoogleFonts.interTight(
-                                      fontWeight: FontWeight.w600,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleLarge
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .primaryBackground,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w600,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleLarge
-                                        .fontStyle,
-                                  ),
-                            ),
-                          ].divide(SizedBox(width: 12.0)),
-                        ),
-                        const AppBarLanguageHomeActions(),
-                      ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 1000;
+              final scrollChild = _buildPosScrollContent(context);
+              if (!wide) {
+                return SingleChildScrollView(
+                  primary: false,
+                  child: scrollChild,
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: _buildPosItemsSection(context),
                     ),
                   ),
-                ),
-                Padding(
-                  padding:
-                      EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 0.0),
-                  child: StreamBuilder<List<OrderItemRecord>>(
-                    stream: streamOrderLineItemsForOrder(widget!.orderRef!),
-                    builder: (context, snapshot) {
-                      // Customize what your widget looks like when it's loading.
-                      if (!snapshot.hasData) {
-                        return Center(
-                          child: SizedBox(
-                            width: 50.0,
-                            height: 50.0,
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                FlutterFlowTheme.of(context).primary,
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      List<OrderItemRecord> listViewOrderItemRecordList =
-                          activeOrderItems(snapshot.data!);
+                  Expanded(
+                    flex: 2,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(0, 20, 20, 20),
+                      child: _buildPosCartSection(context),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 
-                      return ListView.builder(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true,
-                        scrollDirection: Axis.vertical,
-                        itemCount: listViewOrderItemRecordList.length,
-                        itemBuilder: (context, listViewIndex) {
-                          final listViewOrderItemRecord =
-                              listViewOrderItemRecordList[listViewIndex];
-                          return Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
-                                0.0, 0.0, 0.0, 12.0),
-                            child: OrderSummaryItemTile(
-                              item: listViewOrderItemRecord,
-                              orderRef: widget!.orderRef!,
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
+  Widget _buildPosScrollContent(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildPosItemsSection(context),
+        _buildPosCartSection(context),
+      ],
+    );
+  }
+
+  Widget _buildPosItemsSection(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Container(
+        decoration: EmberBrand.cardDecoration(),
+        padding: const EdgeInsets.all(16),
+        child: StreamBuilder<List<OrderItemRecord>>(
+          stream: streamOrderLineItemsForOrder(widget!.orderRef!),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(
+                child: SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
                 ),
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: FlutterFlowTheme.of(context).secondaryBackground,
-                    border: Border.all(
-                      color: FlutterFlowTheme.of(context).alternate,
-                      width: 1.0,
-                    ),
+              );
+            }
+            final listViewOrderItemRecordList =
+                activeOrderItems(snapshot.data!);
+            if (listViewOrderItemRecordList.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  'No items in cart',
+                  style: FlutterFlowTheme.of(context).bodyMedium,
+                ),
+              );
+            }
+            return ListView.builder(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: listViewOrderItemRecordList.length,
+              itemBuilder: (context, listViewIndex) {
+                final listViewOrderItemRecord =
+                    listViewOrderItemRecordList[listViewIndex];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: OrderSummaryItemTile(
+                    item: listViewOrderItemRecord,
+                    orderRef: widget!.orderRef!,
                   ),
-                  child: Container(
-                    decoration: BoxDecoration(),
-                    child: Container(
-                      decoration: BoxDecoration(),
-                      child: Padding(
-                        padding: EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Divider(
-                              thickness: 1.0,
-                              color: FlutterFlowTheme.of(context).alternate,
-                            ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPosCartSection(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      child: Container(
+        width: double.infinity,
+        decoration: EmberBrand.cardDecoration(),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Divider(
+                thickness: 1,
+                color: EmberBrand.border,
+              ),
                             StreamBuilder<List<OrderItemRecord>>(
                               stream: streamOrderLineItemsForOrder(widget!.orderRef!),
                               builder: (context, snapshot) {
@@ -742,8 +733,7 @@ class _RetailSummaryWidgetState extends State<RetailSummaryWidget> {
                                         options: FFButtonOptions(
                                           width: double.infinity,
                                           height: 44.0,
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondary,
+                                          color: EmberBrand.navy,
                                           textStyle: FlutterFlowTheme.of(
                                                   context)
                                               .titleSmall
@@ -818,8 +808,7 @@ class _RetailSummaryWidgetState extends State<RetailSummaryWidget> {
                                           iconPadding:
                                               EdgeInsetsDirectional.fromSTEB(
                                                   0.0, 0.0, 0.0, 0.0),
-                                          color: FlutterFlowTheme.of(context)
-                                              .success,
+                                          color: EmberBrand.teal,
                                           textStyle: FlutterFlowTheme.of(
                                                   context)
                                               .titleMedium
@@ -904,13 +893,6 @@ class _RetailSummaryWidgetState extends State<RetailSummaryWidget> {
                         ),
                       ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

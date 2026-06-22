@@ -8,6 +8,7 @@ import '/backend/draft_order_writer.dart';
 import '/backend/order_id_service.dart';
 import '/backend/order_status_helpers.dart';
 import '/backend/order_whatsapp_import_helpers.dart';
+import '/backend/order_import_parser_service.dart';
 import '/backend/cash_payment_helpers.dart';
 import '/backend/material_cost_snapshot_helpers.dart';
 import '/backend/order_balance_helpers.dart';
@@ -417,7 +418,7 @@ Future<void> runWhatsAppOrderImportFromDashboard(BuildContext context) async {
     return;
   }
 
-  final parsed = parseWhatsAppOrderText(text);
+  final parsed = await parseOrderImportTextForUi(context, text);
   if (parsed.orderId != null) {
     final order = await findOrderByOrderId(parsed.orderId!);
     if (order != null) {
@@ -446,7 +447,7 @@ Future<void> runWhatsAppOrderImportFromDashboard(BuildContext context) async {
         const SnackBar(
           content: Text(
             'Could not read an order from the message. '
-            'Paste a WhatsApp order message with customer or product details.',
+            'Paste an order message with customer or product details.',
           ),
         ),
       );
@@ -543,7 +544,7 @@ Future<void> runWhatsAppOrderImportFromDashboard(BuildContext context) async {
 
     _openCreateOrderForm(context, orderRef);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('WhatsApp order imported. Complete details.')),
+      const SnackBar(content: Text('Order imported. Complete details.')),
     );
   } catch (error) {
     if (!context.mounted) {

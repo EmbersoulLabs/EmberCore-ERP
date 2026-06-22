@@ -8,17 +8,25 @@ import '/backend/order_list_filter_helpers.dart';
 import '/backend/order_status_display.dart';
 import '/flutter_flow/flutter_flow_util.dart' show dateTimeFormat;
 import '/l10n/tr.dart';
+import '/theme/ember_brand.dart';
+import '/theme/ember_status_colors.dart';
+
+/// Desktop operations table for order list rows.
+const double kOrderListOpsBreakpoint = 1200;
 
 /// Column labels for the order list table.
 List<String> orderListColumnLabels(BuildContext context) => [
       tr(context, 'order.col.orderId'),
       tr(context, 'order.col.customer'),
-      tr(context, 'order.col.recipient'),
-      tr(context, 'order.col.address'),
-      tr(context, 'order.col.deliveryDate'),
+      tr(context, 'order.col.phone'),
       tr(context, 'order.col.pd'),
-      tr(context, 'order.col.product'),
+      tr(context, 'order.col.deliveryDate'),
+      tr(context, 'order.col.timeSlot'),
       tr(context, 'order.col.status'),
+      tr(context, 'order.col.paymentStatus'),
+      tr(context, 'order.col.driver'),
+      tr(context, 'order.col.total'),
+      tr(context, 'order.col.action'),
     ];
 
 String orderListOrderId(OrdersRecord order) =>
@@ -92,6 +100,34 @@ String orderListStatusLabel(BuildContext context, OrdersRecord order) {
   }
   return order.orderstatus.isNotEmpty ? order.orderstatus : '-';
 }
+
+String orderListPhone(OrdersRecord order) {
+  final phone = order.recipientPhoneNumber.trim().isNotEmpty
+      ? order.recipientPhoneNumber.trim()
+      : order.customerPhoneNumber.trim();
+  return phone.isNotEmpty ? phone : '-';
+}
+
+String orderListPaymentStatus(BuildContext context, OrdersRecord order) {
+  if (order.balanceDue > 0.009) {
+    if (order.amountPaid > 0.009) {
+      return tr(context, 'order.payment.partial');
+    }
+    return tr(context, 'order.payment.unpaid');
+  }
+  return tr(context, 'order.payment.paid');
+}
+
+String orderListDriverLabel(OrdersRecord order) {
+  if (!order.hasAssignedDriver()) {
+    return '—';
+  }
+  final id = order.assignedDriver!.id;
+  return id.length > 8 ? id.substring(0, 8) : id;
+}
+
+String orderListTotal(OrdersRecord order) =>
+    EmberBrand.formatMoney(order.total);
 
 /// One line per product: name, optional remark, qty.
 String orderListProductSummary(List<OrderItemRecord> items) {
@@ -170,21 +206,5 @@ List<OrderItemRecord> orderListItemsForOrder(
         .where((item) => item.orderRef?.id == order.reference.id)
         .toList();
 
-Color orderListStatusColor(OrderStatus? status) {
-  switch (status) {
-    case OrderStatus.pending:
-      return const Color(0xFFFFC107);
-    case OrderStatus.processing:
-      return const Color(0xFF64B5F6);
-    case OrderStatus.ready_to_delivery:
-      return const Color(0xFF6758EF);
-    case OrderStatus.out_of_delivery:
-      return const Color(0xFF26A69A);
-    case OrderStatus.completed:
-      return const Color(0xFF4CAF50);
-    case OrderStatus.cancelled:
-      return const Color(0xFFE53935);
-    case null:
-      return const Color(0xFF9E9E9E);
-  }
-}
+Color orderListStatusColor(OrderStatus? status) =>
+    emberOrderStatusColor(status);

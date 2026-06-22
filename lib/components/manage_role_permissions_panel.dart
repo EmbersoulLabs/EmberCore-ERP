@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '/auth/app_permissions.dart';
 import '/auth/permission_service.dart';
@@ -9,6 +10,7 @@ import '/backend/tenant_query_helpers.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/auth/viewer_role_helpers.dart';
+import '/theme/ember_brand.dart';
 
 class ManageRolePermissionsPanel extends StatefulWidget {
   const ManageRolePermissionsPanel({
@@ -187,6 +189,13 @@ class _ManageRolePermissionsPanelState extends State<ManageRolePermissionsPanel>
           width: double.infinity,
           height: 44,
           child: FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: EmberBrand.navy,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(EmberBrand.radiusMd),
+              ),
+            ),
             onPressed: _saving ? null : save,
             child: _saving
                 ? const SizedBox(
@@ -205,12 +214,19 @@ class _ManageRolePermissionsPanelState extends State<ManageRolePermissionsPanel>
   }
 
   Widget _roleCard(FlutterFlowTheme theme, UserRole role) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: EmberBrand.cardDecoration(),
       child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        childrenPadding: const EdgeInsets.only(bottom: 8),
         title: Text(
           userRoleLabel(role),
-          style: theme.titleMedium.override(fontWeight: FontWeight.w600),
+          style: GoogleFonts.interTight(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: EmberBrand.navy,
+          ),
         ),
         subtitle: Text(
           tr(context, 'admin.rolePermissions.defaultsSubtitle'),

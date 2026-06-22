@@ -14,7 +14,13 @@ import '/backend/reprint_receipt_helpers.dart';
 import '/backend/staff_notice_helpers.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/assign_driver_sheet.dart';
-import '/components/home_nav_button.dart';
+import '/components/ember_app_shell.dart';
+import '/components/ember_status_badge.dart';
+import '/components/order_detail_summary_header.dart';
+import '/backend/order_list_display_helpers.dart';
+import '/backend/order_status_display.dart';
+import '/theme/ember_brand.dart';
+import '/theme/ember_navigation.dart';
 import '/components/edit_order_details_widget.dart';
 import '/components/edit_order_products_widget.dart';
 import '/flutter_flow/nav/nav.dart';
@@ -105,115 +111,61 @@ class _OrderDetailPageWidgetState extends State<OrderDetailPageWidget> {
         FocusScope.of(context).unfocus();
         FocusManager.instance.primaryFocus?.unfocus();
       },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-        appBar: AppBar(
-          backgroundColor: FlutterFlowTheme.of(context).primary,
-          automaticallyImplyLeading: false,
-          leading: FlutterFlowIconButton(
-            borderColor: Colors.transparent,
-            borderRadius: 30.0,
-            borderWidth: 1.0,
-            buttonSize: 60.0,
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: Colors.white,
-              size: 30.0,
-            ),
-            onPressed: () async {
-              context.pop();
-            },
-          ),
-          title: StreamBuilder<OrdersRecord>(
+      child: EmberAppShell(
+        selectedPath: OrderDetailPageWidget.routePath,
+        title: tr(context, 'order.detail.title'),
+        showBackButton: true,
+        navGroups: buildEmberNavGroups(context),
+        extraActions: [
+          StreamBuilder<OrdersRecord>(
             stream: OrdersRecord.getDocument(widget!.orderRef!),
             builder: (context, snapshot) {
-              // Customize what your widget looks like when it's loading.
-              if (!snapshot.hasData) {
-                return Center(
-                  child: SizedBox(
-                    width: 50.0,
-                    height: 50.0,
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        FlutterFlowTheme.of(context).primary,
-                      ),
+              final order = snapshot.data;
+              if (order == null ||
+                  !canEditOrderRecord(
+                    AppStateNotifier.instance.userRole,
+                    order,
+                  )) {
+                return const SizedBox.shrink();
+              }
+              return PopupMenuButton<String>(
+                icon: Icon(Icons.edit_outlined, color: EmberBrand.navy),
+                onSelected: (value) async {
+                  final latestOrder =
+                      await OrdersRecord.getDocumentOnce(widget!.orderRef!);
+                  if (!context.mounted) {
+                    return;
+                  }
+                  if (value == 'customer') {
+                    showEditOrderDetailsSheet(
+                      context,
+                      orderRef: widget!.orderRef!,
+                      order: latestOrder,
+                    );
+                  } else if (value == 'products') {
+                    showEditOrderProductsSheet(
+                      context,
+                      orderRef: widget!.orderRef!,
+                      order: latestOrder,
+                    );
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'customer',
+                    child: Text(
+                      tr(context, 'order.action.editCustomerAddress'),
                     ),
                   ),
-                );
-              }
-              final textOrdersRecord = snapshot.data!;
-
-              return Text(
-                tr(context, 'order.detail.title'),
-                style: FlutterFlowTheme.of(context).titleLarge.override(
-                      font: GoogleFonts.interTight(
-                        fontWeight: FontWeight.w600,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                      ),
-                      letterSpacing: 0.0,
-                      fontWeight: FontWeight.w600,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                    ),
+                  PopupMenuItem(
+                    value: 'products',
+                    child: Text(tr(context, 'order.action.editProducts')),
+                  ),
+                ],
               );
             },
           ),
-          actions: [
-            const AppBarLanguageHomeActions(),
-            StreamBuilder<OrdersRecord>(
-              stream: OrdersRecord.getDocument(widget!.orderRef!),
-              builder: (context, snapshot) {
-                final order = snapshot.data;
-                if (order == null ||
-                    !canEditOrderRecord(
-                      AppStateNotifier.instance.userRole,
-                      order,
-                    )) {
-                  return const SizedBox.shrink();
-                }
-                return PopupMenuButton<String>(
-                  icon: const Icon(Icons.edit_outlined, color: Colors.white),
-                  onSelected: (value) async {
-                    final latestOrder =
-                        await OrdersRecord.getDocumentOnce(widget!.orderRef!);
-                    if (!context.mounted) {
-                      return;
-                    }
-                    if (value == 'customer') {
-                      showEditOrderDetailsSheet(
-                        context,
-                        orderRef: widget!.orderRef!,
-                        order: latestOrder,
-                      );
-                    } else if (value == 'products') {
-                      showEditOrderProductsSheet(
-                        context,
-                        orderRef: widget!.orderRef!,
-                        order: latestOrder,
-                      );
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'customer',
-                      child: Text(
-                        tr(context, 'order.action.editCustomerAddress'),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'products',
-                      child: Text(tr(context, 'order.action.editProducts')),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-          centerTitle: true,
-          elevation: 2.0,
-        ),
+        ],
         body: SafeArea(
           top: true,
           child: StreamBuilder<OrdersRecord>(
@@ -226,7 +178,7 @@ class _OrderDetailPageWidgetState extends State<OrderDetailPageWidget> {
                     height: 50.0,
                     child: CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        FlutterFlowTheme.of(context).primary,
+                        EmberBrand.navy,
                       ),
                     ),
                   ),
@@ -236,9 +188,11 @@ class _OrderDetailPageWidgetState extends State<OrderDetailPageWidget> {
               final containerOrdersRecord = snapshot.data!;
 
               return ListView(
-                padding: const EdgeInsets.only(bottom: 32.0),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
+                  OrderDetailSummaryHeader(order: containerOrdersRecord),
+                  const SizedBox(height: 16),
                           Padding(
                             padding: EdgeInsets.all(16.0),
                             child: Container(
@@ -294,15 +248,14 @@ class _OrderDetailPageWidgetState extends State<OrderDetailPageWidget> {
                                           padding:
                                               EdgeInsetsDirectional.fromSTEB(
                                                   12.0, 6.0, 12.0, 6.0),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: colorFromCssString(
-                                                containerOrdersRecord
-                                                    .status!.name,
-                                                defaultColor: Colors.black,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(20.0),
+                                          child: EmberStatusBadge(
+                                            label: orderListStatusLabel(
+                                              context,
+                                              containerOrdersRecord,
+                                            ),
+                                            status: containerOrdersRecord.status,
+                                            color: orderListStatusColor(
+                                              containerOrdersRecord.status,
                                             ),
                                           ),
                                         ),

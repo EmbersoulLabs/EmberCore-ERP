@@ -1,9 +1,14 @@
 /// POS / retail checkout UI strings.
 const Map<String, Map<String, String>> posStrings = {
   'pos.summary.title': {
-    'en': 'Order Summary',
-    'zh': '订单摘要',
-    'ms': 'Ringkasan Pesanan',
+    'en': 'POS Checkout',
+    'zh': '收银结账',
+    'ms': 'Daftar Keluar POS',
+  },
+  'pos.summary.subtitle': {
+    'en': 'Retail checkout and payment',
+    'zh': '零售收银与付款',
+    'ms': 'Daftar keluar runcit dan bayaran',
   },
   'pos.summary.totalQty': {
     'en': 'Total Qty:',

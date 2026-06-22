@@ -7,6 +7,7 @@ import '/backend/schema/order_item_record.dart';
 import '/backend/custom_product_helpers.dart';
 import '/backend/order_navigation_helpers.dart';
 import '/backend/order_whatsapp_import_helpers.dart';
+import '/backend/order_import_parser_service.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 
@@ -18,7 +19,7 @@ Future<String?> showWhatsAppOrderPasteDialog(BuildContext context) async {
   final result = await showDialog<String>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('Paste WhatsApp order'),
+      title: const Text('Order import'),
       content: SizedBox(
         width: double.maxFinite,
         child: TextField(
@@ -28,7 +29,7 @@ Future<String?> showWhatsAppOrderPasteDialog(BuildContext context) async {
           minLines: 6,
           decoration: InputDecoration(
             hintText: initialText.isEmpty
-                ? 'Clipboard is empty. Paste the WhatsApp message here, then tap OK.'
+                ? 'Clipboard is empty. Paste the order message here, then tap OK.'
                 : 'Review the message below, edit if needed, then tap OK.',
             border: const OutlineInputBorder(),
           ),
@@ -65,7 +66,7 @@ class WhatsAppOrderPasteButton extends StatelessWidget {
     this.onReferencePhotoUploaded,
     this.onDashboardImport,
     this.fullWidth = false,
-    this.label = 'Paste from WhatsApp',
+    this.label = 'Order import',
   });
 
   final DocumentReference? orderRef;
@@ -145,7 +146,7 @@ class WhatsAppOrderPasteButton extends StatelessWidget {
     BuildContext context,
     String text,
   ) async {
-    final parsed = parseWhatsAppOrderText(text);
+    final parsed = await parseOrderImportTextForUi(context, text);
     if (parsed.orderId != null) {
       final order = await findOrderByOrderId(parsed.orderId!);
       if (order != null) {

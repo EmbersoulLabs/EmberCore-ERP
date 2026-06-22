@@ -22,7 +22,12 @@ import 'dart:ui';
 import '/backend/csv_export_service.dart';
 import '/backend/order_delete_service.dart';
 import '/backend/order_list_display_helpers.dart';
+import '/components/assign_driver_sheet.dart';
+import '/components/ember_app_shell.dart';
+import '/components/ember_bulk_action_bar.dart';
 import '/components/order_list_item_card.dart';
+import '/theme/ember_brand.dart';
+import '/theme/ember_navigation.dart';
 import '/index.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
@@ -431,6 +436,24 @@ class _Orderlist1WidgetState extends State<Orderlist1Widget> {
     }
   }
 
+  Future<void> _assignSelectedDriver(BuildContext context) async {
+    final selected = _model.checkboxCheckedItems;
+    if (selected.length != 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr(context, 'order.assign.selectOne')),
+        ),
+      );
+      return;
+    }
+    final order = selected.first;
+    await showAssignDriverSheet(
+      context,
+      orderRef: order.reference,
+      order: order,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -438,55 +461,26 @@ class _Orderlist1WidgetState extends State<Orderlist1Widget> {
         FocusScope.of(context).unfocus();
         FocusManager.instance.primaryFocus?.unfocus();
       },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-        appBar: AppBar(
-          backgroundColor: FlutterFlowTheme.of(context).primary,
-          automaticallyImplyLeading: false,
-          leading: FlutterFlowIconButton(
-            borderColor: Colors.transparent,
-            borderRadius: 30.0,
-            borderWidth: 1.0,
-            buttonSize: 60.0,
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: Colors.white,
-              size: 30.0,
-            ),
-            onPressed: () async {
-              context.pop();
-            },
-          ),
-          title: Text(
-            tr(context, 'order.list.title'),
-            style: FlutterFlowTheme.of(context).headlineMedium.override(
-                  font: GoogleFonts.interTight(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                  ),
-                  color: Colors.white,
-                  fontSize: 22.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineMedium.fontStyle,
-                ),
-          ),
-          actions: const [
-            AppBarLanguageHomeActions(),
-          ],
-          centerTitle: true,
-          elevation: 2.0,
-        ),
+      child: EmberAppShell(
+        selectedPath: Orderlist1Widget.routePath,
+        title: tr(context, 'order.list.title'),
+        subtitle: tr(context, 'order.list.subtitle'),
+        showBackButton: true,
+        navGroups: buildEmberNavGroups(context),
         body: SafeArea(
           top: true,
           child: Column(
             mainAxisSize: MainAxisSize.max,
             children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Container(
+                  width: double.infinity,
+                  decoration: EmberBrand.cardDecoration(),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
               FlutterFlowDropDown<String>(
                 controller: _model.dropDownValueController ??=
                     FormFieldController<String>('all'),
@@ -536,23 +530,11 @@ class _Orderlist1WidgetState extends State<Orderlist1Widget> {
                   _applyFilters();
                 },
                 selectedChipStyle: ChipStyle(
-                  backgroundColor: FlutterFlowTheme.of(context).primary,
+                  backgroundColor: EmberBrand.navy,
                   textStyle: FlutterFlowTheme.of(context).bodyMedium.override(
-                        font: GoogleFonts.inter(
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .bodyMedium
-                              .fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                        ),
-                        color: FlutterFlowTheme.of(context).info,
-                        letterSpacing: 0.0,
-                        fontWeight:
-                            FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                        font: GoogleFonts.inter(),
+                        color: Colors.white,
                       ),
-                  iconColor: FlutterFlowTheme.of(context).info,
                   iconSize: 16.0,
                   elevation: 0.0,
                   borderRadius: BorderRadius.circular(8.0),
@@ -809,7 +791,7 @@ class _Orderlist1WidgetState extends State<Orderlist1Widget> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderSide: BorderSide(
-                              color: FlutterFlowTheme.of(context).primary,
+                              color: EmberBrand.navy,
                             ),
                             borderRadius: BorderRadius.circular(8.0),
                           ),
@@ -829,7 +811,7 @@ class _Orderlist1WidgetState extends State<Orderlist1Widget> {
                         height: 38.0,
                         padding: const EdgeInsetsDirectional.fromSTEB(
                             10.0, 0.0, 10.0, 0.0),
-                        color: FlutterFlowTheme.of(context).primary,
+                        color: EmberBrand.navy,
                         textStyle: FlutterFlowTheme.of(context)
                             .labelLarge
                             .override(
@@ -846,42 +828,17 @@ class _Orderlist1WidgetState extends State<Orderlist1Widget> {
                   ],
                 ),
               ),
-              if (canExportOrderCsv(AppStateNotifier.instance.userRole))
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10.0, 4.0, 10.0, 4.0),
-                  child: FFButtonWidget(
-                    onPressed: _exportingCsv
-                        ? null
-                        : () => _exportFilteredOrders(context),
-                    text: _exportingCsv
-                        ? tr(context, 'common.exporting')
-                        : tr(context, 'common.exportCsv'),
-                    icon: const Icon(
-                      Icons.download_outlined,
-                      size: 16.0,
-                      color: Colors.white,
-                    ),
-                    options: FFButtonOptions(
-                      width: double.infinity,
-                      height: 36.0,
-                      padding: const EdgeInsetsDirectional.fromSTEB(
-                          10.0, 0.0, 10.0, 0.0),
-                      color: FlutterFlowTheme.of(context).primary,
-                      textStyle:
-                          FlutterFlowTheme.of(context).labelLarge.override(
-                                font: GoogleFonts.interTight(),
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                    ),
+                    ],
                   ),
                 ),
+              ),
               Expanded(
-                child: Container(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Container(
                   width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: FlutterFlowTheme.of(context).secondaryBackground,
-                  ),
+                  decoration: EmberBrand.cardDecoration(),
+                  clipBehavior: Clip.antiAlias,
                   child: StreamBuilder<List<OrderItemRecord>>(
                     key: ValueKey('items-${_model.filterGeneration}'),
                     stream: queryTenantOrderItemRecord(),
@@ -995,186 +952,69 @@ class _Orderlist1WidgetState extends State<Orderlist1Widget> {
                     },
                   ),
                 ),
+                ),
               ),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(8.0),
-                decoration: BoxDecoration(
-                  color: FlutterFlowTheme.of(context).secondaryBackground,
-                ),
-                child: Row(
-                        children: [
-                    Expanded(
-                      child: FFButtonWidget(
-                      onPressed: () async {
-                        for (int loop1Index = 0;
-                            loop1Index < _model.checkboxCheckedItems.length;
-                            loop1Index++) {
-                          final currentLoop1Item =
-                              _model.checkboxCheckedItems[loop1Index];
-
-                          await updateOrderStatus(
-                            currentLoop1Item.reference,
-                            OrderStatus.processing,
-                          );
-                          await auditLogOrderStatusChangeByRef(
-                            currentLoop1Item.reference,
-                            OrderStatus.processing,
-                          );
-                        }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              tr(context, 'order.status.processing'),
-                              style: TextStyle(
-                                color: FlutterFlowTheme.of(context).primaryText,
-                              ),
-                            ),
-                            duration: Duration(milliseconds: 4000),
-                            backgroundColor:
-                                FlutterFlowTheme.of(context).secondary,
-                          ),
-                        );
-                      },
-                      text: tr(context, 'order.action.startProcessing'),
-                      options: FFButtonOptions(
-                        width: double.infinity,
-                        height: 38.0,
-                        padding: EdgeInsetsDirectional.fromSTEB(
-                            8.0, 0.0, 8.0, 0.0),
-                        iconPadding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                        color: FlutterFlowTheme.of(context).primary,
-                        textStyle:
-                            FlutterFlowTheme.of(context).titleSmall.override(
-                                  font: GoogleFonts.interTight(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontStyle,
-                                  ),
-                                  color: Colors.white,
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .fontStyle,
+              EmberBulkActionBar(
+                children: [
+                  if (canAssignDriver(AppStateNotifier.instance.userRole))
+                    EmberBulkButton(
+                      label: tr(context, 'order.action.assignDriver'),
+                      icon: Icons.local_shipping_outlined,
+                      variant: EmberBulkButtonVariant.secondary,
+                      onPressed: () => _assignSelectedDriver(context),
+                    ),
+                  EmberBulkButton(
+                    label: tr(context, 'order.action.readyToShip'),
+                    icon: Icons.check_circle_outline,
+                    variant: EmberBulkButtonVariant.success,
+                    onPressed: _model.checkboxCheckedItems.isEmpty
+                        ? null
+                        : () async {
+                            for (final order in _model.checkboxCheckedItems) {
+                              await updateOrderStatus(
+                                order.reference,
+                                OrderStatus.ready_to_delivery,
+                              );
+                              await auditLogOrderStatusChangeByRef(
+                                order.reference,
+                                OrderStatus.ready_to_delivery,
+                              );
+                            }
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  tr(context, 'order.status.readyToShip'),
                                 ),
-                        elevation: 0.0,
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                    ),
-                    ),
-                    const SizedBox(width: 6.0),
-                    Expanded(
-                      child: FFButtonWidget(
-                      onPressed: () async {
-                        for (int loop1Index = 0;
-                            loop1Index < _model.checkboxCheckedItems.length;
-                            loop1Index++) {
-                          final currentLoop1Item =
-                              _model.checkboxCheckedItems[loop1Index];
-
-                          await updateOrderStatus(
-                            currentLoop1Item.reference,
-                            OrderStatus.ready_to_delivery,
-                          );
-                          await auditLogOrderStatusChangeByRef(
-                            currentLoop1Item.reference,
-                            OrderStatus.ready_to_delivery,
-                          );
-                        }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              tr(context, 'order.status.readyToShip'),
-                              style: TextStyle(
-                                color: FlutterFlowTheme.of(context).primaryText,
                               ),
-                            ),
-                            duration: Duration(milliseconds: 4000),
-                            backgroundColor:
-                                FlutterFlowTheme.of(context).secondary,
-                          ),
-                        );
-                      },
-                      text: tr(context, 'order.action.readyToShip'),
-                      options: FFButtonOptions(
-                        width: double.infinity,
-                        height: 38.0,
-                        padding: EdgeInsetsDirectional.fromSTEB(
-                            8.0, 0.0, 8.0, 0.0),
-                        iconPadding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                        color: FlutterFlowTheme.of(context).secondary,
-                        textStyle:
-                            FlutterFlowTheme.of(context).titleSmall.override(
-                                  font: GoogleFonts.interTight(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontStyle,
-                                  ),
-                                  color: Colors.white,
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .fontStyle,
-                                ),
-                        elevation: 0.0,
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
+                            );
+                          },
+                  ),
+                  if (canExportOrderCsv(AppStateNotifier.instance.userRole))
+                    EmberBulkButton(
+                      label: _exportingCsv
+                          ? tr(context, 'common.exporting')
+                          : tr(context, 'common.exportCsv'),
+                      icon: Icons.download_outlined,
+                      variant: EmberBulkButtonVariant.secondary,
+                      enabled: !_exportingCsv,
+                      onPressed: _exportingCsv
+                          ? null
+                          : () => _exportFilteredOrders(context),
                     ),
+                  if (canDeleteOrders(AppStateNotifier.instance.userRole))
+                    EmberBulkButton(
+                      label: _deletingOrders
+                          ? tr(context, 'common.deleting')
+                          : tr(context, 'common.delete'),
+                      icon: Icons.delete_outline,
+                      variant: EmberBulkButtonVariant.danger,
+                      enabled: !_deletingOrders,
+                      onPressed: _deletingOrders
+                          ? null
+                          : () => _deleteSelectedOrders(context),
                     ),
-                    if (canDeleteOrders(AppStateNotifier.instance.userRole)) ...[
-                      const SizedBox(width: 6.0),
-                      Expanded(
-                        child: FFButtonWidget(
-                        onPressed: _deletingOrders
-                            ? null
-                            : () => _deleteSelectedOrders(context),
-                        text: _deletingOrders
-                            ? tr(context, 'common.deleting')
-                            : tr(context, 'common.delete'),
-                        icon: Icon(
-                          Icons.delete_outline,
-                          size: 16.0,
-                          color: Colors.white,
-                        ),
-                        options: FFButtonOptions(
-                          width: double.infinity,
-                          height: 38.0,
-                          padding: EdgeInsetsDirectional.fromSTEB(
-                              8.0, 0.0, 8.0, 0.0),
-                          iconPadding: EdgeInsetsDirectional.fromSTEB(
-                              0.0, 0.0, 2.0, 0.0),
-                          color: FlutterFlowTheme.of(context).error,
-                          textStyle: FlutterFlowTheme.of(context)
-                              .labelMedium
-                              .override(
-                                font: GoogleFonts.interTight(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                color: Colors.white,
-                                letterSpacing: 0.0,
-                              ),
-                          elevation: 0.0,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                      ),
-                      ),
-                    ],
-                  ],
-                ),
+                ],
               ),
             ],
           ),

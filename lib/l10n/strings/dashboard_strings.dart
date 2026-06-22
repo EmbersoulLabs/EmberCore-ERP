@@ -1,14 +1,19 @@
 /// Sales dashboard strings.
 const Map<String, Map<String, String>> dashboardStrings = {
   'dashboard.title': {
-    'en': 'Sales Dashboard',
-    'zh': '销售仪表盘',
-    'ms': 'Papan Pemuka Jualan',
+    'en': 'EmberCore',
+    'zh': 'EmberCore',
+    'ms': 'EmberCore',
+  },
+  'dashboard.subtitle': {
+    'en': 'Operational Overview',
+    'zh': '运营总览',
+    'ms': 'Gambaran Operasi',
   },
   'dashboard.overview': {
-    'en': 'Dashboard Overview',
-    'zh': '仪表盘概览',
-    'ms': 'Gambaran Papan Pemuka',
+    'en': 'Operational Overview',
+    'zh': '运营总览',
+    'ms': 'Gambaran Operasi',
   },
   'dashboard.quickActions': {
     'en': 'Quick Actions',
@@ -16,19 +21,19 @@ const Map<String, Map<String, String>> dashboardStrings = {
     'ms': 'Tindakan Pantas',
   },
   'dashboard.createOrder': {
-    'en': '+ Create Order',
-    'zh': '+ 创建订单',
-    'ms': '+ Cipta Pesanan',
+    'en': 'Create Order',
+    'zh': '创建订单',
+    'ms': 'Cipta Pesanan',
   },
   'dashboard.creating': {
     'en': 'Creating...',
     'zh': '创建中…',
     'ms': 'Mencipta...',
   },
-  'dashboard.pasteWhatsapp': {
-    'en': 'Paste from WhatsApp',
-    'zh': '从 WhatsApp 粘贴',
-    'ms': 'Tampal dari WhatsApp',
+  'dashboard.orderImport': {
+    'en': 'Order import',
+    'zh': '订单导入',
+    'ms': 'Import pesanan',
   },
   'dashboard.leftoverMoved': {
     'en': '{count} leftover order(s) moved to today',
@@ -36,24 +41,34 @@ const Map<String, Map<String, String>> dashboardStrings = {
     'ms': '{count} pesanan baki dipindahkan ke hari ini',
   },
   'dashboard.stat.todayDelivery': {
-    'en': 'Today Delivery Orders',
-    'zh': '今日配送订单',
-    'ms': 'Pesanan Penghantaran Hari Ini',
+    'en': "Today's Orders",
+    'zh': '今日订单',
+    'ms': 'Pesanan Hari Ini',
   },
   'dashboard.stat.todayPending': {
-    'en': 'Today Pending Orders',
-    'zh': '今日待处理订单',
-    'ms': 'Pesanan Menunggu Hari Ini',
+    'en': 'Pending Orders',
+    'zh': '待处理订单',
+    'ms': 'Pesanan Menunggu',
   },
   'dashboard.stat.todayComplete': {
-    'en': 'Today Complete Orders',
-    'zh': '今日完成订单',
-    'ms': 'Pesanan Selesai Hari Ini',
+    'en': 'Completed Orders',
+    'zh': '已完成订单',
+    'ms': 'Pesanan Selesai',
   },
   'dashboard.stat.todayTotal': {
-    'en': 'Today Total Order',
-    'zh': '今日订单总数',
-    'ms': 'Jumlah Pesanan Hari Ini',
+    'en': "Today's Revenue",
+    'zh': '今日营收',
+    'ms': 'Hasil Hari Ini',
+  },
+  'dashboard.stat.readyForDelivery': {
+    'en': 'Ready for Delivery',
+    'zh': '待配送',
+    'ms': 'Sedia Penghantaran',
+  },
+  'dashboard.stat.unpaidOrders': {
+    'en': 'Unpaid Orders',
+    'zh': '未付款订单',
+    'ms': 'Pesanan Belum Bayar',
   },
   'dashboard.stat.leftover': {
     'en': 'Leftover Orders',
@@ -189,5 +204,60 @@ const Map<String, Map<String, String>> dashboardStrings = {
     'en': 'Logout',
     'zh': '登出',
     'ms': 'Log Keluar',
+  },
+  'dashboard.orderFlow': {
+    'en': 'Order Flow',
+    'zh': '订单流程',
+    'ms': 'Aliran Pesanan',
+  },
+  'dashboard.actionRequired': {
+    'en': "Today's Action Required",
+    'zh': '今日待办',
+    'ms': 'Tindakan Diperlukan Hari Ini',
+  },
+  'dashboard.action.missingPayment': {
+    'en': 'Orders missing payment',
+    'zh': '未收款订单',
+    'ms': 'Pesanan belum dibayar',
+  },
+  'dashboard.action.unassignedDriver': {
+    'en': 'Orders not assigned to driver',
+    'zh': '未分配司机订单',
+    'ms': 'Pesanan tanpa pemandu',
+  },
+  'dashboard.action.incompleteCustomer': {
+    'en': 'Orders with incomplete customer details',
+    'zh': '客户资料不完整订单',
+    'ms': 'Butiran pelanggan tidak lengkap',
+  },
+  'dashboard.action.urgentDelivery': {
+    'en': 'Urgent delivery orders',
+    'zh': '紧急配送订单',
+    'ms': 'Pesanan penghantaran segera',
+  },
+  'dashboard.pipeline.pending': {
+    'en': 'Pending',
+    'zh': '待处理',
+    'ms': 'Menunggu',
+  },
+  'dashboard.pipeline.processing': {
+    'en': 'Processing',
+    'zh': '处理中',
+    'ms': 'Memproses',
+  },
+  'dashboard.pipeline.ready': {
+    'en': 'Ready',
+    'zh': '待配送',
+    'ms': 'Sedia',
+  },
+  'dashboard.pipeline.outForDelivery': {
+    'en': 'Out for Delivery',
+    'zh': '配送中',
+    'ms': 'Dalam Penghantaran',
+  },
+  'dashboard.pipeline.completed': {
+    'en': 'Completed',
+    'zh': '已完成',
+    'ms': 'Selesai',
   },
 };

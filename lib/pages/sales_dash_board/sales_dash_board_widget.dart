@@ -2,7 +2,6 @@ import '/app_version.dart';
 import '/auth/role_helpers.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -13,12 +12,14 @@ import '/backend/user_query_helpers.dart';
 import '/backend/whatsapp_order_import_service.dart';
 import '/platform/platform_labels.dart';
 import '/platform/platform_module.dart';
-import '/components/staff_notice_app_bar_button.dart';
-import '/components/language_picker_button.dart';
+import '/components/ember_app_shell.dart';
+import '/components/ember_dashboard_sections.dart';
+import '/components/ember_metric_card.dart';
 import '/components/whatsapp_order_paste_button.dart';
-import '/flutter_flow/nav/nav.dart';
+import '/flutter_flow/flutter_flow_util.dart';
+import '/theme/ember_brand.dart';
+import '/theme/ember_navigation.dart';
 import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'sales_dash_board_model.dart';
@@ -168,92 +169,44 @@ class _SalesDashBoardWidgetState extends State<SalesDashBoardWidget> {
         FocusScope.of(context).unfocus();
         FocusManager.instance.primaryFocus?.unfocus();
       },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: theme.primaryBackground,
-        appBar: AppBar(
-          backgroundColor: theme.primary,
-          automaticallyImplyLeading: false,
-          leading: FlutterFlowIconButton(
-            borderColor: Colors.transparent,
-            borderRadius: 30.0,
-            borderWidth: 1.0,
-            buttonSize: 60.0,
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              color: Colors.white,
-              size: 30.0,
-            ),
-            onPressed: () => context.pop(),
-          ),
-          title: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                tr(context, 'dashboard.title'),
-                style: theme.headlineMedium.override(
-                  font: GoogleFonts.interTight(fontWeight: FontWeight.w600),
-                  color: Colors.white,
-                  fontSize: 22.0,
-                ),
-              ),
-              Text(
-                appVersionDisplay,
-                style: theme.labelSmall.override(
-                  color: Colors.white70,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            FlutterFlowIconButton(
-              borderColor: Colors.transparent,
-              borderRadius: 30.0,
-              borderWidth: 1.0,
-              buttonSize: 48.0,
-              icon: const Icon(Icons.menu, color: Colors.white, size: 26.0),
-              onPressed: () => _showDashboardMenuSheet(context),
-            ),
-            const StaffNoticeAppBarButton.onPrimary(),
-            const LanguagePickerAppBarButton(),
-            ListenableBuilder(
-              listenable: TenantContext.instance,
-              builder: (context, _) {
-                if (!isSuperAdminRole(AppStateNotifier.instance.userRole)) {
-                  return const SizedBox.shrink();
-                }
-                return Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 8.0),
-                  child: TextButton.icon(
-                    onPressed: () {
-                      context.pushNamed(CompanySelectionPageWidget.routeName);
-                    },
-                    icon: Icon(
-                      TenantContext.instance.isViewingAllCompanies
-                          ? Icons.business
-                          : Icons.filter_alt,
-                      color: Colors.white,
-                      size: 18.0,
-                    ),
-                    label: Text(
-                      TenantContext.instance.viewScopeLabel,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-          centerTitle: true,
-          elevation: 2.0,
+      child: EmberAppShell(
+        selectedPath: SalesDashBoardWidget.routePath,
+        title: tr(context, 'dashboard.title'),
+        subtitle: tr(context, 'dashboard.subtitle'),
+        onMenuPressed: () => _showDashboardMenuSheet(context),
+        navGroups: buildEmberNavGroups(
+          context,
+          onCreateOrder: _creatingOrder ? null : () => _createOrder(context),
+          onOrderImport: () => runWhatsAppOrderImportFromDashboard(context),
         ),
+        extraActions: [
+          ListenableBuilder(
+            listenable: TenantContext.instance,
+            builder: (context, _) {
+              if (!isSuperAdminRole(AppStateNotifier.instance.userRole)) {
+                return const SizedBox.shrink();
+              }
+              return TextButton.icon(
+                onPressed: () {
+                  context.pushNamed(CompanySelectionPageWidget.routeName);
+                },
+                icon: Icon(
+                  TenantContext.instance.isViewingAllCompanies
+                      ? Icons.business
+                      : Icons.filter_alt,
+                  size: 18,
+                ),
+                label: Text(TenantContext.instance.viewScopeLabel),
+              );
+            },
+          ),
+        ],
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
               final wide = constraints.maxWidth >= 720;
-              final statColumns = wide ? 4 : 2;
-              final statAspectRatio = wide ? 1.55 : 1.35;
+              final statColumns = wide ? 3 : 2;
+              final statAspectRatio = wide ? 1.65 : 1.35;
 
               return RefreshIndicator(
                 onRefresh: () async {
@@ -261,225 +214,224 @@ class _SalesDashBoardWidgetState extends State<SalesDashBoardWidget> {
                   await _statsFuture;
                 },
                 child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildOverviewHeader(context),
-                    const SizedBox(height: 16),
-                    FutureBuilder<DashboardOrderStatsLoadResult>(
-                      key: ValueKey(_statsGeneration),
-                      future: _statsFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.hasError) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 24),
-                            child: Text(
-                              describeFirestoreError(snapshot.error!),
-                              textAlign: TextAlign.center,
-                              style: theme.bodyMedium.override(color: theme.error),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    wide ? 28 : 16,
+                    wide ? 24 : 12,
+                    wide ? 28 : 16,
+                    32,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (!wide)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            appVersionDisplay,
+                            style: theme.labelSmall.override(
+                              color: EmberBrand.textSecondary,
                             ),
-                          );
-                        }
-                        final stats = snapshot.data?.stats;
-                        return GridView.count(
-                          crossAxisCount: statColumns,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: statAspectRatio,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: [
-                            _buildStatCard(
-                              context,
-                              icon: Icons.local_shipping_outlined,
-                              iconColor: theme.primary,
-                              label: tr(context, 'dashboard.stat.todayDelivery'),
-                              value: _statValue(
-                                context,
-                                stats?.todayDeliveryOrders,
-                                loading: !snapshot.hasData &&
-                                    snapshot.connectionState ==
-                                        ConnectionState.waiting,
-                              ),
-                              onTap: () => _openFilteredOrdersAndRefresh(
-                                DashboardOrderListFilter.todayDeliveryOrders,
-                              ),
-                            ),
-                            _buildStatCard(
-                              context,
-                              icon: Icons.pending_actions,
-                              iconColor: theme.warning,
-                              label: tr(context, 'dashboard.stat.todayPending'),
-                              value: _statValue(
-                                context,
-                                stats?.todayPendingOrders,
-                                loading: !snapshot.hasData &&
-                                    snapshot.connectionState ==
-                                        ConnectionState.waiting,
-                              ),
-                              onTap: () => _openFilteredOrdersAndRefresh(
-                                DashboardOrderListFilter.todayPendingOrders,
-                              ),
-                            ),
-                            _buildStatCard(
-                              context,
-                              icon: Icons.check_circle,
-                              iconColor: theme.success,
-                              label: tr(context, 'dashboard.stat.todayComplete'),
-                              value: _statValue(
-                                context,
-                                stats?.todayCompletedOrders,
-                                loading: !snapshot.hasData &&
-                                    snapshot.connectionState ==
-                                        ConnectionState.waiting,
-                              ),
-                              onTap: () => _openFilteredOrdersAndRefresh(
-                                DashboardOrderListFilter.todayCompletedOrders,
-                              ),
-                            ),
-                            _buildStatCard(
-                              context,
-                              icon: Icons.analytics,
-                              iconColor: theme.tertiary,
-                              label: tr(context, 'dashboard.stat.todayTotal'),
-                              value: _statValue(
-                                context,
-                                stats?.todayTotalOrders,
-                                loading: !snapshot.hasData &&
-                                    snapshot.connectionState ==
-                                        ConnectionState.waiting,
-                              ),
-                              onTap: () => _openFilteredOrdersAndRefresh(
-                                DashboardOrderListFilter.todayTotalOrders,
-                              ),
-                            ),
-                            _buildStatCard(
-                              context,
-                              icon: Icons.history,
-                              iconColor: theme.error,
-                              label: tr(context, 'dashboard.stat.leftover'),
-                              value: _statValue(
-                                context,
-                                stats?.leftoverOrders,
-                                loading: !snapshot.hasData &&
-                                    snapshot.connectionState ==
-                                        ConnectionState.waiting,
-                              ),
-                              onTap: () => _openFilteredOrdersAndRefresh(
-                                DashboardOrderListFilter.leftoverOrders,
-                              ),
-                            ),
-                            _buildStatCard(
-                              context,
-                              icon: Icons.local_shipping,
-                              iconColor: theme.secondary,
-                              label: tr(context, 'dashboard.stat.tomorrowDelivery'),
-                              value: _statValue(
-                                context,
-                                stats?.tomorrowDeliveryOrders,
-                                loading: !snapshot.hasData &&
-                                    snapshot.connectionState ==
-                                        ConnectionState.waiting,
-                              ),
-                              onTap: () => _openFilteredOrdersAndRefresh(
-                                DashboardOrderListFilter.tomorrowDeliveryOrders,
-                              ),
-                            ),
-                            _buildStatCard(
-                              context,
-                              icon: Icons.event_note,
-                              iconColor: theme.secondaryText,
-                              label: tr(context, 'dashboard.stat.tomorrowTotal'),
-                              value: _statValue(
-                                context,
-                                stats?.tomorrowTotalOrders,
-                                loading: !snapshot.hasData &&
-                                    snapshot.connectionState ==
-                                        ConnectionState.waiting,
-                              ),
-                              onTap: () => _openFilteredOrdersAndRefresh(
-                                DashboardOrderListFilter.tomorrowTotalOrders,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      tr(context, 'dashboard.quickActions'),
-                      style: theme.titleLarge.override(
-                        font: GoogleFonts.interTight(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    FFButtonWidget(
-                      onPressed: _creatingOrder
-                          ? null
-                          : () async {
-                              setState(() => _creatingOrder = true);
-                              try {
-                                await createDraftOrderAndOpenProductSelection(
-                                  context,
-                                );
-                              } catch (e) {
-                                if (!context.mounted) {
-                                  return;
-                                }
-                                final message = describeFirestoreError(e);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(message),
-                                    backgroundColor: theme.error,
-                                    duration: const Duration(seconds: 8),
-                                  ),
-                                );
-                                if (isSuperAdminRole(
-                                        AppStateNotifier.instance.userRole) &&
-                                    (message.contains('company') ||
-                                        message.contains('Company') ||
-                                        message.contains('users/'))) {
-                                  context.pushNamed(
-                                    CompanySelectionPageWidget.routeName,
-                                  );
-                                }
-                              } finally {
-                                if (mounted) {
-                                  setState(() => _creatingOrder = false);
-                                }
-                              }
-                            },
-                      text: _creatingOrder
-                          ? tr(context, 'dashboard.creating')
-                          : tr(context, 'dashboard.createOrder'),
-                      icon: const Icon(Icons.add_rounded, size: 22.0),
-                      options: FFButtonOptions(
-                        width: double.infinity,
-                        height: 52.0,
-                        color: theme.primary,
-                        iconColor: Colors.white,
-                        textStyle: theme.titleMedium.override(
-                          font: GoogleFonts.interTight(fontWeight: FontWeight.w600),
-                          color: Colors.white,
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(12.0),
+                      FutureBuilder<DashboardOrderStatsLoadResult>(
+                        key: ValueKey(_statsGeneration),
+                        future: _statsFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              child: Text(
+                                describeFirestoreError(snapshot.error!),
+                                textAlign: TextAlign.center,
+                                style: theme.bodyMedium.override(
+                                  color: theme.error,
+                                ),
+                              ),
+                            );
+                          }
+                          final stats = snapshot.data?.stats;
+                          final loading = !snapshot.hasData &&
+                              snapshot.connectionState ==
+                                  ConnectionState.waiting;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              GridView.count(
+                                crossAxisCount: statColumns,
+                                mainAxisSpacing: 14,
+                                crossAxisSpacing: 14,
+                                childAspectRatio: statAspectRatio,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                children: [
+                                  EmberMetricCard(
+                                    icon: Icons.receipt_long_outlined,
+                                    accentColor: EmberBrand.electricBlue,
+                                    label: tr(
+                                      context,
+                                      'dashboard.stat.todayDelivery',
+                                    ),
+                                    loading: loading,
+                                    value: Text(
+                                      _countText(stats?.todayTotalOrders),
+                                    ),
+                                    onTap: () => _openFilteredOrdersAndRefresh(
+                                      DashboardOrderListFilter.todayTotalOrders,
+                                    ),
+                                  ),
+                                  EmberMetricCard(
+                                    icon: Icons.pending_actions_outlined,
+                                    accentColor: EmberBrand.electricBlue,
+                                    label: tr(
+                                      context,
+                                      'dashboard.stat.todayPending',
+                                    ),
+                                    loading: loading,
+                                    value: Text(
+                                      _countText(stats?.todayPendingOrders),
+                                    ),
+                                    onTap: () => _openFilteredOrdersAndRefresh(
+                                      DashboardOrderListFilter
+                                          .todayPendingOrders,
+                                    ),
+                                  ),
+                                  EmberMetricCard(
+                                    icon: Icons.inventory_2_outlined,
+                                    accentColor: EmberBrand.teal,
+                                    label: tr(
+                                      context,
+                                      'dashboard.stat.readyForDelivery',
+                                    ),
+                                    loading: loading,
+                                    value: Text(
+                                      _countText(stats?.readyForDelivery),
+                                    ),
+                                    onTap: () => _openFilteredOrdersAndRefresh(
+                                      DashboardOrderListFilter
+                                          .todayReadyForDelivery,
+                                    ),
+                                  ),
+                                  EmberMetricCard(
+                                    icon: Icons.check_circle_outline,
+                                    accentColor: EmberBrand.teal,
+                                    label: tr(
+                                      context,
+                                      'dashboard.stat.todayComplete',
+                                    ),
+                                    loading: loading,
+                                    value: Text(
+                                      _countText(stats?.todayCompletedOrders),
+                                    ),
+                                    onTap: () => _openFilteredOrdersAndRefresh(
+                                      DashboardOrderListFilter
+                                          .todayCompletedOrders,
+                                    ),
+                                  ),
+                                  EmberMetricCard(
+                                    icon: Icons.payments_outlined,
+                                    accentColor: EmberBrand.amber,
+                                    highlight: true,
+                                    label: tr(
+                                      context,
+                                      'dashboard.stat.todayTotal',
+                                    ),
+                                    loading: loading,
+                                    value: Text(
+                                      EmberBrand.formatMoney(
+                                        stats?.todayRevenue ?? 0,
+                                      ),
+                                    ),
+                                    onTap: () => _openFilteredOrdersAndRefresh(
+                                      DashboardOrderListFilter.todayTotalOrders,
+                                    ),
+                                  ),
+                                  EmberMetricCard(
+                                    icon: Icons.warning_amber_rounded,
+                                    accentColor: EmberBrand.amber,
+                                    label: tr(
+                                      context,
+                                      'dashboard.stat.unpaidOrders',
+                                    ),
+                                    loading: loading,
+                                    value: Text(
+                                      _countText(stats?.unpaidOrders),
+                                    ),
+                                    onTap: () => _openFilteredOrdersAndRefresh(
+                                      DashboardOrderListFilter.todayUnpaidOrders,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              if (stats != null) ...[
+                                EmberOrderFlowPipeline(
+                                  pipeline: stats.pipeline,
+                                ),
+                                const SizedBox(height: 20),
+                                EmberActionRequiredCard(
+                                  actionRequired: stats.actionRequired,
+                                  onItemTap: (_) => _openFilteredOrdersAndRefresh(
+                                    DashboardOrderListFilter.todayTotalOrders,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          );
+                        },
                       ),
-                    ),
-                    if (isWhatsAppOrderImportEnabled &&
-                        platformModuleEnabled(PlatformModule.whatsappImport)) ...[
-                      const SizedBox(height: 10),
-                      WhatsAppOrderPasteButton(
-                        fullWidth: true,
-                        label: tr(context, 'dashboard.pasteWhatsapp'),
-                        onDashboardImport: () =>
-                            runWhatsAppOrderImportFromDashboard(context),
+                      const SizedBox(height: 28),
+                      Text(
+                        tr(context, 'dashboard.quickActions'),
+                        style: theme.titleLarge.override(
+                          font: GoogleFonts.interTight(
+                            fontWeight: FontWeight.bold,
+                            color: EmberBrand.navy,
+                          ),
+                        ),
                       ),
+                      const SizedBox(height: 12),
+                      FFButtonWidget(
+                        onPressed: _creatingOrder
+                            ? null
+                            : () => _createOrder(context),
+                        text: _creatingOrder
+                            ? tr(context, 'dashboard.creating')
+                            : tr(context, 'dashboard.createOrder'),
+                        icon: const Icon(Icons.add_rounded, size: 22.0),
+                        options: FFButtonOptions(
+                          width: double.infinity,
+                          height: 52.0,
+                          color: EmberBrand.navy,
+                          iconColor: Colors.white,
+                          textStyle: theme.titleMedium.override(
+                            font: GoogleFonts.interTight(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            color: Colors.white,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            EmberBrand.radiusLg,
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
+                      if (isWhatsAppOrderImportEnabled &&
+                          platformModuleEnabled(
+                            PlatformModule.whatsappImport,
+                          )) ...[
+                        const SizedBox(height: 10),
+                        WhatsAppOrderPasteButton(
+                          fullWidth: true,
+                          label: tr(context, 'dashboard.orderImport'),
+                          onDashboardImport: () =>
+                              runWhatsAppOrderImportFromDashboard(context),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
               );
             },
           ),
@@ -488,98 +440,38 @@ class _SalesDashBoardWidgetState extends State<SalesDashBoardWidget> {
     );
   }
 
-  Widget _buildOverviewHeader(BuildContext context) {
-    final theme = FlutterFlowTheme.of(context);
-    return Text(
-      tr(context, 'dashboard.overview'),
-      style: theme.headlineMedium.override(
-        font: GoogleFonts.interTight(fontWeight: FontWeight.bold),
-      ),
-    );
+  Future<void> _createOrder(BuildContext context) async {
+    setState(() => _creatingOrder = true);
+    try {
+      await createDraftOrderAndOpenProductSelection(context);
+    } catch (e) {
+      if (!context.mounted) {
+        return;
+      }
+      final theme = FlutterFlowTheme.of(context);
+      final message = describeFirestoreError(e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: theme.error,
+          duration: const Duration(seconds: 8),
+        ),
+      );
+      if (isSuperAdminRole(AppStateNotifier.instance.userRole) &&
+          (message.contains('company') ||
+              message.contains('Company') ||
+              message.contains('users/'))) {
+        context.pushNamed(CompanySelectionPageWidget.routeName);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _creatingOrder = false);
+      }
+    }
   }
 
-  Widget _buildStatCard(
-    BuildContext context, {
-    required IconData icon,
-    required Color iconColor,
-    required String label,
-    required Widget value,
-    VoidCallback? onTap,
-  }) {
-    final theme = FlutterFlowTheme.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-      decoration: BoxDecoration(
-        color: theme.secondaryBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.alternate),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(icon, color: iconColor, size: 26),
-          value,
-          Text(
-            label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.labelMedium.override(color: theme.secondaryText),
-          ),
-        ],
-      ),
-        ),
-      ),
-    );
-  }
-
-  Widget _statValue(
-    BuildContext context,
-    int? count, {
-    bool loading = false,
-    bool failed = false,
-  }) {
-    final theme = FlutterFlowTheme.of(context);
-    if (failed) {
-      return Text(
-        '--',
-        style: theme.headlineSmall.override(
-          font: GoogleFonts.interTight(fontWeight: FontWeight.bold),
-          fontSize: 26.0,
-          color: theme.secondaryText,
-        ),
-      );
-    }
-    if (loading) {
-      return const SizedBox(
-        height: 28,
-        width: 28,
-        child: CircularProgressIndicator(strokeWidth: 2.5),
-      );
-    }
-    if (count == null) {
-      return Text(
-        '--',
-        style: theme.headlineSmall.override(
-          font: GoogleFonts.interTight(fontWeight: FontWeight.bold),
-          fontSize: 26.0,
-          color: theme.secondaryText,
-        ),
-      );
-    }
-    return Text(
-      count.toString(),
-      style: theme.headlineSmall.override(
-        font: GoogleFonts.interTight(fontWeight: FontWeight.bold),
-        fontSize: 26.0,
-      ),
-    );
-  }
+  String _countText(int? count) =>
+      count == null ? '--' : count.toString();
 
   List<_DashboardMenuSection> _dashboardMenuSections(BuildContext context) {
     final role = AppStateNotifier.instance.userRole;
@@ -751,9 +643,9 @@ class _SalesDashBoardWidgetState extends State<SalesDashBoardWidget> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: theme.secondaryBackground,
+      backgroundColor: EmberBrand.card,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(EmberBrand.radiusLg)),
       ),
       builder: (sheetContext) {
         final maxHeight = MediaQuery.sizeOf(sheetContext).height * 0.7;
@@ -766,7 +658,7 @@ class _SalesDashBoardWidgetState extends State<SalesDashBoardWidget> {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child: Row(
                   children: [
-                    Icon(Icons.menu, color: theme.primary),
+                    Icon(Icons.menu, color: EmberBrand.navy),
                     const SizedBox(width: 10),
                     Text(
                       tr(sheetContext, 'dashboard.menu.title'),
@@ -813,7 +705,7 @@ class _SalesDashBoardWidgetState extends State<SalesDashBoardWidget> {
                       ),
                       for (final action in sections[sectionIndex].actions)
                         ListTile(
-                          leading: Icon(action.icon, color: theme.primary),
+                          leading: Icon(action.icon, color: EmberBrand.electricBlue),
                           title: Text(action.label),
                           onTap: () {
                             Navigator.pop(sheetContext);

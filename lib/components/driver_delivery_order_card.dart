@@ -14,6 +14,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/services/google_maps_service.dart';
 import '/l10n/locale_text.dart';
+import '/theme/ember_brand.dart';
 
 /// Driver delivery list row with address, date, time, products, and status.
 class DriverDeliveryOrderCard extends StatelessWidget {
@@ -297,38 +298,21 @@ class DriverDeliveryOrderCard extends StatelessWidget {
     );
 
     if (!_opensOrderDetail) {
-      return Material(
-        color: Colors.transparent,
-        elevation: 2,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: theme.secondaryBackground,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: theme.alternate),
-          ),
-          child: cardBody,
-        ),
+      return Container(
+        width: double.infinity,
+        decoration: EmberBrand.cardDecoration(),
+        child: cardBody,
       );
     }
 
-    return Material(
-      color: theme.secondaryBackground,
-      elevation: 2,
-      borderRadius: BorderRadius.circular(12),
+    return Container(
+      width: double.infinity,
+      decoration: EmberBrand.cardDecoration(),
       clipBehavior: Clip.antiAlias,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.alternate),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: cardBody,
-        ),
+        child: cardBody,
       ),
     );
   }

@@ -7,8 +7,8 @@ const kCompanyWebsite = 'https://embersoullabs.com';
 const kCompanyWebsiteHost = 'embersoullabs.com';
 
 const kProductTaglineEn =
-    'Operations platform for appointments, field service, and delivery.';
-const kProductTaglineZh = '预约、外勤与配送一体化运营平台。';
+    'Retail Business Operating System for small businesses and retail teams.';
+const kProductTaglineZh = '面向小型商户与零售团队的业务运营系统。';
 
 /// Receipt/PDF header when tenant company name is not configured.
 const kDefaultCompanyDisplayName = kProductName;

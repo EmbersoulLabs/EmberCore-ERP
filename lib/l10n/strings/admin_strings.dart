@@ -509,9 +509,9 @@ const Map<String, Map<String, String>> adminStrings = {
     'ms': 'Import Shopify',
   },
   'admin.industrySettings.module.whatsappImport': {
-    'en': 'WhatsApp order import',
-    'zh': 'WhatsApp 订单导入',
-    'ms': 'Import pesanan WhatsApp',
+    'en': 'Order import',
+    'zh': '订单导入',
+    'ms': 'Import pesanan',
   },
   'admin.industrySettings.module.customerBroadcast': {
     'en': 'Customer broadcast',
