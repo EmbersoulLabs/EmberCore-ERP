@@ -23,6 +23,12 @@ key.properties
 *.jks
 *.keystore
 firebase/keys/*.json
+!firebase/keys/web_client_config.example.json
+firebase/keys/web_client_config.json
+lib/backend/firebase/firebase_secrets.dart
+android/app/src/production/google-services.json
+android/app/src/staging/google-services.json
+ios/Runner/GoogleService-Info.plist
 firebase/node_modules/
 firebase/functions/node_modules/
 firebase/public/

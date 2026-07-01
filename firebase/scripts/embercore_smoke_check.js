@@ -28,14 +28,9 @@ const DIRECTOR_EMAIL =
   process.env.EMBERCORE_DIRECTOR_EMAIL || "demo.director@embersoullabs.com";
 const COMPANY_ID = "demo_company";
 
-const firebaseConfig = {
-  apiKey: "REDACTED_API_KEY",
-  authDomain: "embercore-erp.firebaseapp.com",
-  projectId: "embercore-erp",
-  storageBucket: "embercore-erp.firebasestorage.app",
-  messagingSenderId: "1098308969895",
-  appId: "1:1098308969895:web:15747b5faa30917cff8282",
-};
+const { loadWebClientConfig } = require("./load_web_client_config");
+
+const firebaseConfig = loadWebClientConfig("production");
 
 const asJson = process.argv.includes("--json");
 const superadminPassword = process.env.EMBERCORE_SUPERADMIN_PASSWORD;

@@ -32,28 +32,16 @@ function argValue(flag) {
   return i >= 0 ? process.argv[i + 1] : null;
 }
 
+const { loadWebClientConfig } = require("./load_web_client_config");
+
 const project = argValue("--project") === "staging" ? "staging" : "production";
 const email = argValue("--email");
 const password = argValue("--password") || process.env.STAGING_ADMIN_PASSWORD;
 const dryRun = process.argv.includes("--dry-run");
 
 const configs = {
-  production: {
-    apiKey: "REDACTED_API_KEY",
-    authDomain: "tfg-sales-record.firebaseapp.com",
-    projectId: "tfg-sales-record",
-    storageBucket: "tfg-sales-record.firebasestorage.app",
-    messagingSenderId: "326935454564",
-    appId: "1:326935454564:web:23d356d5247525b9b25071",
-  },
-  staging: {
-    apiKey: "REDACTED_API_KEY",
-    authDomain: "tfg-vday-record-staging.firebaseapp.com",
-    projectId: "tfg-vday-record-staging",
-    storageBucket: "tfg-vday-record-staging.firebasestorage.app",
-    messagingSenderId: "972558847351",
-    appId: "1:972558847351:web:3d6ebb53318abb5f9a2572",
-  },
+  production: loadWebClientConfig("production"),
+  staging: loadWebClientConfig("staging"),
 };
 
 function isValidUrl(url) {

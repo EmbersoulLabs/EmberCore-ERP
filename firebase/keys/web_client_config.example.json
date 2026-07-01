@@ -1,0 +1,18 @@
+{
+  "production": {
+    "apiKey": "YOUR_PRODUCTION_WEB_API_KEY",
+    "authDomain": "embercore-erp.firebaseapp.com",
+    "projectId": "embercore-erp",
+    "storageBucket": "embercore-erp.firebasestorage.app",
+    "messagingSenderId": "1098308969895",
+    "appId": "YOUR_PRODUCTION_WEB_APP_ID"
+  },
+  "staging": {
+    "apiKey": "YOUR_STAGING_WEB_API_KEY",
+    "authDomain": "embercore-erp-staging.firebaseapp.com",
+    "projectId": "embercore-erp-staging",
+    "storageBucket": "embercore-erp-staging.firebasestorage.app",
+    "messagingSenderId": "598171125582",
+    "appId": "YOUR_STAGING_WEB_APP_ID"
+  }
+}

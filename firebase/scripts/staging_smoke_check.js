@@ -26,14 +26,9 @@ const STAGING_WEB_URL = "https://embercore-erp-staging.web.app";
 const ADMIN_EMAIL = "staging.admin@embersoullabs.com";
 const COMPANY_ID = "staging_company";
 
-const firebaseConfig = {
-  apiKey: "REDACTED_API_KEY",
-  authDomain: "embercore-erp-staging.firebaseapp.com",
-  projectId: "embercore-erp-staging",
-  storageBucket: "embercore-erp-staging.firebasestorage.app",
-  messagingSenderId: "598171125582",
-  appId: "1:598171125582:web:140dbf5d2e9ccdafed001f",
-};
+const { loadWebClientConfig } = require("./load_web_client_config");
+
+const firebaseConfig = loadWebClientConfig("staging");
 
 const asJson = process.argv.includes("--json");
 const password = process.env.STAGING_ADMIN_PASSWORD;

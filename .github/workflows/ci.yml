@@ -33,6 +33,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Prepare Firebase client config for CI
+        run: |
+          cp lib/backend/firebase/firebase_secrets.example.dart lib/backend/firebase/firebase_secrets.dart
+          cp firebase/keys/web_client_config.example.json firebase/keys/web_client_config.json
+
       - name: Analyze
         # FlutterFlow-generated pages produce thousands of lint infos/warnings.
         # Fail CI only on analyzer errors (compile-time issues).
@@ -64,6 +69,22 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Prepare Firebase client config for CI
+        run: |
+          cp lib/backend/firebase/firebase_secrets.example.dart lib/backend/firebase/firebase_secrets.dart
+          cp firebase/keys/web_client_config.example.json firebase/keys/web_client_config.json
+
+      - name: Restore production google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON_PRODUCTION }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "::warning::GOOGLE_SERVICES_JSON_PRODUCTION secret not set — using example file"
+            cp android/app/src/production/google-services.json.example android/app/src/production/google-services.json
+          else
+            echo "$GOOGLE_SERVICES_JSON" > android/app/src/production/google-services.json
+          fi
 
       - name: Read app version
         id: version

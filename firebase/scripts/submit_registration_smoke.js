@@ -23,14 +23,9 @@ const PROJECT_ID = "embercore-erp";
 const WEB_SIGNUP_URL = "https://embercore-erp.web.app/userSignup";
 const REGISTRATION_COLLECTION = "user_registration_requests";
 
-const firebaseConfig = {
-  apiKey: "REDACTED_API_KEY",
-  authDomain: "embercore-erp.firebaseapp.com",
-  projectId: PROJECT_ID,
-  storageBucket: "embercore-erp.firebasestorage.app",
-  messagingSenderId: "1098308969895",
-  appId: "1:1098308969895:web:15747b5faa30917cff8282",
-};
+const { loadWebClientConfig } = require("./load_web_client_config");
+
+const firebaseConfig = loadWebClientConfig("production");
 
 function argValue(flag) {
   const i = process.argv.indexOf(flag);

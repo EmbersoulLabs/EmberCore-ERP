@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "972558847351",
-    "project_id": "tfg-vday-record-staging",
-    "storage_bucket": "tfg-vday-record-staging.firebasestorage.app"
+    "project_number": "1098308969895",
+    "project_id": "embercore-erp",
+    "storage_bucket": "embercore-erp.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:972558847351:android:e0ccbc14285647b09a2572",
+        "mobilesdk_app_id": "YOUR_ANDROID_APP_ID",
         "android_client_info": {
-          "package_name": "com.tfg_staging"
+          "package_name": "com.embersoullabs.embercore_erp"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "REDACTED_API_KEY"
+          "current_key": "YOUR_ANDROID_API_KEY"
         }
       ],
       "services": {

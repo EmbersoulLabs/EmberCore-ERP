@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '/backend/firebase/app_check_service.dart';
 import '/backend/firebase/app_environment.dart';
+import '/backend/firebase/firebase_secrets.dart';
 
 Future initFirebase() async {
   if (kIsWeb) {
@@ -27,22 +28,8 @@ Future initFirebase() async {
 FirebaseOptions _webOptionsFor(AppEnvironment env) {
   switch (env) {
     case AppEnvironment.staging:
-      return const FirebaseOptions(
-        apiKey: 'REDACTED_API_KEY',
-        authDomain: 'embercore-erp-staging.firebaseapp.com',
-        projectId: 'embercore-erp-staging',
-        storageBucket: 'embercore-erp-staging.firebasestorage.app',
-        messagingSenderId: '598171125582',
-        appId: '1:598171125582:web:140dbf5d2e9ccdafed001f',
-      );
+      return stagingFirebaseWebOptions;
     case AppEnvironment.production:
-      return const FirebaseOptions(
-        apiKey: 'REDACTED_API_KEY',
-        authDomain: 'embercore-erp.firebaseapp.com',
-        projectId: 'embercore-erp',
-        storageBucket: 'embercore-erp.firebasestorage.app',
-        messagingSenderId: '1098308969895',
-        appId: '1:1098308969895:web:15747b5faa30917cff8282',
-      );
+      return productionFirebaseWebOptions;
   }
 }
