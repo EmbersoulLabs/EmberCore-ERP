@@ -94,13 +94,14 @@ class UserRegistrationRequest {
   bool get isCompanyAccount =>
       accountType == UserSignupAccountType.company;
 
-  static UserRegistrationRequest fromSnapshot(
-    DocumentSnapshot<Map<String, dynamic>> snapshot,
-  ) {
-    final data = mapFromFirestore(snapshot.data() ?? {});
+  static UserRegistrationRequest fromFirestoreData({
+    required String id,
+    required Map<String, dynamic> rawData,
+  }) {
+    final data = mapFromFirestore(rawData);
     return UserRegistrationRequest(
-      id: snapshot.id,
-      email: data['email']?.toString() ?? snapshot.id,
+      id: id,
+      email: data['email']?.toString() ?? id,
       name: data['name']?.toString() ?? '',
       phone: data['phone']?.toString() ?? '',
       accountType: parseUserSignupAccountType(
@@ -123,6 +124,15 @@ class UserRegistrationRequest {
       provisionedCompanyRef:
           data['provisioned_company_ref'] as DocumentReference?,
       provisionedUserUid: data['provisioned_user_uid']?.toString(),
+    );
+  }
+
+  static UserRegistrationRequest fromSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    return fromFirestoreData(
+      id: snapshot.id,
+      rawData: snapshot.data() ?? {},
     );
   }
 }

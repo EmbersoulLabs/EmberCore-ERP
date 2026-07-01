@@ -5,12 +5,12 @@ import 'package:tfg_vday/backend/registration_approval_service.dart';
 import 'package:tfg_vday/backend/user_registration_request_helpers.dart';
 
 void main() {
-  group('UserRegistrationRequest.fromSnapshot', () {
+  group('UserRegistrationRequest.fromFirestoreData', () {
     test('converts Firestore Timestamp fields to DateTime', () {
       final created = DateTime(2026, 6, 27, 11, 36, 44);
-      final snapshot = _FakeSnapshot(
+      final request = UserRegistrationRequest.fromFirestoreData(
         id: 'test@example.com',
-        data: {
+        rawData: {
           'email': 'test@example.com',
           'name': 'Test User',
           'phone': '+60123456789',
@@ -22,8 +22,6 @@ void main() {
         },
       );
 
-      final request = UserRegistrationRequest.fromSnapshot(snapshot);
-
       expect(request.id, 'test@example.com');
       expect(request.email, 'test@example.com');
       expect(request.name, 'Test User');
@@ -34,20 +32,4 @@ void main() {
       expect(request.companyName, 'Acme Co');
     });
   });
-}
-
-class _FakeSnapshot implements DocumentSnapshot<Map<String, dynamic>> {
-  _FakeSnapshot({required this.id, required Map<String, dynamic> data})
-      : _data = data;
-
-  @override
-  final String id;
-
-  final Map<String, dynamic> _data;
-
-  @override
-  Map<String, dynamic>? data() => _data;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
