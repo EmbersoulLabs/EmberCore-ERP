@@ -29,6 +29,9 @@ class _ManageTenantPlatformConfigPanelState
   late final TextEditingController _orderTypesController;
   late final TextEditingController _driverEnController;
   late final TextEditingController _driverZhController;
+  late final TextEditingController _noticeTomorrowController;
+  late final TextEditingController _noticeTomorrowWeekendController;
+  late final TextEditingController _noticeTodayController;
   final Map<PlatformFieldKey, TextEditingController> _fieldEnControllers = {};
   final Map<PlatformFieldKey, TextEditingController> _fieldZhControllers = {};
 
@@ -39,6 +42,9 @@ class _ManageTenantPlatformConfigPanelState
     _orderTypesController = TextEditingController();
     _driverEnController = TextEditingController();
     _driverZhController = TextEditingController();
+    _noticeTomorrowController = TextEditingController();
+    _noticeTomorrowWeekendController = TextEditingController();
+    _noticeTodayController = TextEditingController();
     for (final key in PlatformFieldKey.values) {
       _fieldEnControllers[key] = TextEditingController();
       _fieldZhControllers[key] = TextEditingController();
@@ -52,6 +58,9 @@ class _ManageTenantPlatformConfigPanelState
     _orderTypesController.dispose();
     _driverEnController.dispose();
     _driverZhController.dispose();
+    _noticeTomorrowController.dispose();
+    _noticeTomorrowWeekendController.dispose();
+    _noticeTodayController.dispose();
     for (final c in _fieldEnControllers.values) {
       c.dispose();
     }
@@ -90,6 +99,11 @@ class _ManageTenantPlatformConfigPanelState
     _orderTypesController.text = config.orderTypes.join(', ');
     _driverEnController.text = config.driverRoleLabelEn;
     _driverZhController.text = config.driverRoleLabelZh;
+    _noticeTomorrowController.text =
+        config.operationNoticeTemplates.tomorrowPrep;
+    _noticeTomorrowWeekendController.text =
+        config.operationNoticeTemplates.tomorrowPrepWeekend;
+    _noticeTodayController.text = config.operationNoticeTemplates.todayOps;
     for (final key in PlatformFieldKey.values) {
       _fieldEnControllers[key]!.text = config.fieldLabelsEn[key] ?? '';
       _fieldZhControllers[key]!.text = config.fieldLabelsZh[key] ?? '';
@@ -118,6 +132,18 @@ class _ManageTenantPlatformConfigPanelState
       fieldLabelsZh: labelsZh,
       driverRoleLabelEn: _driverEnController.text.trim(),
       driverRoleLabelZh: _driverZhController.text.trim(),
+      operationNoticeTemplates: OperationNoticeTemplates(
+        tomorrowPrep: _noticeTomorrowController.text.trim().isNotEmpty
+            ? _noticeTomorrowController.text.trim()
+            : OperationNoticeTemplates.defaults().tomorrowPrep,
+        tomorrowPrepWeekend:
+            _noticeTomorrowWeekendController.text.trim().isNotEmpty
+                ? _noticeTomorrowWeekendController.text.trim()
+                : OperationNoticeTemplates.defaults().tomorrowPrepWeekend,
+        todayOps: _noticeTodayController.text.trim().isNotEmpty
+            ? _noticeTodayController.text.trim()
+            : OperationNoticeTemplates.defaults().todayOps,
+      ),
     );
   }
 
@@ -358,6 +384,77 @@ class _ManageTenantPlatformConfigPanelState
                 ),
               ),
               const SizedBox(height: 8),
+              ExpansionTile(
+                title: Text(
+                  tr(context, 'admin.industrySettings.operationNoticesTitle'),
+                ),
+                subtitle: Text(
+                  tr(context, 'admin.industrySettings.operationNoticesSubtitle'),
+                  style: theme.bodySmall.override(color: theme.secondaryText),
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text(
+                      tr(context, 'admin.industrySettings.operationNoticesHint'),
+                      style: theme.bodySmall.override(
+                        color: theme.secondaryText,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: TextFormField(
+                      controller: _noticeTomorrowController,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: tr(
+                          context,
+                          'admin.industrySettings.operationNoticeTomorrow',
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: TextFormField(
+                      controller: _noticeTomorrowWeekendController,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: tr(
+                          context,
+                          'admin.industrySettings.operationNoticeTomorrowWeekend',
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: TextFormField(
+                      controller: _noticeTodayController,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: tr(
+                          context,
+                          'admin.industrySettings.operationNoticeToday',
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               ExpansionTile(
                 title: Text(tr(context, 'admin.industrySettings.fieldLabelsTitle')),
                 children: [

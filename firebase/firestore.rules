@@ -175,8 +175,8 @@ service cloud.firestore {
     function canCreateOrCheckoutOrder() {
       return isPlatformAdminUser()
         || isDirectorUser()
-        || effectiveAppPermission('createOrders')
-        || isSeniorFloristUser();
+        || isSeniorFloristUser()
+        || effectiveAppPermission('createOrders');
     }
 
     function permissionOverridesChangedOnUserUpdate() {
@@ -234,7 +234,9 @@ service cloud.firestore {
     }
 
     function canRecordOrderPayment() {
-      return effectiveAppPermission('createOrders')
+      let role = authUserRole();
+      return role in ['senior_florist', 'florist']
+        || effectiveAppPermission('createOrders')
         || effectiveAppPermission('printCashInvoice');
     }
 
@@ -256,85 +258,133 @@ service cloud.firestore {
       ];
     }
 
+    function orderUpdateChangedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function isOrderPaymentKeysUpdate() {
+      return orderUpdateChangedKeys().hasOnly(orderPaymentFieldKeys());
+    }
+
     function isOrderPaymentOrCheckoutUpdate() {
-      return request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(orderPaymentFieldKeys());
+      return isOrderPaymentKeysUpdate();
+    }
+
+    function isOrderMaterialCostKeysUpdate() {
+      return orderUpdateChangedKeys().hasOnly([
+        'material_usage_cost',
+        'material_cost_snapshot',
+        'material_cost_snapshotted_at',
+      ]);
+    }
+
+    /// Inventory service stamps this after payment deducts (or skips) stock.
+    function isOrderStockDeductedKeysUpdate() {
+      return orderUpdateChangedKeys().hasOnly(['stock_deducted']);
+    }
+
+    function isOrderTotalsKeysUpdate() {
+      return orderUpdateChangedKeys()
+          .hasOnly(['totalAmount', 'total', 'totalQty', 'ProductSelection']);
+    }
+
+    function isOrderDeliveryDetailKeysUpdate() {
+      return orderUpdateChangedKeys().hasOnly([
+        'client_name',
+        'recipient_name',
+        'recipient_phone_number',
+        'address',
+        'PostalCode',
+        'region',
+        'delivery_date',
+        'delivery_time_slot',
+        'card_message',
+        'orderType',
+        'pickup_delivery',
+        'customer_phone_number',
+        'customerRef',
+        'created_time',
+        'status',
+        'orderstatus',
+        'companyRef',
+      ]);
+    }
+
+    function isOrderCheckoutFinalizeKeysUpdate() {
+      return orderUpdateChangedKeys().hasOnly([
+        'Order_Id',
+        'client_name',
+        'recipient_name',
+        'recipient_phone_number',
+        'address',
+        'PostalCode',
+        'region',
+        'delivery_date',
+        'delivery_time_slot',
+        'card_message',
+        'orderType',
+        'pickup_delivery',
+        'paymentType',
+        'status',
+        'orderstatus',
+        'amount_paid',
+        'balance_due',
+        'cash_received',
+        'cash_change',
+        'totalAmount',
+        'total',
+        'material_usage_cost',
+        'material_cost_snapshot',
+        'material_cost_snapshotted_at',
+        'totalQty',
+        'ProductSelection',
+        'companyRef',
+        'customerRef',
+        'customer_phone_number',
+        'created_time',
+      ]);
+    }
+
+    /// Role shortcuts before role_permissions lookup (keeps order updates under expression limit).
+    function canStaffCheckoutOrPayOrder() {
+      let role = authUserRole();
+      return role in ['account', 'director', 'manager', 'senior_florist', 'florist']
+        || isPlatformAdminUser();
+    }
+
+    function canStaffSubmitOrderDeliveryDetails() {
+      let role = authUserRole();
+      return role in ['account', 'director', 'manager', 'senior_florist', 'florist']
+        || isPlatformAdminUser()
+        || effectiveAppPermission('editOrderDetails');
+    }
+
+    function canStaffFinalizeOrderCheckout() {
+      return canStaffCheckoutOrPayOrder()
+        || effectiveAppPermission('editOrderDetails');
     }
 
     function isOrderPaymentUpdate() {
-      return isOrderPaymentOrCheckoutUpdate()
-        && isStaffUser()
-        && !isDriverUser()
-        && docBelongsToAuthTenant(resource.data)
-        && incomingBelongsToAuthTenant()
-        && tenantUnchangedOnUpdate()
+      return isOrderPaymentKeysUpdate()
         && !isPaidOrderDoc()
         && canRecordOrderPayment();
     }
 
     function isOrderTotalsRecalculationUpdate() {
-      return request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['totalAmount', 'total', 'totalQty', 'ProductSelection'])
-        && isStaffUser()
-        && !isDriverUser()
-        && docBelongsToAuthTenant(resource.data)
-        && incomingBelongsToAuthTenant()
-        && tenantUnchangedOnUpdate()
+      return isOrderTotalsKeysUpdate()
         && (
-          canCreateOrCheckoutOrder()
-          || canRecordOrderPayment()
+          canStaffCheckoutOrPayOrder()
           || canEditOrderDetailsOnOrder(resource.data)
         );
     }
 
     function isOrderCheckoutFinalizeUpdate() {
-      return request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly([
-            'Order_Id',
-            'client_name',
-            'recipient_name',
-            'recipient_phone_number',
-            'address',
-            'PostalCode',
-            'region',
-            'delivery_date',
-            'delivery_time_slot',
-            'card_message',
-            'orderType',
-            'pickup_delivery',
-            'paymentType',
-            'status',
-            'orderstatus',
-            'amount_paid',
-            'balance_due',
-            'cash_received',
-            'cash_change',
-            'totalAmount',
-            'total',
-            'material_usage_cost',
-            'material_cost_snapshot',
-            'material_cost_snapshotted_at',
-            'totalQty',
-            'ProductSelection',
-            'companyRef',
-            'customerRef',
-            'customer_phone_number',
-            'created_time',
-          ])
-        && isStaffUser()
-        && !isDriverUser()
-        && docBelongsToAuthTenant(resource.data)
-        && incomingBelongsToAuthTenant()
-        && tenantUnchangedOnUpdate()
+      return isOrderCheckoutFinalizeKeysUpdate()
         && (
           !isPaidOrderDoc()
           || isActiveSalesWorkflowOrderData(resource.data)
         )
-        && (
-          canCreateOrCheckoutOrder()
-          || isPlatformAdminUser()
-          || canEditOrderDetailsOnOrder(resource.data)
-        );
+        && canStaffFinalizeOrderCheckout();
     }
 
     /// Staff may stamp companyRef on draft orders missing tenant isolation.
@@ -397,60 +447,6 @@ service cloud.firestore {
             resource.data.companyRef,
             authUserCompanyRef())
         );
-    }
-
-    /// Create Order Form — delivery / pick-up details before checkout payment.
-    function isOrderDeliveryDetailSubmitUpdate() {
-      return request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly([
-            'client_name',
-            'recipient_name',
-            'recipient_phone_number',
-            'address',
-            'PostalCode',
-            'region',
-            'delivery_date',
-            'delivery_time_slot',
-            'card_message',
-            'orderType',
-            'pickup_delivery',
-            'customer_phone_number',
-            'customerRef',
-            'created_time',
-            'status',
-            'orderstatus',
-            'companyRef',
-          ])
-        && isStaffUser()
-        && !isDriverUser()
-        && docBelongsToAuthTenant(resource.data)
-        && incomingBelongsToAuthTenant()
-        && tenantUnchangedOnUpdate()
-        && (
-          !isPaidOrderDoc()
-          || isActiveSalesWorkflowOrderData(resource.data)
-        )
-        && (
-          canCreateOrCheckoutOrder()
-          || canRecordOrderPayment()
-          || effectiveAppPermission('editOrderDetails')
-          || isPlatformAdminUser()
-        );
-    }
-
-    function isOrderMaterialCostSnapshotUpdate() {
-      return request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly([
-            'material_usage_cost',
-            'material_cost_snapshot',
-            'material_cost_snapshotted_at',
-          ])
-        && isStaffUser()
-        && !isDriverUser()
-        && docBelongsToAuthTenant(resource.data)
-        && incomingBelongsToAuthTenant()
-        && tenantUnchangedOnUpdate()
-        && (canCreateOrCheckoutOrder() || canRecordOrderPayment());
     }
 
     function isOrderUpdateByEditPermission() {
@@ -516,7 +512,8 @@ service cloud.firestore {
 
     function rolePermissionsPayloadMatchesDocId(docId) {
       return request.resource.data.companyRef != null
-        && canonicalCompanyDocId(request.resource.data.companyRef.id)
+        && companyRefDocId(request.resource.data.companyRef) != null
+        && canonicalCompanyDocId(companyRefDocId(request.resource.data.companyRef))
             == canonicalCompanyDocId(docId);
     }
 
@@ -528,7 +525,8 @@ service cloud.firestore {
         || (
           authUserCanonicalCompanyId() != null
           && request.resource.data.companyRef != null
-          && canonicalCompanyDocId(request.resource.data.companyRef.id)
+          && companyRefDocId(request.resource.data.companyRef) != null
+          && canonicalCompanyDocId(companyRefDocId(request.resource.data.companyRef))
               == authUserCanonicalCompanyId()
         );
     }
@@ -576,9 +574,8 @@ service cloud.firestore {
     }
 
     function authUserCanonicalCompanyId() {
-      return authUserCompanyRef() != null
-        ? canonicalCompanyDocId(authUserCompanyRef().id)
-        : null;
+      let docId = companyRefDocId(authUserCompanyRef());
+      return docId != null ? canonicalCompanyDocId(docId) : null;
     }
 
     /// product_categories doc id is the company id (canonical).
@@ -594,7 +591,8 @@ service cloud.firestore {
         || (
           authUserCanonicalCompanyId() != null
           && request.resource.data.companyRef != null
-          && canonicalCompanyDocId(request.resource.data.companyRef.id)
+          && companyRefDocId(request.resource.data.companyRef) != null
+          && canonicalCompanyDocId(companyRefDocId(request.resource.data.companyRef))
               == authUserCanonicalCompanyId()
         );
     }
@@ -792,7 +790,7 @@ service cloud.firestore {
         );
     }
 
-    function isSeniorFloristOrderUpdate() {
+    function isSeniorFloristOrderFieldChange() {
       return request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly([
               'status',
@@ -811,7 +809,11 @@ service cloud.firestore {
               'totalQty',
               'ProductSelection',
               'companyRef',
-            ])
+            ]);
+    }
+
+    function isSeniorFloristOrderUpdate() {
+      return isSeniorFloristOrderFieldChange()
         && isSeniorFloristUser()
         && docBelongsToAuthTenant(resource.data)
         && incomingBelongsToAuthTenant()
@@ -912,9 +914,104 @@ service cloud.firestore {
     }
 
     function authUserCompanyId() {
-      return authUserCompanyRef() != null
-        ? canonicalCompanyDocId(authUserCompanyRef().id)
-        : null;
+      return authUserCanonicalCompanyId();
+    }
+
+    /// Lightweight tenant guard for order updates (avoids docBelongsToAuthTenant chain).
+    function orderResourceOwnedByAuthTenant() {
+      let companyRef = resource.data.get('companyRef', null);
+      return canCrossTenantAccess()
+        || (
+          authUserCompanyRef() != null
+          && companyRef != null
+          && companyRefsMatchCanonical(companyRef, authUserCompanyRef())
+        );
+    }
+
+    function orderUpdateTenantGuards() {
+      return canCrossTenantAccess()
+        || (
+          authUserCompanyRef() != null
+          && (
+            orderResourceOwnedByAuthTenant()
+            || (
+              isStaffUser()
+              && (
+                !('companyRef' in resource.data)
+                || resource.data.companyRef == null
+              )
+            )
+          )
+          && (
+            !('companyRef' in request.resource.data)
+            || request.resource.data.companyRef == null
+            || companyRefsMatchCanonical(
+                request.resource.data.companyRef,
+                authUserCompanyRef())
+          )
+        );
+    }
+
+    /// Ternary dispatch — only one branch evaluated (OR chains accumulate expression cost).
+    function isFloristStaffOrderUpdateCore() {
+      return isOrderPaymentKeysUpdate()
+        ? (!isPaidOrderDoc() && canRecordOrderPayment())
+        : isOrderTotalsKeysUpdate()
+          ? (
+              canStaffCheckoutOrPayOrder()
+              || canEditOrderDetailsOnOrder(resource.data)
+            )
+          : orderUpdateChangedKeys().hasOnly(['companyRef'])
+            ? isOrderCompanyRefStampUpdate()
+            : isSeniorFloristOrderFieldChange()
+              ? true
+              : isOrderCheckoutFinalizeKeysUpdate()
+                ? (
+                    (!isPaidOrderDoc()
+                      || isActiveSalesWorkflowOrderData(resource.data))
+                    && canStaffFinalizeOrderCheckout()
+                  )
+                : false;
+    }
+
+    function isNonFloristStaffOrderUpdateCore() {
+      return isOrderPaymentKeysUpdate()
+        ? isOrderPaymentUpdate()
+        : isOrderTotalsKeysUpdate()
+          ? isOrderTotalsRecalculationUpdate()
+          : orderUpdateChangedKeys().hasOnly(['companyRef'])
+            ? isOrderCompanyRefStampUpdate()
+            : isOrderCheckoutFinalizeKeysUpdate()
+              ? isOrderCheckoutFinalizeUpdate()
+              : orderUpdateChangedKeys().hasOnly(['assigned_driver'])
+                ? effectiveAppPermission('assignDriver')
+                : isOrderUpdateByEditPermission()
+                  || isPlatformAdminOrderUpdate()
+                  || isCreditFinanceOrderUpdate();
+    }
+
+    function canUpdateOrderDoc() {
+      return isDriverUser()
+        ? (isDriverStatusUpdate() || isDriverPartialDeliveryOrderUpdate())
+        : isAdminUser()
+          ? docBelongsToAuthTenant(resource.data)
+          : !orderUpdateTenantGuards()
+            ? false
+            : isOrderMaterialCostKeysUpdate()
+              ? canStaffCheckoutOrPayOrder()
+              : isOrderStockDeductedKeysUpdate()
+                ? canStaffCheckoutOrPayOrder()
+                : isOrderDeliveryDetailKeysUpdate()
+                ? (
+                    (!isPaidOrderDoc()
+                      || isActiveSalesWorkflowOrderData(resource.data))
+                    && canStaffSubmitOrderDeliveryDetails()
+                  )
+                : isSeniorFloristUser()
+                  ? isFloristStaffOrderUpdateCore()
+                  : isStaffUser() && !isDriverUser()
+                    ? isNonFloristStaffOrderUpdateCore()
+                    : false;
     }
 
     function counterDocBelongsToAuthTenant(counterId) {
@@ -1062,20 +1159,7 @@ service cloud.firestore {
           || (isDriverUser() && isOrderAssignedToAuthDriver(resource.data))
         );
       allow create: if isStaffUser() && incomingBelongsToAuthTenant();
-      allow update: if isAdminUser() && docBelongsToAuthTenant(resource.data)
-        || isDriverStatusUpdate()
-        || isDriverPartialDeliveryOrderUpdate()
-        || isOrderPaymentUpdate()
-        || isOrderMaterialCostSnapshotUpdate()
-        || isOrderTotalsRecalculationUpdate()
-        || isOrderCompanyRefStampUpdate()
-        || isOrderCheckoutFinalizeUpdate()
-        || isOrderDeliveryDetailSubmitUpdate()
-        || isSeniorFloristOrderUpdate()
-        || isPlatformAdminOrderUpdate()
-        || isAssignDriverOrderUpdate()
-        || isCreditFinanceOrderUpdate()
-        || isOrderUpdateByEditPermission();
+      allow update: if canUpdateOrderDoc();
       allow delete: if isPlatformAdminUser() || canDeleteOrdersByPermission();
     }
 
@@ -1113,6 +1197,14 @@ service cloud.firestore {
       allow create: if isCatalogDocCreate();
       allow update: if isCatalogDocUpdate();
       allow delete: if isCatalogDocDelete();
+    }
+
+    match /inventory_movements/{document} {
+      allow read: if isSignedIn()
+        && isStaffUser()
+        && docBelongsToAuthTenant(resource.data);
+      allow create: if isStaffUser() && incomingBelongsToAuthTenant();
+      allow update, delete: if false;
     }
 
     match /materials/{document} {
@@ -1163,8 +1255,18 @@ service cloud.firestore {
         && companyCategoryDocMatchesAuthTenant(document);
     }
 
+    function tenantPlatformConfigReadable(companyId) {
+      return canCrossTenantAccess()
+        || (
+          authUserCanonicalCompanyId() != null
+          && canonicalCompanyDocId(companyId) == authUserCanonicalCompanyId()
+        );
+    }
+
     match /tenant_platform_config/{document} {
-      allow read: if isSignedIn() && isStaffUser();
+      allow read: if isSignedIn()
+        && isStaffUser()
+        && tenantPlatformConfigReadable(document);
       allow create, update, delete: if isSuperAdminUser();
     }
 

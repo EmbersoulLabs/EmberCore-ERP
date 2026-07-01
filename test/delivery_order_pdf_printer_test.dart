@@ -4,6 +4,8 @@ import 'package:tfg_vday/backend/schema/companies_record.dart';
 import 'package:tfg_vday/backend/schema/customers_record.dart';
 import 'package:tfg_vday/backend/schema/orders_record.dart';
 import 'package:tfg_vday/custom_code/delivery_order_pdf_printer.dart';
+import 'package:tfg_vday/platform/platform_config_service.dart';
+import 'package:tfg_vday/platform/tenant_platform_config.dart';
 
 import 'firebase_test_setup.dart';
 
@@ -86,10 +88,14 @@ void main() {
   });
 
   test('recipientDetailLines includes delivery address and date', () {
+    PlatformConfigService.instance.setConfig(
+      TenantPlatformConfig.floristLegacy(),
+    );
     final lines = DeliveryOrderPdfPrinter.recipientDetailLines(_order());
     expect(lines.join('\n'), contains('Recipient: Bob'));
     expect(lines.join('\n'), contains('31 Bangkit Road #17-03'));
     expect(lines.join('\n'), contains('Delivery date: 2026-06-07'));
+    PlatformConfigService.instance.resetToGenericDefaults();
   });
 
   test('companyContactLines includes UEN, address, and phone', () {

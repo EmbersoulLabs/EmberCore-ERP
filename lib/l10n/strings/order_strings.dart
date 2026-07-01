@@ -11,6 +11,21 @@ const Map<String, Map<String, String>> orderStrings = {
     'zh': '管理配送、自取与零售订单',
     'ms': 'Urus pesanan penghantaran, ambil & runcit',
   },
+  'order.create.fulfillmentType': {
+    'en': 'Fulfillment type',
+    'zh': '履约方式',
+    'ms': 'Jenis pemenuhan',
+  },
+  'order.list.importTooltip': {
+    'en': 'Import order from WhatsApp text',
+    'zh': '从 WhatsApp 文本导入订单',
+    'ms': 'Import pesanan dari teks WhatsApp',
+  },
+  'order.list.exportTooltip': {
+    'en': 'Export filtered orders to CSV',
+    'zh': '导出当前筛选订单为 CSV',
+    'ms': 'Eksport pesanan ditapis ke CSV',
+  },
   'order.detail.title': {
     'en': 'Order Detail',
     'zh': '订单详情',
@@ -40,6 +55,16 @@ const Map<String, Map<String, String>> orderStrings = {
     'en': 'Order Timeline',
     'zh': '订单进度',
     'ms': 'Garis Masa Pesanan',
+  },
+  'order.detail.missingOrderRef': {
+    'en': 'Order reference missing. Open this page from the order list.',
+    'zh': '缺少订单引用，请从订单列表进入。',
+    'ms': 'Rujukan pesanan tiada. Buka dari senarai pesanan.',
+  },
+  'order.detail.loadError': {
+    'en': 'Cannot load order: {error}',
+    'zh': '无法加载订单：{error}',
+    'ms': 'Tidak dapat memuatkan pesanan: {error}',
   },
   'order.partial.title': {
     'en': 'Partial delivery',
@@ -165,6 +190,11 @@ const Map<String, Map<String, String>> orderStrings = {
     'zh': '司机',
     'ms': 'Pemandu',
   },
+  'order.field.unassignedDriver': {
+    'en': 'Unassigned',
+    'zh': '未分配',
+    'ms': 'Belum ditugaskan',
+  },
   'order.col.total': {
     'en': 'Total',
     'zh': '金额',
@@ -222,6 +252,21 @@ const Map<String, Map<String, String>> orderStrings = {
     'zh': '自取',
     'ms': 'Ambil Sendiri',
   },
+  'order.type.onSite': {
+    'en': 'On-site',
+    'zh': '现场',
+    'ms': 'Di tapak',
+  },
+  'order.type.remote': {
+    'en': 'Remote',
+    'zh': '远程',
+    'ms': 'Jauh',
+  },
+  'order.type.walkIn': {
+    'en': 'Walk-in',
+    'zh': '到店',
+    'ms': 'Walk-in',
+  },
   'order.type.pickupLabel': {
     'en': 'Pickup',
     'zh': '自取',
@@ -263,6 +308,16 @@ const Map<String, Map<String, String>> orderStrings = {
     'en': 'Cancelled',
     'zh': '已取消',
     'ms': 'Dibatalkan',
+  },
+  'order.inventory.frozenCancelDenied': {
+    'en': 'Completed orders are locked. Only a manager or admin can cancel or void.',
+    'zh': '已完成订单已锁定，仅经理或管理员可取消/作废。',
+    'ms': 'Pesanan selesai dikunci. Hanya pengurus atau admin boleh batalkan.',
+  },
+  'order.inventory.frozenEditDenied': {
+    'en': 'Completed orders are locked. Only a manager or admin can change prices.',
+    'zh': '已完成订单已锁定，仅经理或管理员可改价。',
+    'ms': 'Pesanan selesai dikunci. Hanya pengurus atau admin boleh ubah harga.',
   },
 
   // Timeline
@@ -317,6 +372,11 @@ const Map<String, Map<String, String>> orderStrings = {
     'en': 'Select exactly one order to assign a driver.',
     'zh': '请只选择一笔订单以分配司机。',
     'ms': 'Pilih satu pesanan untuk menugaskan pemandu.',
+  },
+  'order.action.moreActions': {
+    'en': 'More actions',
+    'zh': '更多操作',
+    'ms': 'Lagi tindakan',
   },
   'order.action.printReceipt': {
     'en': 'Print invoice or receipt',

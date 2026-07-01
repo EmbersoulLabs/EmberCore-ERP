@@ -4,7 +4,7 @@
 **用途：** 把「自用 / 单租户花店 ERP」演进为「多租户、可自助开通、可收费的 SaaS ERP」。  
 完成一项勾一项 `[x]`。
 
-**相关文档：** [SAAS_ROADMAP.md](SAAS_ROADMAP.md) · [GENERIC_PLATFORM.md](GENERIC_PLATFORM.md) · [PERMISSION_MATRIX.md](PERMISSION_MATRIX.md)
+**相关文档：** [SAAS_EXECUTION_PLAN.md](SAAS_EXECUTION_PLAN.md)（分段执行计划）· [PRICING_PLANS.md](PRICING_PLANS.md)（套餐与功能分层）· [STRIPE_BILLING_SETUP.md](STRIPE_BILLING_SETUP.md) · [SAAS_ROADMAP.md](SAAS_ROADMAP.md) · [GENERIC_PLATFORM.md](GENERIC_PLATFORM.md) · [PERMISSION_MATRIX.md](PERMISSION_MATRIX.md)
 
 ---
 
@@ -128,16 +128,16 @@ flowchart TB
 
 ### 2.1 订单与编号
 
-- [ ] `order_id_service.dart` 读取 `tenant_platform_config.order_id_prefix`（替代写死 `TFG-`）
-- [ ] 订单类型筛选兼容 `OnSite/WalkIn/Remote` 与 `Delivery/Retail/PickUp`
-- [ ] 新建租户默认前缀 `EC`（已在 generic 预设）
+- [x] `order_id_service.dart` 读取 `tenant_platform_config.order_id_prefix`（替代写死 `TFG-`）— 生成读 active config，检测改为前缀无关结构化匹配，客户号接受 `prefix` 参数；⚠️ 老花店租户须先配 `industry_key: florist`/`order_id_prefix: TFG`（见 2.5），否则单号会变 `EC-`
+- [x] 订单类型筛选兼容 `OnSite/WalkIn/Remote` 与 `Delivery/Retail/PickUp`
+- [x] 新建租户默认前缀 `EC`（已在 generic 预设）
 
 ### 2.2 表单与文案
 
-- [ ] `create_order_form` — 字段标签用 `platformFieldLabel()`
-- [ ] `edit_order_details` / 客户表单 — 同上
-- [ ] PDF / 热敏小票 / 配送单 — 租户公司名 + Logo + 字段标签
-- [ ] 司机角色显示名读 `driver_role_label_*`
+- [x] `create_order_form` — 字段标签用 `platformFieldLabel()`
+- [x] `edit_order_details` / 客户表单 — 同上（edit_order_details 已完成；customer 表单无花店专用字段）
+- [x] PDF / 热敏小票 / 配送单 — 租户公司名 + Logo + 字段标签（PDF recipient 段；公司名/Logo 原有）
+- [x] 司机角色显示名读 `driver_role_label_*`（侧栏 nav.delivery）
 
 ### 2.3 状态与行业
 
@@ -148,8 +148,8 @@ flowchart TB
 ### 2.4 模块与菜单
 
 - [x] 仪表盘模块门控（部分）
-- [ ] 全站菜单项均经 `platformModuleEnabled()`（订单列表、报表、集成入口）
-- [ ] 关闭模块时 API/写入层二次校验（防深链）
+- [x] 全站菜单项均经 `platformModuleEnabled()`（订单列表、报表、集成入口）
+- [x] 关闭模块时 API/写入层二次校验（防深链）— 建单 + WhatsApp 导入
 
 ### 2.5 数据迁移（现有花店租户）
 
@@ -167,12 +167,10 @@ flowchart TB
 
 - [x] `/userSignup` 页面
 - [x] 写入 `user_registration_requests`（`status: pending`）
-- [ ] Firestore 规则：申请人可 **create**，不可读他人
-- [ ] Storage 规则：`user_registration_logos/`
+- [x] Firestore 规则：申请人可 **create**，不可读他人
+- [x] Storage 规则：`user_registration_logos/`
 - [ ] 注册页 `loc()` 补全 `ms` 等 i18n（当前 analyze 有遗留）
-- [ ] 登录页策略二选一并文档化：
-  - **SaaS：** 保留「还没注册？这里注册」
-  - **纯内部：** 隐藏链接，仅管理员 `/register` 加人
+- [x] 登录页策略（SaaS 模式保留「还没注册？」链接 — 见 `login_page_widget.dart`）
 
 ### 3.2 审批（平台运营 — App 内，非独立后台）
 
@@ -180,13 +178,13 @@ flowchart TB
 - [x] 列表筛选 pending / approved / rejected
 - [x] 详情、Logo、批准 / 拒绝
 - [x] 批准时客户端创建公司 + `tenant_platform_config` + director（MVP）
-- [ ] **改为 Cloud Function 批准**（见阶段 4）— 避免 superadmin 被登出、支持发设置密码邮件
+- [x] **改为 Cloud Function 批准**（见阶段 4）— `approveRegistrationRequest` 服务端开通，superadmin 不再被登出；支持传初始密码或无密码（返回 reset link）
 
 ### 3.3 租户生命周期（运营）
 
-- [ ] superadmin **租户列表**（公司数、状态、创建时间、员工数）
-- [ ] 一键停用租户 `Companies.is_active = false` → 员工无法登录
-- [ ] superadmin 不经过注册流直接建租户（内部演示 / 大客户）
+- [x] superadmin **租户列表**（公司数、状态、创建时间、员工数）— `/tenantList`
+- [x] 一键停用租户 `Companies.is_active = false` → 员工无法登录
+- [x] superadmin 不经过注册流直接建租户（内部演示 / 大客户）
 - [ ] 租户数据导出（合规下线）
 
 ### 3.4 测试环境
@@ -206,11 +204,11 @@ flowchart TB
 
 ### 4.1 注册开通 Function
 
-- [ ] `approveRegistrationRequest` Callable / Firestore trigger
-- [ ] Admin SDK：创建 Auth（或发 password-reset 邮件）
-- [ ] 原子写入：`Companies`、`users`、`counters`、`role_permissions`、`staff_roles`、`tenant_platform_config`
-- [ ] 失败回滚，`user_registration_requests` 保持 `pending`
-- [ ] 记录 `reviewed_by_uid`、`provisioned_company_ref`
+- [x] `approveRegistrationRequest` Callable（`firebase/functions/registration_provisioning.js`）
+- [x] Admin SDK：创建 Auth（传入初始密码）或无密码 + `generatePasswordResetLink`
+- [x] 原子写入：`Companies`、`counters`、`role_permissions`、`staff_roles`、`tenant_platform_config`、`product_categories`（单 batch）+ `users`
+- [x] 失败回滚（删除已建租户文档/Auth），`user_registration_requests` 末尾才更新，保持 `pending`
+- [x] 记录 `reviewed_by_uid`、`provisioned_company_ref`、`provisioned_user_uid`
 
 ### 4.2 安全与规则补强
 
@@ -240,8 +238,13 @@ flowchart TB
 
 ### 5.1 套餐设计
 
-- [ ] 档位（如 Starter / Pro / Enterprise）：人数上限、月订单量、功能模块
-- [ ] 免费试用天数（如 14 天）
+> 已定稿分层见 [PRICING_PLANS.md](PRICING_PLANS.md)（Starter / Pro / Business · **MYR** · 功能矩阵）
+
+- [x] 档位与功能分层文档（Starter / Pro / Business）
+- [ ] Stripe 三档 Price ID + Functions `PLAN_LIMITS` 对齐（2 员工 / 2000 单）
+- [ ] 按 `plan_tier` 锁 `PlatformModule`（WhatsApp/Shopify 等 Pro 起）
+- [ ] 客户群发额度字段与校验
+- [ ] 免费试用 14 天（已有 trialing 逻辑）
 
 ### 5.2 数据模型
 
@@ -324,7 +327,7 @@ flowchart TB
 
 ---
 
-## 附录 A — 当前进度快照（2026-06）
+## 附录 A — 当前进度快照（2026-06-23）
 
 | 能力 | 状态 |
 |------|------|
@@ -332,12 +335,20 @@ flowchart TB
 | EmberCore 品牌 + `embercore-erp` 客户端 | ✅ |
 | `tenant_platform_config` + 行业设置 UI | ✅ |
 | 注册申请 `/userSignup` | ✅ |
-| 注册审批 UI `/registrationRequests` | ✅（客户端开通 MVP） |
-| `firebase/` 部署目录在本仓库 | ⬜ |
-| Cloud Function 自动开通 | ⬜ |
-| 订单号/表单去 TFG 硬编码 | ⬜ 进行中 |
+| 注册审批 UI `/registrationRequests` | ✅ |
+| 租户列表 `/tenantList` + 停用 | ✅ |
+| superadmin 手动建租户 `add_company_dialog` | ✅ |
+| `firebase/` 部署目录在本仓库 | ✅ |
+| `embercore-erp` 生产部署 + 冒烟 | ⬜ 进行中 |
+| Cloud Function 自动开通（`approveRegistrationRequest`） | ✅ 代码完成，**待 deploy 验证** |
+| 订单号去 TFG 硬编码（`order_id_service`） | ✅ |
+| WhatsApp 导入读 `order_id_prefix` | ✅ |
+| 表单/打印读 `platformFieldLabel` | ✅ 建单/编辑/PDF |
+| 菜单模块门控 + 建单写入校验 | ✅ |
 | 订阅计费 | ⬜ |
 | 官网 + 法律文档 | ⬜ |
+
+**按周执行：** 见 [SAAS_EXECUTION_PLAN.md](SAAS_EXECUTION_PLAN.md)
 
 ---
 
@@ -353,7 +364,9 @@ flowchart TB
 | 审批服务 | `lib/backend/registration_approval_service.dart` |
 | 员工注册 | `lib/auth/register_user_service.dart` |
 | Firebase 客户端 | `lib/backend/firebase/` |
-| 后端部署（待复制） | `firebase/` |
+| 公司开通 | `lib/backend/company_provisioning_service.dart` |
+| 手动建租户 | `lib/components/add_company_dialog.dart` |
+| 后端部署 | `firebase/` |
 
 ---
 

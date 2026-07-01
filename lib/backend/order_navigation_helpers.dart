@@ -114,6 +114,26 @@ Future<void> runDeliveryOrderFlow(
   }
 }
 
+/// After saving delivery details, continue to payment summary.
+void finishDeliveryDetailsAndOpenPayment(
+  BuildContext context,
+  DocumentReference orderRef,
+) {
+  context.pushNamed(
+    DCSummaryCopyWidget.routeName,
+    queryParameters: orderRefQueryParams(orderRef),
+    extra: orderRefExtra(orderRef),
+  );
+}
+
+/// After payment, land on order detail.
+void finishPaymentAndShowOrderDetail(
+  BuildContext context,
+  DocumentReference orderRef,
+) {
+  openOrderDetail(context, orderRef);
+}
+
 /// After saving delivery details, land on order detail (not delivery order page).
 void finishDeliveryDetailsAndShowOrderDetail(
   BuildContext context,

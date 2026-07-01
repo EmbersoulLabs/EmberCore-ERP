@@ -8,6 +8,8 @@ import 'strings/report_strings.dart';
 import 'strings/admin_strings.dart';
 import 'strings/dashboard_strings.dart';
 import 'strings/brand_strings.dart';
+import 'strings/billing_strings.dart';
+import 'strings/branch_strings.dart';
 
 /// Merged translation catalog for the app.
 const Map<String, Map<String, String>> kAppStrings = {
@@ -21,4 +23,6 @@ const Map<String, Map<String, String>> kAppStrings = {
   ...adminStrings,
   ...dashboardStrings,
   ...brandStrings,
+  ...billingStrings,
+  ...branchStrings,
 };

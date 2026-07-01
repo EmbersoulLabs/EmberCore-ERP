@@ -90,6 +90,56 @@ const Map<String, Map<String, String>> reportStrings = {
     'zh': '销售报表',
     'ms': 'Laporan Jualan',
   },
+  'report.averageOrderAmount': {
+    'en': 'Average order',
+    'zh': '平均订单金额',
+    'ms': 'Purata pesanan',
+  },
+  'report.topProducts': {
+    'en': 'Top 3 products',
+    'zh': '最畅销产品 Top 3',
+    'ms': '3 produk terlaris',
+  },
+  'report.noTopProducts': {
+    'en': 'No product sales in this date range.',
+    'zh': '此日期范围内无产品销售。',
+    'ms': 'Tiada jualan produk dalam julat tarikh ini.',
+  },
+  'report.vsYesterday': {
+    'en': 'vs yesterday',
+    'zh': '与昨天比较',
+    'ms': 'berbanding semalam',
+  },
+  'report.yesterdaySales': {
+    'en': 'Yesterday: {amount}',
+    'zh': '昨天：{amount}',
+    'ms': 'Semalam: {amount}',
+  },
+  'report.dayOverDayNew': {
+    'en': 'New sales (no sales yesterday)',
+    'zh': '新增销售（昨天无销售）',
+    'ms': 'Jualan baharu (tiada jualan semalam)',
+  },
+  'report.unpaidOrdersAlert': {
+    'en': 'Unpaid orders: {count} · {amount} outstanding',
+    'zh': '未付款订单：{count} 笔 · 待收 {amount}',
+    'ms': 'Pesanan belum bayar: {count} · tertunggak {amount}',
+  },
+  'report.hourlySales': {
+    'en': 'Sales by hour',
+    'zh': '每小时销售分布',
+    'ms': 'Jualan mengikut jam',
+  },
+  'report.hourlySalesEmpty': {
+    'en': 'No hourly sales data for this date range.',
+    'zh': '此日期范围内无按小时销售数据。',
+    'ms': 'Tiada data jualan mengikut jam untuk julat tarikh ini.',
+  },
+  'report.busiestHour': {
+    'en': 'Busiest: {hour}:00–{nextHour}:00',
+    'zh': '最忙时段：{hour}:00–{nextHour}:00',
+    'ms': 'Paling sibuk: {hour}:00–{nextHour}:00',
+  },
   'report.materialUsage.title': {
     'en': 'Material Usage',
     'zh': '物料用量',

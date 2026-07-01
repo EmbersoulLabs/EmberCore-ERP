@@ -103,7 +103,7 @@ class _EditOrderProductsWidgetState extends State<EditOrderProductsWidget> {
       return;
     }
     try {
-      assertCanEditOrderRecord(currentViewerRole(), widget.order);
+      assertCanEditOrderProductLines(currentViewerRole(), widget.order);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

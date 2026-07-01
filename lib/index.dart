@@ -34,6 +34,10 @@ export '/pages/industry_settings_page/industry_settings_page_widget.dart'
     show IndustrySettingsPageWidget;
 export '/pages/registration_requests_page/registration_requests_page_widget.dart'
     show RegistrationRequestsPageWidget;
+export '/pages/tenant_list_page/tenant_list_page_widget.dart'
+    show TenantListPageWidget;
+export '/pages/billing_page/billing_page_widget.dart'
+    show BillingPageWidget;
 export '/pages/customer_list_page/customer_list_page_widget.dart'
     show CustomerListPageWidget;
 export '/pages/customer_create_form/customer_create_form_widget.dart'

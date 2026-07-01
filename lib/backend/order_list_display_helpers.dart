@@ -118,7 +118,11 @@ String orderListPaymentStatus(BuildContext context, OrdersRecord order) {
   return tr(context, 'order.payment.paid');
 }
 
+/// Sync fallback when a [StreamBuilder] is not available (e.g. exports).
 String orderListDriverLabel(OrdersRecord order) {
+  if (isRetailOrderRecord(order)) {
+    return '—';
+  }
   if (!order.hasAssignedDriver()) {
     return '—';
   }

@@ -808,19 +808,12 @@ class _DCSummaryCopyWidgetState extends State<DCSummaryCopyWidget> {
                                                   safeSetState(
                                                     () => _pendingPayment = null,
                                                   );
-                                                  context.pushNamed(
-                                                    CreateOrderFormWidget
-                                                        .routeName,
-                                                    queryParameters:
-                                                        orderRefQueryParams(
-                                                      widget!.orderRef!,
-                                                    ),
-                                                    extra: orderRefExtra(
-                                                      widget!.orderRef!,
-                                                    ),
+                                                  finishPaymentAndShowOrderDetail(
+                                                    context,
+                                                    widget!.orderRef!,
                                                   );
                                                 },
-                                                text: 'Payment Done - Delivery detail',
+                                                text: 'Payment done',
                                                 options: FFButtonOptions(
                                                   width: double.infinity,
                                                   height: 48.0,

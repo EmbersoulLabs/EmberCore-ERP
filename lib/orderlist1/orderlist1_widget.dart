@@ -22,6 +22,7 @@ import 'dart:ui';
 import '/backend/csv_export_service.dart';
 import '/backend/order_delete_service.dart';
 import '/backend/order_list_display_helpers.dart';
+import '/backend/whatsapp_order_import_service.dart';
 import '/components/assign_driver_sheet.dart';
 import '/components/ember_app_shell.dart';
 import '/components/ember_bulk_action_bar.dart';
@@ -828,6 +829,72 @@ class _Orderlist1WidgetState extends State<Orderlist1Widget> {
                   ],
                 ),
               ),
+              if (canExportOrderCsv(AppStateNotifier.instance.userRole) ||
+                  isWhatsAppOrderImportEnabled)
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                    10.0,
+                    8.0,
+                    10.0,
+                    0.0,
+                  ),
+                  child: Row(
+                    children: [
+                      if (canExportOrderCsv(
+                          AppStateNotifier.instance.userRole))
+                        Tooltip(
+                          message: tr(context, 'order.list.exportTooltip'),
+                          child: FlutterFlowIconButton(
+                            borderRadius: 8.0,
+                            buttonSize: 34.0,
+                            fillColor:
+                                FlutterFlowTheme.of(context).secondaryBackground,
+                            icon: _exportingCsv
+                                ? SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        FlutterFlowTheme.of(context).primary,
+                                      ),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.download_outlined,
+                                    color:
+                                        FlutterFlowTheme.of(context).primary,
+                                    size: 20.0,
+                                  ),
+                            onPressed: _exportingCsv
+                                ? null
+                                : () => _exportFilteredOrders(context),
+                          ),
+                        ),
+                      if (canExportOrderCsv(
+                              AppStateNotifier.instance.userRole) &&
+                          isWhatsAppOrderImportEnabled)
+                        const SizedBox(width: 8),
+                      if (isWhatsAppOrderImportEnabled)
+                        Tooltip(
+                          message: tr(context, 'order.list.importTooltip'),
+                          child: FlutterFlowIconButton(
+                            borderRadius: 8.0,
+                            buttonSize: 34.0,
+                            fillColor:
+                                FlutterFlowTheme.of(context).secondaryBackground,
+                            icon: Icon(
+                              Icons.upload_file_outlined,
+                              color: FlutterFlowTheme.of(context).primary,
+                              size: 20.0,
+                            ),
+                            onPressed: () =>
+                                runWhatsAppOrderImportFromDashboard(context),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
                     ],
                   ),
                 ),

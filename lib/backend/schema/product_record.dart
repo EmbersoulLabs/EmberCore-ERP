@@ -57,6 +57,18 @@ class ProductRecord extends FirestoreRecord {
       _recipeLines ?? const [];
   bool hasRecipeLines() => _recipeLines != null && _recipeLines!.isNotEmpty;
 
+  int? _stockQty;
+  int get stockQty => _stockQty ?? 0;
+  bool hasStockQty() => _stockQty != null;
+
+  bool? _trackStock;
+  bool get trackStock => _trackStock ?? true;
+  bool hasTrackStock() => _trackStock != null;
+
+  bool? _allowZeroStock;
+  bool get allowZeroStock => _allowZeroStock ?? false;
+  bool hasAllowZeroStock() => _allowZeroStock != null;
+
   void _initializeFields() {
     _name = snapshotData['name'] as String?;
     _price = castToType<double>(snapshotData['price']);
@@ -72,6 +84,9 @@ class ProductRecord extends FirestoreRecord {
           .map((line) => Map<String, dynamic>.from(line))
           .toList();
     }
+    _stockQty = castToType<int>(snapshotData['stockQty']);
+    _trackStock = snapshotData['trackStock'] as bool?;
+    _allowZeroStock = snapshotData['allowZeroStock'] as bool?;
   }
 
   static CollectionReference get collection =>
@@ -117,6 +132,9 @@ Map<String, dynamic> createProductRecordData({
   String? category,
   DocumentReference? companyRef,
   List<Map<String, dynamic>>? recipeLines,
+  int? stockQty,
+  bool? trackStock,
+  bool? allowZeroStock,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -128,6 +146,9 @@ Map<String, dynamic> createProductRecordData({
       'category': category,
       'companyRef': companyRef,
       'recipeLines': recipeLines,
+      'stockQty': stockQty,
+      'trackStock': trackStock,
+      'allowZeroStock': allowZeroStock,
     }.withoutNulls,
   );
 
@@ -144,12 +165,15 @@ class ProductRecordDocumentEquality implements Equality<ProductRecord> {
         e1?.image == e2?.image &&
         e1?.sku == e2?.sku &&
         e1?.isActive == e2?.isActive &&
-        e1?.category == e2?.category;
+        e1?.category == e2?.category &&
+        e1?.stockQty == e2?.stockQty &&
+        e1?.trackStock == e2?.trackStock &&
+        e1?.allowZeroStock == e2?.allowZeroStock;
   }
 
   @override
   int hash(ProductRecord? e) => const ListEquality()
-      .hash([e?.name, e?.price, e?.image, e?.sku, e?.isActive, e?.category]);
+      .hash([e?.name, e?.price, e?.image, e?.sku, e?.isActive, e?.category, e?.stockQty, e?.trackStock, e?.allowZeroStock]);
 
   @override
   bool isValidKey(Object? o) => o is ProductRecord;

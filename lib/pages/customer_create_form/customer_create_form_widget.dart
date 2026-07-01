@@ -17,7 +17,6 @@ import '/backend/tenant_context.dart';
 import '/backend/tenant_query_helpers.dart';
 import '/backend/user_query_helpers.dart';
 import '/components/customer_birthday_picker.dart';
-import '/components/customer_import_button.dart';
 import '/components/home_nav_button.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -463,19 +462,6 @@ class _CustomerCreateFormWidgetState extends State<CustomerCreateFormWidget> {
                     ),
                   ],
                 ],
-                CustomerImportButton(
-                  allowCreditCustomers: canManageCredit,
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 16),
-                  child: Text(
-                    tr(context, 'customer.form.importHint'),
-                    style: theme.bodySmall.override(
-                      fontFamily: 'Outfit',
-                      color: const Color(0xFF606A85),
-                    ),
-                  ),
-                ),
                 const SizedBox(height: 8),
                 FFButtonWidget(
                   onPressed: _model.saving ? null : _saveCustomer,

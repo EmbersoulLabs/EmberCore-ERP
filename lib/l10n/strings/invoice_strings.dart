@@ -21,9 +21,9 @@ const Map<String, Map<String, String>> invoiceStrings = {
     'ms': 'Pelanggan',
   },
   'invoice.list.customerHint': {
-    'en': 'Search customer name or ID (e.g. TFG01)',
-    'zh': '搜索客户姓名或编号（如 TFG01）',
-    'ms': 'Cari nama atau ID pelanggan (cth. TFG01)',
+    'en': 'Search customer name or ID (e.g. EC01)',
+    'zh': '搜索客户姓名或编号（如 EC01）',
+    'ms': 'Cari nama atau ID pelanggan (cth. EC01)',
   },
   'invoice.list.month': {
     'en': 'Month',

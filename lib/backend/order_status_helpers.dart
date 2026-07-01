@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '/backend/dashboard_order_stats_helpers.dart';
+import '/backend/inventory_service.dart';
 import '/backend/schema/enums/enums.dart';
 
 /// Legacy string stored in Firestore field `orderstatus` (used by order list filters).
@@ -33,9 +34,21 @@ Future<void> updateOrderStatus(
   OrderStatus status, {
   Map<String, dynamic> extraFields = const {},
 }) async {
-  await orderRef.update({
+  final patch = <String, dynamic>{
     ...createOrderStatusUpdateData(status),
     ...extraFields,
-  });
+  };
+
+  if (status == OrderStatus.completed) {
+    patch['inventory_frozen'] = true;
+  }
+
+  await orderRef.update(patch);
   notifyDashboardStatsChanged();
+
+  if (status == OrderStatus.completed) {
+    await applyInventoryOnOrderCompleted(orderRef);
+  } else if (status == OrderStatus.cancelled) {
+    await applyInventoryOnOrderCancelled(orderRef);
+  }
 }

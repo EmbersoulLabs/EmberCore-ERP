@@ -4,6 +4,7 @@ import '/backend/order_id_service.dart';
 import '/backend/schema/orders_record.dart';
 import '/backend/tenant_context.dart';
 import '/backend/tenant_query_helpers.dart';
+import '/platform/platform_config_service.dart';
 
 /// Default delivery window when WhatsApp text has no time slot.
 const defaultWhatsAppDeliveryTimeSlot = '09:00-20:00';
@@ -142,28 +143,65 @@ WhatsAppParsedOrderDetails mergeParsedOrderDetails(
   );
 }
 
-final _orderIdPatterns = [
+List<RegExp> buildWhatsAppOrderIdPatterns({String? orderIdPrefix}) {
+  final prefix = RegExp.escape(
+    (orderIdPrefix ?? OrderIdService.activeOrderPrefix()).trim(),
+  );
+  final patterns = <RegExp>[
+    ..._prefixAgnosticWhatsAppOrderIdPatterns,
+  ];
+  if (prefix.isNotEmpty) {
+    patterns.insertAll(0, _prefixSpecificWhatsAppOrderIdPatterns(prefix));
+  }
+  return patterns;
+}
+
+List<RegExp> _prefixSpecificWhatsAppOrderIdPatterns(String escapedPrefix) => [
+      RegExp(
+        'order\\s*id\\s*[:\\-]\\s*($escapedPrefix[^\\s,\\n]+)',
+        caseSensitive: false,
+      ),
+      RegExp('\\b($escapedPrefix-[A-Z]{3}\\d{2}-WI000\\d+)\\b'),
+      RegExp('\\b($escapedPrefix-[A-Z]{3}\\d{2}-000\\d+)\\b'),
+      RegExp('\\b($escapedPrefix-\\d{4}-\\d+)\\b'),
+    ];
+
+final _prefixAgnosticWhatsAppOrderIdPatterns = [
   RegExp(
-    r'order\s*id\s*[:\-]\s*(TFG[^\s,\n]+)',
+    r'order\s*id\s*[:\-]\s*([A-Za-z][A-Za-z0-9-]+)',
     caseSensitive: false,
   ),
-  RegExp(r'\b(TFG-[A-Z]{3}\d{2}-WI000\d+)\b'),
-  RegExp(r'\b(TFG-[A-Z]{3}\d{2}-000\d+)\b'),
-  RegExp(r'\b(TFG-\d{4}-\d+)\b'),
+  RegExp(r'\b([A-Za-z]+-[A-Z]{3}\d{2}-WI000\d+)\b'),
+  RegExp(r'\b([A-Za-z]+-[A-Z]{3}\d{2}-\d+)\b'),
+  RegExp(r'\b([A-Za-z]+-\d{4}-\d+)\b'),
 ];
 
-String? extractOrderIdFromWhatsAppText(String text) {
+String? extractOrderIdFromWhatsAppText(
+  String text, {
+  String? orderIdPrefix,
+}) {
   final trimmed = text.trim();
   if (trimmed.isEmpty) {
     return null;
   }
-  for (final pattern in _orderIdPatterns) {
+  for (final pattern in buildWhatsAppOrderIdPatterns(
+    orderIdPrefix: orderIdPrefix,
+  )) {
     final match = pattern.firstMatch(trimmed);
     if (match != null) {
       return match.group(1)!.trim();
     }
   }
   return null;
+}
+
+String _activeWhatsAppOrderPrefix() {
+  final fromConfig =
+      PlatformConfigService.instance.config.orderIdPrefix.trim();
+  if (fromConfig.isNotEmpty) {
+    return fromConfig;
+  }
+  return OrderIdService.activeOrderPrefix();
 }
 
 String _normalizeLabel(String label) => label.trim().toLowerCase();
@@ -380,27 +418,44 @@ String? _parseWsClientName(List<String> lines) {
   return null;
 }
 
-String? _parseTfgCarouselClientName(List<String> lines) {
+String? _parseCarouselClientName(List<String> lines, {String? orderIdPrefix}) {
+  final prefixes = <String>{
+    (orderIdPrefix ?? _activeWhatsAppOrderPrefix()).trim(),
+    'TFG',
+  }..removeWhere((value) => value.isEmpty);
   for (final line in lines.reversed) {
-    final match = RegExp(
-      r'^([a-zA-Z][a-zA-Z0-9_]*)\s+TFG\b',
-      caseSensitive: false,
-    ).firstMatch(line);
-    if (match != null) {
-      return match.group(1)!.trim();
+    for (final prefix in prefixes) {
+      final escaped = RegExp.escape(prefix);
+      final match = RegExp(
+        '^([a-zA-Z][a-zA-Z0-9_]*)\\s+$escaped\\b',
+        caseSensitive: false,
+      ).firstMatch(line);
+      if (match != null) {
+        return match.group(1)!.trim();
+      }
     }
   }
   return null;
 }
 
-bool _isClientIdentificationLine(String line) {
+bool _isClientIdentificationLine(String line, {String? orderIdPrefix}) {
   if (RegExp(r'^ws[-\s]+', caseSensitive: false).hasMatch(line)) {
     return true;
   }
-  return RegExp(
-    r'^[a-zA-Z][a-zA-Z0-9_]*\s+TFG\b',
-    caseSensitive: false,
-  ).hasMatch(line);
+  final prefixes = <String>{
+    (orderIdPrefix ?? _activeWhatsAppOrderPrefix()).trim(),
+    'TFG',
+  }..removeWhere((value) => value.isEmpty);
+  for (final prefix in prefixes) {
+    final escaped = RegExp.escape(prefix);
+    if (RegExp(
+      '^[a-zA-Z][a-zA-Z0-9_]*\\s+$escaped\\b',
+      caseSensitive: false,
+    ).hasMatch(line)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 String? _parsePostalCode(String text) {
@@ -737,7 +792,7 @@ void _applyFreeFormWhatsAppFallback({
 
   var resolvedClient = getClientName?.call();
   resolvedClient ??= _parseWsClientName(lines);
-  resolvedClient ??= _parseTfgCarouselClientName(lines);
+  resolvedClient ??= _parseCarouselClientName(lines);
   if (resolvedClient != null) {
     setClientName(resolvedClient);
   }

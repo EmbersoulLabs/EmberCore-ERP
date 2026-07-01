@@ -5,6 +5,8 @@ import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/platform/platform_labels.dart';
+import '/platform/tenant_platform_config.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -285,19 +287,37 @@ class _EditOrderDetailsWidgetState extends State<EditOrderDetailsWidget> {
                       const SizedBox(height: 12.0),
                       TextFormField(
                         controller: _recipientNameController,
-                        decoration: _fieldDecoration(context, 'Recipient'),
+                        decoration: _fieldDecoration(
+                          context,
+                          platformFieldLabel(
+                            context,
+                            PlatformFieldKey.recipientName,
+                          ),
+                        ),
                         textCapitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 12.0),
                       TextFormField(
                         controller: _phoneController,
-                        decoration: _fieldDecoration(context, 'Recipient phone'),
+                        decoration: _fieldDecoration(
+                          context,
+                          platformFieldLabel(
+                            context,
+                            PlatformFieldKey.recipientPhone,
+                          ),
+                        ),
                         keyboardType: TextInputType.phone,
                       ),
                       const SizedBox(height: 12.0),
                       TextFormField(
                         controller: _addressController,
-                        decoration: _fieldDecoration(context, 'Delivery address'),
+                        decoration: _fieldDecoration(
+                          context,
+                          platformFieldLabel(
+                            context,
+                            PlatformFieldKey.serviceAddress,
+                          ),
+                        ),
                         maxLines: 2,
                         validator: (v) =>
                             v == null || v.trim().isEmpty ? 'Required' : null,
@@ -316,7 +336,13 @@ class _EditOrderDetailsWidgetState extends State<EditOrderDetailsWidget> {
                       InkWell(
                         onTap: _pickDeliveryDate,
                         child: InputDecorator(
-                          decoration: _fieldDecoration(context, 'Delivery date'),
+                          decoration: _fieldDecoration(
+                            context,
+                            platformFieldLabel(
+                              context,
+                              PlatformFieldKey.scheduledDate,
+                            ),
+                          ),
                           child: Text(
                             _deliveryDate == null
                                 ? 'Select date'
@@ -333,13 +359,24 @@ class _EditOrderDetailsWidgetState extends State<EditOrderDetailsWidget> {
                       const SizedBox(height: 12.0),
                       TextFormField(
                         controller: _timeSlotController,
-                        decoration:
-                            _fieldDecoration(context, 'Delivery time slot'),
+                        decoration: _fieldDecoration(
+                          context,
+                          platformFieldLabel(
+                            context,
+                            PlatformFieldKey.timeWindow,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 12.0),
                       TextFormField(
                         controller: _cardMessageController,
-                        decoration: _fieldDecoration(context, 'Card message'),
+                        decoration: _fieldDecoration(
+                          context,
+                          platformFieldLabel(
+                            context,
+                            PlatformFieldKey.serviceNotes,
+                          ),
+                        ),
                         maxLines: 2,
                       ),
                       const SizedBox(height: 20.0),

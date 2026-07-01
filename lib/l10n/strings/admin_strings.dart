@@ -248,9 +248,9 @@ const Map<String, Map<String, String>> adminStrings = {
     'ms': 'Syarikat',
   },
   'admin.register.noCompanies': {
-    'en': 'No active companies found. Add a company in settings first.',
-    'zh': '未找到活跃公司，请先在设置中添加公司。',
-    'ms': 'Tiada syarikat aktif dijumpai. Tambah syarikat dalam tetapan dahulu.',
+    'en': 'No active companies found. Add a company from Select Company first.',
+    'zh': '未找到活跃公司，请先在「选择公司」页面添加公司。',
+    'ms': 'Tiada syarikat aktif dijumpai. Tambah syarikat dari Pilih Syarikat dahulu.',
   },
   'admin.register.companyFromProfile': {
     'en': 'Your company (from profile)',
@@ -558,11 +558,49 @@ const Map<String, Map<String, String>> adminStrings = {
     'zh': '客户编号标签',
     'ms': 'Label ID pelanggan',
   },
+  'admin.industrySettings.operationNoticesTitle': {
+    'en': 'Daily operation reminders',
+    'zh': '每日运营提醒文案',
+    'ms': 'Peringatan operasi harian',
+  },
+  'admin.industrySettings.operationNoticesSubtitle': {
+    'en': 'Scheduled staff notices for today and tomorrow orders',
+    'zh': '定时发送的今日/明日订单提醒',
+    'ms': 'Notis kakitangan berjadual untuk pesanan hari ini/esok',
+  },
+  'admin.industrySettings.operationNoticesHint': {
+    'en': 'Tomorrow placeholders: {line1}, {line2}, {body}, {delivery_count}, '
+        '{pending_count}. Leave blank to use platform defaults.',
+    'zh': '明日提醒占位符：{line1}、{line2}、{body}、{delivery_count}、'
+        '{pending_count}。留空则使用平台默认文案。',
+    'ms': 'Placeholder esok: {line1}, {line2}, {body}, {delivery_count}, '
+        '{pending_count}. Kosongkan untuk lalai platform.',
+  },
+  'admin.industrySettings.operationNoticeTomorrow': {
+    'en': 'Tomorrow prep reminder (weekday close)',
+    'zh': '明日备货提醒（工作日收工）',
+    'ms': 'Peringatan persediaan esok (tutup hari bekerja)',
+  },
+  'admin.industrySettings.operationNoticeTomorrowWeekend': {
+    'en': 'Tomorrow prep reminder (Fri / weekend close)',
+    'zh': '明日备货提醒（周五/周末收工）',
+    'ms': 'Peringatan persediaan esok (tutup Jumaat / hujung minggu)',
+  },
+  'admin.industrySettings.operationNoticeToday': {
+    'en': 'Today production reminder (morning)',
+    'zh': '今日制作提醒（早晨）',
+    'ms': 'Peringatan produksi hari ini (pagi)',
+  },
 
   'admin.registrationRequests.title': {
     'en': 'Registration requests',
     'zh': '注册审批',
     'ms': 'Permintaan pendaftaran',
+  },
+  'admin.registrationRequests.titleShort': {
+    'en': 'Registrations',
+    'zh': '注册审批',
+    'ms': 'Pendaftaran',
   },
   'admin.registrationRequests.noAccess': {
     'en': 'Only super admins can review registration requests.',
@@ -722,5 +760,209 @@ const Map<String, Map<String, String>> adminStrings = {
     'en': 'Action failed.',
     'zh': '操作失败。',
     'ms': 'Tindakan gagal.',
+  },
+
+  'admin.addCompany.button': {
+    'en': 'Add company',
+    'zh': '添加公司',
+    'ms': 'Tambah syarikat',
+  },
+  'admin.addCompany.title': {
+    'en': 'Add company',
+    'zh': '添加公司',
+    'ms': 'Tambah syarikat',
+  },
+  'admin.addCompany.intro': {
+    'en': 'Creates a new tenant with default platform settings. '
+        'You can optionally add a director login at the same time.',
+    'zh': '创建新租户并初始化默认平台配置。可同时创建 director 登录账号。',
+    'ms': 'Cipta penyewa baharu dengan tetapan platform lalai. '
+        'Anda boleh tambah log masuk pengarah pada masa yang sama.',
+  },
+  'admin.addCompany.companyName': {
+    'en': 'Company name',
+    'zh': '公司名称',
+    'ms': 'Nama syarikat',
+  },
+  'admin.addCompany.companyNameRequired': {
+    'en': 'Company name is required.',
+    'zh': '公司名称为必填项。',
+    'ms': 'Nama syarikat diperlukan.',
+  },
+  'admin.addCompany.companyPhone': {
+    'en': 'Company phone (optional)',
+    'zh': '公司电话（可选）',
+    'ms': 'Telefon syarikat (pilihan)',
+  },
+  'admin.addCompany.companyUen': {
+    'en': 'UEN (optional)',
+    'zh': 'UEN（可选）',
+    'ms': 'UEN (pilihan)',
+  },
+  'admin.addCompany.companyAddress': {
+    'en': 'Address (optional)',
+    'zh': '地址（可选）',
+    'ms': 'Alamat (pilihan)',
+  },
+  'admin.addCompany.createDirector': {
+    'en': 'Create director account',
+    'zh': '创建 director 账号',
+    'ms': 'Cipta akaun pengarah',
+  },
+  'admin.addCompany.createDirectorHint': {
+    'en': 'Recommended for the first login of a new tenant.',
+    'zh': '建议为新租户创建首个登录账号。',
+    'ms': 'Disyorkan untuk log masuk pertama penyewa baharu.',
+  },
+  'admin.addCompany.directorName': {
+    'en': 'Director name',
+    'zh': 'Director 姓名',
+    'ms': 'Nama pengarah',
+  },
+  'admin.addCompany.directorNameRequired': {
+    'en': 'Director name is required.',
+    'zh': 'Director 姓名为必填项。',
+    'ms': 'Nama pengarah diperlukan.',
+  },
+  'admin.addCompany.directorEmail': {
+    'en': 'Director email',
+    'zh': 'Director 邮箱',
+    'ms': 'E-mel pengarah',
+  },
+  'admin.addCompany.directorEmailRequired': {
+    'en': 'Director email is required.',
+    'zh': 'Director 邮箱为必填项。',
+    'ms': 'E-mel pengarah diperlukan.',
+  },
+  'admin.addCompany.directorPhone': {
+    'en': 'Director phone (optional)',
+    'zh': 'Director 电话（可选）',
+    'ms': 'Telefon pengarah (pilihan)',
+  },
+  'admin.addCompany.directorPassword': {
+    'en': 'Initial password',
+    'zh': '初始密码',
+    'ms': 'Kata laluan awal',
+  },
+  'admin.addCompany.directorPasswordRequired': {
+    'en': 'Password must be at least 6 characters.',
+    'zh': '密码至少 6 位。',
+    'ms': 'Kata laluan sekurang-kurangnya 6 aksara.',
+  },
+  'admin.addCompany.directorSessionWarning': {
+    'en': 'Creating a director account signs you out. Sign in again afterward.',
+    'zh': '创建 director 账号后您将登出，请重新登录。',
+    'ms': 'Mencipta akaun pengarah akan log keluar anda. Log masuk semula selepas itu.',
+  },
+  'admin.addCompany.submit': {
+    'en': 'Create company',
+    'zh': '创建公司',
+    'ms': 'Cipta syarikat',
+  },
+  'admin.addCompany.success': {
+    'en': 'Company created successfully.',
+    'zh': '公司已创建。',
+    'ms': 'Syarikat berjaya dicipta.',
+  },
+  'admin.addCompany.successSignInAgain': {
+    'en': 'Company and director created. Sign in again with your super admin account.',
+    'zh': '公司及 director 已创建，请使用超级管理员账号重新登录。',
+    'ms': 'Syarikat dan pengarah dicipta. Log masuk semula dengan akaun super admin anda.',
+  },
+
+  'admin.tenants.title': {
+    'en': 'Tenants',
+    'zh': '租户列表',
+    'ms': 'Senarai penyewa',
+  },
+  'admin.tenants.noAccess': {
+    'en': 'Only super admins can manage tenants.',
+    'zh': '仅超级管理员可管理租户。',
+    'ms': 'Hanya super admin boleh mengurus penyewa.',
+  },
+  'admin.tenants.intro': {
+    'en': 'All companies on the platform. Deactivating blocks staff login and writes.',
+    'zh': '平台上的全部公司。停用后员工无法登录且无法写入。',
+    'ms': 'Semua syarikat di platform. Nyahaktifkan akan halang log masuk dan tulisan staf.',
+  },
+  'admin.tenants.searchHint': {
+    'en': 'Search company name, phone, UEN…',
+    'zh': '搜索公司名、电话、UEN…',
+    'ms': 'Cari nama syarikat, telefon, UEN…',
+  },
+  'admin.tenants.empty': {
+    'en': 'No tenants yet.',
+    'zh': '暂无租户。',
+    'ms': 'Tiada penyewa lagi.',
+  },
+  'admin.tenants.staffCount': {
+    'en': '{count} staff',
+    'zh': '{count} 名员工',
+    'ms': '{count} staf',
+  },
+  'admin.tenants.created': {
+    'en': 'Created {date}',
+    'zh': '创建于 {date}',
+    'ms': 'Dicipta {date}',
+  },
+  'admin.tenants.inactiveHint': {
+    'en': 'Inactive — staff cannot sign in.',
+    'zh': '已停用 — 员工无法登录。',
+    'ms': 'Tidak aktif — staf tidak boleh log masuk.',
+  },
+  'admin.tenants.openTenant': {
+    'en': 'Open dashboard',
+    'zh': '进入仪表盘',
+    'ms': 'Buka papan pemuka',
+  },
+  'admin.tenants.deactivateTitle': {
+    'en': 'Deactivate tenant?',
+    'zh': '停用此租户？',
+    'ms': 'Nyahaktifkan penyewa?',
+  },
+  'admin.tenants.deactivateBody': {
+    'en': 'Staff for this company will be signed out and cannot create orders until reactivated.',
+    'zh': '该公司员工将被登出，重新启用前无法建单。',
+    'ms': 'Staf syarikat ini akan dilog keluar dan tidak boleh buat pesanan sehingga diaktifkan semula.',
+  },
+  'admin.tenants.deactivateConfirm': {
+    'en': 'Deactivate',
+    'zh': '停用',
+    'ms': 'Nyahaktifkan',
+  },
+  'admin.tenants.deactivated': {
+    'en': 'Tenant deactivated.',
+    'zh': '租户已停用。',
+    'ms': 'Penyewa dinyahaktifkan.',
+  },
+  'admin.tenants.activated': {
+    'en': 'Tenant reactivated.',
+    'zh': '租户已重新启用。',
+    'ms': 'Penyewa diaktifkan semula.',
+  },
+  'admin.registrationRequests.approveServerNote': {
+    'en': 'Provisioning runs on the server — your super admin session stays signed in.',
+    'zh': '开通在服务端执行，您的超级管理员会话不会被登出。',
+    'ms': 'Provisioning di pelayan — sesi super admin anda kekal log masuk.',
+  },
+  'admin.registrationRequests.passwordResetLinkTitle': {
+    'en': 'Director password setup link',
+    'zh': 'Director 设置密码链接',
+    'ms': 'Pautan tetapan kata laluan pengarah',
+  },
+  'admin.registrationRequests.passwordResetLinkBody': {
+    'en': 'Send this link to the applicant so they can set their password and sign in.',
+    'zh': '请将此链接发给申请人，用于设置密码并登录。',
+    'ms': 'Hantar pautan ini kepada pemohon untuk tetapkan kata laluan dan log masuk.',
+  },
+  'admin.registrationRequests.copyLink': {
+    'en': 'Copy link',
+    'zh': '复制链接',
+    'ms': 'Salin pautan',
+  },
+  'admin.registrationRequests.linkCopied': {
+    'en': 'Link copied to clipboard.',
+    'zh': '链接已复制。',
+    'ms': 'Pautan disalin.',
   },
 };

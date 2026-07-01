@@ -720,6 +720,29 @@ Future<void> updateProductIsActive(
   await productRef.update(createProductRecordData(isActive: isActive));
 }
 
+Future<void> bulkUpdateProductAllowZeroStock({
+  required List<DocumentReference> productRefs,
+  required bool allowZeroStock,
+}) async {
+  if (productRefs.isEmpty) {
+    return;
+  }
+  const chunkSize = 400;
+  for (var start = 0; start < productRefs.length; start += chunkSize) {
+    final end = (start + chunkSize > productRefs.length)
+        ? productRefs.length
+        : start + chunkSize;
+    final batch = FirebaseFirestore.instance.batch();
+    for (final ref in productRefs.sublist(start, end)) {
+      batch.update(
+        ref,
+        createProductRecordData(allowZeroStock: allowZeroStock),
+      );
+    }
+    await batch.commit();
+  }
+}
+
 /// Permanently removes a catalog product from Firestore.
 Future<void> deleteProductRecord(ProductRecord product) async {
   await product.reference.delete();

@@ -43,7 +43,7 @@ class OrderlistModel extends FlutterFlowModel<OrderlistWidget> {
 
   String selectedstatusstring = 'all\n';
 
-  String ordersearch = 'TFG';
+  String ordersearch = '';
 
   ///  State fields for stateful widgets in this page.
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '/auth/role_route_guard.dart';
+import '/components/ember_app_bar.dart';
 import '/components/language_picker_button.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -19,26 +20,38 @@ class HomeNavIconButton extends StatelessWidget {
     super.key,
     this.iconColor,
     this.fillColor,
-  });
+  }) : _onPrimary = false;
 
   /// White icon on primary-colored bars (matches back button on summary pages).
   const HomeNavIconButton.onPrimary({super.key})
       : iconColor = Colors.white,
-        fillColor = const Color(0x4DFFFFFF);
+        fillColor = const Color(0x4DFFFFFF),
+        _onPrimary = true;
 
   final Color? iconColor;
   final Color? fillColor;
+  final bool _onPrimary;
 
   @override
   Widget build(BuildContext context) {
+    if (_onPrimary) {
+      return EmberAppBarIconButton(
+        icon: Icons.home_rounded,
+        onPressed: () => navigateToHome(context),
+        tooltip: tr(context, 'common.home'),
+        onPrimary: true,
+      );
+    }
+    final compact = emberCompactAppBar(context);
+    final size = compact ? 36.0 : 40.0;
     return FlutterFlowIconButton(
       borderRadius: 20.0,
-      buttonSize: 40.0,
+      buttonSize: size,
       fillColor: fillColor,
       icon: Icon(
         Icons.home_outlined,
         color: iconColor ?? FlutterFlowTheme.of(context).primaryText,
-        size: 22.0,
+        size: compact ? 20 : 22,
       ),
       onPressed: () => navigateToHome(context),
     );
@@ -75,10 +88,11 @@ class AppBarLanguageHomeActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    final compact = emberCompactAppBar(context);
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        LanguagePickerAppBarButton(),
+        LanguagePickerAppBarButton(compact: compact),
         HomeNavIconButton.onPrimary(),
       ],
     );

@@ -1,194 +1,214 @@
 # Smoke Test Log
 
-Execution record for [WORKFLOW.md §16](WORKFLOW.md#16-deployment-checklist-peak-season) and peak-rehearsal hand tests (P1 D1–D5).
+**Current production target:** Firebase project **`embercore-erp`** · Web **https://embercore-erp.web.app**
 
-**Environment:** Firebase project `tfg-sales-record`  
-**Prerequisite:** P0 rules deployed ✅ **2026-06-03** · P1 automation added ✅ **2026-06-03** · Web Hosting ✅ **2026-06-05**
+Related: [SAAS_EXECUTION_PLAN.md §段 A](SAAS_EXECUTION_PLAN.md) · [INTERNAL_TO_SAAS_ERP.md §阶段 1](INTERNAL_TO_SAAS_ERP.md) · [WORKFLOW.md §16](WORKFLOW.md)
+
+**Last automated run:** 2026-06-27 · auth smoke + **段 C 注册 E2E（2–4）PASS**
 
 ---
 
-## P1 automated verification
+## 段 A — embercore-erp 冒烟验收（A5）
 
-| Check | Command / test | Result | Notes |
-|-------|----------------|--------|-------|
-| Flutter unit tests | `flutter test` | **CI** | includes `offline_write_queue_test.dart` |
-| Firebase staging alias | `firebase/.firebaserc` | **CI** | `staging` + `production` validated in `firestore-rules` job |
-| Staging rules deploy | `npm run deploy:rules:staging` | **MANUAL** | requires `tfg-vday-record-staging` project — see [STAGING.md](STAGING.md) |
-| Crashlytics / Performance | Firebase Console | **MANUAL** | release APK + staging rehearsal — see [OBSERVABILITY.md](OBSERVABILITY.md) |
-| Offline queue (Android) | Runbook §1 step 5–6 | **MANUAL** | Create Order while offline → queued → sync on reconnect |
-| Firestore rules + counter (emulator) | `cd firebase && npm run test:firebase` | **CI** | needs **Java** locally; runs on GitHub Actions `firestore-rules` job |
-| Firestore rules only | `cd firebase && npm run test:rules` | **CI** | same Java requirement |
-| Counter init script | `npm run init:counters:emulator` | **CI** | part of `test:firebase` |
-| Production counter init | `npm run init:counters` | **PASS** | 2026-06-03 — `default_*`; company `lc3Dhfby8f35Md0E1vZC` ok |
-| Production user/counter audit | `npm run verify:peak` | **PASS** | 2026-06-03 — warnings closed (see below) |
-| CI on `main` | GitHub Actions | **PASS** | `flutter` analyze + test · `firestore-rules` · `build-apk` artifact |
+> **段 A 完成标志：** superadmin 登录 → 选公司 → 建单 → 改状态 → 打印；**无需**手改 Firestore。  
+> **段 A 验收：** 下表 6 项全 **PASS**。
 
-**Run all Flutter tests locally:**
+### A5 手测 + 自动化结果
+
+| # | 场景 | 平台 | 2026-06-27 | 结果 | 证据 / 备注 |
+|---|------|------|------------|------|-------------|
+| **A5.1** | superadmin 登录 → 选公司 → 建单 → 改状态 → 打印 | Web | 2026-06-27 | **PARTIAL** | **AUTO PASS** superadmin Auth + role（`embercore_smoke_check.js`）· **MANUAL** 待 UI 建单/改状态/打印 |
+| **A5.2** | 零售 POS、配送单全流程 | Web + APK 其一 | — | **MANUAL** | 建议 `demo_company` director 账号走 WI + Delivery 各一单 |
+| **A5.3** | 客户 CRUD、发票、报表导出 | Web | — | **MANUAL** | 含 CSV 导出、发票列表 |
+| **A5.4** | 司机仅见配送页 | Web/APK | 2026-06-27 | **PARTIAL** | **AUTO PASS** `role_route_guard_test.dart`（`/salesDashBoard` 对 driver deny；home=`/driverDeliveryPage`）· **MANUAL** 待 live 登录司机账号 |
+| **A5.5** | 离线队列重连 | Android | 2026-06-27 | **PARTIAL** | **AUTO PASS** `offline_write_queue_test.dart`（enqueue + flush）· **MANUAL** 待 APK 断网建单 → 联网同步 |
+| **A5.6** | **租户隔离开**：非 superadmin 不可读其他 `companyRef` | Web / Rules | 2026-06-27 | **PASS** | `npm run test:firebase` **101/101** — orders / Order_item / counter / product / customers / SaaS onboarding |
+
+**段 A 总状态：** ⬜ **进行中** — 生产 Auth / Hosting / demo 租户 / rules 全绿；**A5.1 UI + A5.2–A5.3 手测 + A5.4/A5.5 真机** 待完成。
+
+### 段 A 自动化预检（2026-06-27）
+
+| Check | Command | Result | Notes |
+|-------|---------|--------|-------|
+| Flutter unit tests | `flutter test` | **PASS** | **326/326** |
+| Firestore + Storage rules (emulator) | `cd firebase && npm run test:firebase` | **PASS** | **101/101** suites；含租户隔离开、counter、registration rules |
+| Hosting 可达 | `node scripts/embercore_smoke_check.js` | **PASS** | `https://embercore-erp.web.app` HTTP 200，含 Flutter assets |
+| Superadmin Auth + 角色 | `embercore_smoke_check.js` | **PASS** | `kahliantoo@gmail.com` → `superadmin` · uid `MxWI2jMqTtdBE9cC1RftfV1FmOG2` |
+| Director Auth + 角色 | `embercore_smoke_check.js` | **PASS** | `demo.director@embersoullabs.com` → `director` · uid `7YSbkHNkPBgmchs18FI0lZLplCA3` |
+| Demo 租户 + Storage | `embercore_smoke_check.js` | **PASS** | `demo_company` active · platform config 存在 · Storage 上传/删除 OK |
+| 注册提交 Step 1（段 C） | `npm run smoke:registration` | **PASS** | 匿名 Firestore create + admin 可读 |
+| 注册 E2E Steps 2–4（段 C） | `npm run smoke:registration:e2e -- --fresh` | **PASS** | 见下表 · 2026-06-27 |
+
+---
+
+## 段 C — 注册开通 E2E（2026-06-27）
+
+> **完成标志：** 陌生人注册 → superadmin 批准 → director 登录 → 首单 `EC-` 前缀。
+
+| Step | 操作 | 命令 / 路径 | 2026-06-27 | 结果 | 证据 |
+|------|------|-------------|------------|------|------|
+| **1** | 匿名提交 `user_registration_requests` | `npm run smoke:registration` | 2026-06-27 | **PASS** | pending doc · anon read denied |
+| **2** | superadmin 调用 `approveRegistrationRequest` | `npm run smoke:registration:e2e` | 2026-06-27 | **PASS** | Callable 开通租户 · company `NWNQ3DFnJ1zazzwc9CSY` |
+| **3** | director 登录 + `users/{uid}` profile | 同上 | 2026-06-27 | **PASS** | role `director` · `companyRef` 正确 |
+| **4** | `tenant_platform_config.order_id_prefix=EC` + 首单 | 同上 | 2026-06-27 | **PASS** | 订单 `EC-JUN26-00099` · industry `generic` |
+
+**Latest E2E tenant:** `saas-e2e-2026-06-27t12-39-49-054z@embersoullabs.com` · company `NWNQ3DFnJ1zazzwc9CSY`
 
 ```bash
-cd tfg_vday
-flutter pub get
-flutter test
-# Expected: 67 passed
+cd firebase
+set EMBERCORE_SUPERADMIN_PASSWORD=<from vault>
+npm run smoke:registration:e2e -- --fresh   # Step 1–4 全自动
+npm run smoke:registration:e2e -- --email pending@example.com   # 批准已有 pending
 ```
 
-**Flutter test files (67 cases):**
-
-| File | Focus |
-|------|--------|
-| `role_helpers_test.dart` | Admin / senior florist capabilities |
-| `role_route_guard_test.dart` | Driver route allow-list |
-| `register_user_service_test.dart` | Staff registration rules |
-| `tenant_context_test.dart` | Tenant scope |
-| `tenant_product_filter_test.dart` | Product tenant isolation |
-| `company_search_filter_test.dart` | Company selection search |
-| `order_status_helpers_test.dart` | Status chain (D3) |
-| `order_list_filter_helpers_test.dart` | Order list filters |
-| `order_list_display_helpers_test.dart` | Order list columns |
-| `order_delete_service_test.dart` | Archive to `deleted_orders` |
-| `daily_sales_report_service_test.dart` | Report + date range |
-| `csv_export_alignment_test.dart` | CSV export |
-| `driver_delivery_filter_helpers_test.dart` | Driver status/date filters |
-| `driver_route_helpers_test.dart` | Multi-stop route |
-| `user_list_helpers_test.dart` | User list + manage permissions |
-| `firebase_auth_error_messages_test.dart` | Login error copy |
-| `receipt_order_item_list_test.dart` | Receipt line items |
-| `widget_test.dart` | Sanity |
+**段 C E2E 总状态：** ✅ **PASS**（自动化）· UI 手测（App 内点批准 + reset link 流程）仍建议抽测一次。
 
 ---
 
-## New features checklist (2026-06 — manual unless noted)
+```bash
+# Flutter
+flutter test
 
-Production Web: **https://tfg-sales-record.web.app** (hard-refresh after deploy)
+# Firebase rules + counter integration (needs Java 21+)
+cd firebase
+npm run test:firebase
 
-| # | Feature | Role | Platform | Auto | Manual smoke | Date | Result | Notes |
-|---|---------|------|----------|------|--------------|------|--------|-------|
-| N1 | **User List** (`/userListPage`) | admin / superadmin | Web | unit | Login → Dashboard or Company Profile → **View User List**; see Name / Role / Status | | **MANUAL** | `user_list_helpers_test.dart` |
-| N2 | **Add Staff** | admin / superadmin | Web | unit | Company Profile → **Add Staff** → `/register` | | **MANUAL** | |
-| N3 | **Set Inactive / Activate** | admin / superadmin | Web | unit | User List → select user → Set Inactive; inactive user cannot login | | **MANUAL** | Prefer over Delete |
-| N4 | **Delete user profile** | admin / superadmin | Web | — | User List → Delete (Firestore doc only) | | **MANUAL** | Auth account remains |
-| N5 | **Driver list filters** | driver | Web/APK | unit | All / Assigned / Out for Delivery / Completed + date range | | **MANUAL** | `driver_delivery_filter_helpers_test.dart` |
-| N6 | **Driver suggested route** | driver | Web/APK | unit | Open Maps with multi-stop route | | **MANUAL** | |
-| N7 | **Sales report date range** | staff | Web | unit | View Reports → From / To dates | | **MANUAL** | `daily_sales_report_service_test.dart` |
-| N8 | **Order list select all** | staff | Web | — | Header checkbox bulk select | | **MANUAL** | |
-| N9 | **Order bulk delete** | admin | Web | unit | Select orders → Delete → `deleted_orders` archive | | **MANUAL** | rules: `deleted_orders` |
-| N10 | **Custom product Create dialog** | staff | Web/APK | — | Product Selection → Create → **Upload Photo** or **Add** | | **MANUAL** | `Order_item.image` optional |
-| N11 | **Company Profile edit** | admin | Web | — | Logo, UEN, phone, address → Save | | **MANUAL** | |
-| N12 | **PDF title INVOICE** | staff | Web | — | Print PDF → title INVOICE | | **MANUAL** | |
-| N13 | **Deploy Web + rules** | tech | — | CI partial | `firebase deploy --only hosting,firestore:rules` | 2026-06-05 | **PASS** | See README deploy section |
+# Production smoke (passwords from team vault — do not commit)
+set EMBERCORE_SUPERADMIN_PASSWORD=<from vault>
+set EMBERCORE_DIRECTOR_PASSWORD=<from vault>
+npm run smoke:embercore
+npm run smoke:registration:e2e -- --fresh
+```
+
+**段 A 手测清单（可打印）：** [PHASE_A_UI_SMOKE_CHECKLIST.md](PHASE_A_UI_SMOKE_CHECKLIST.md)  
+**Staging 部署指南：** [STAGING_EMBERCORE.md](STAGING_EMBERCORE.md)
 
 ---
 
-## §16 Smoke — Summary
+在 **https://embercore-erp.web.app** 硬刷新（Ctrl+Shift+R）后执行。记录 order ID / 截图到上表 Evidence 列。
 
-| # | Date | Executor | Environment (Web/Android) | Account role | Step (§16) | Result PASS/FAIL | Evidence (screenshot / order ID) | Notes |
-|---|------|----------|---------------------------|--------------|------------|------------------|----------------------------------|-------|
-| C1-1 | 2026-06-03 | | | staff | Deploy rules | **PASS** | | P0 tenant isolation |
-| C1-1b | 2026-06-05 | | | staff | Deploy hosting | **PASS** | tfg-sales-record.web.app | |
-| C1-2 | | | | staff | User docs + roles | **AUTO** | | `npm run verify:peak` when credentials set |
-| C1-3 | | | | staff | Staff test account | **AUTO** | | verify:peak checks admin/senior_florist exists |
-| C1-4 | 2026-06-03 | | | driver | Driver test account | **PASS** | `tfg.driver.smoke@gmail.com` | uid `XZvTGyTIn9Tat9a8S66y0XThYfs1` |
-| C2-1 | | | Web / Android | staff | Create order | **MANUAL** | | |
-| C2-2 | | | | staff | Add products | **MANUAL** | | incl. custom product N10 |
-| C2-3a | | | | staff | Retail branch | **MANUAL** | | |
-| C2-3b | | | | staff | Delivery branch | **MANUAL** | | |
-| C2-4 | | | | staff | Order list | **MANUAL** | | N8 bulk select |
-| C2-5 | | | Android | staff | Bluetooth print | **MANUAL** | | Skip on Web |
-| C2-6 | | | | staff | Export CSV | **MANUAL** | | |
-| C2-7 | | | Web | admin | User List / staff admin | **MANUAL** | | N1–N4 |
-| C3-1 | | | Android | driver | Login → delivery page | **MANUAL** | | |
-| C3-2 | 2026-06-03 | | | driver | Block staff routes | **PASS** | | unit test: `/salesDashBoard` denied |
-| C3-3 | | | | driver | Advance delivery order | **MANUAL** | | N5 filters |
-| C3-4 | | | | driver | Firestore field check | **MANUAL** | | rules test covers status-only update |
-| C3-5 | | | | staff | Staff sees driver update | **MANUAL** | | |
-| C4-1 | | | Android | staff | Manifest permissions | **MANUAL** | | |
-| C4-2 | | | Android | staff | Pair + print receipt | **MANUAL** | | |
+### A5.1 — Superadmin 核心流（Web，~15 min）
 
----
+1. Superadmin 登录（`kahliantoo@gmail.com` 或你的 superadmin）
+2. **Company Selection** → 选 `demo_company`（或任一 active 租户）
+3. **Dashboard** → Create Order → **Delivery** 一单 → 填客户 → 加商品 → 提交
+4. **Order list** → 打开订单 → 推进状态（Pending → … → Delivered 或等价链）
+5. **Print PDF** / 配送单 — 确认租户名与字段标签正常
 
-## Rules regression (automated in `npm run test:firebase`)
+### A5.2 — 零售 + 配送（Web 或 APK，~15 min）
 
-| Role | Operation | Expected | Date tested | PASS/FAIL | Notes |
-|------|-----------|----------|-------------|-----------|-------|
-| driver | `orders/{otherCompany}` read | **Deny** | 2026-06-03 | **PASS** | `firestore.rules.test.js` |
-| driver | `orders/{ownCompany}` status update | Allow | 2026-06-03 | **PASS** | `firestore.rules.test.js` |
-| driver | `counter/{otherCompany}_delivery` read | **Deny** | 2026-06-03 | **PASS** | `firestore.rules.test.js` |
-| driver | `counter/{ownCompany}_delivery` read | Allow | 2026-06-03 | **PASS** | `firestore.rules.test.js` |
-| driver | `audit_logs` create | **Deny** | 2026-06-03 | **PASS** | `firestore.rules.test.js` |
-| driver | `counters/{x}` read | **Deny** | 2026-06-03 | **PASS** | `firestore.rules.test.js` |
-| senior_florist | `counter/{id}_delivery` update | Allow | 2026-06-03 | **PASS** | `firestore.rules.test.js` |
-| senior_florist | `audit_logs` create | Allow | 2026-06-03 | **PASS** | `firestore.rules.test.js` |
-| platform admin | `deleted_orders` create | Allow | 2026-06-05 | **CI** | rules deploy 2026-06-05 |
+1. **Retail / POS**：Walk-in 零售单 → 收银 → 小票/摘要页
+2. **Delivery**：再建配送单 → 分配司机（如有）→ 司机端可见（接 A5.4）
+
+### A5.3 — 客户 / 发票 / 报表（Web，~10 min）
+
+1. **Customers** → 新建 → 编辑 → 搜索
+2. **Invoices** → 列表 / 确认页（如有未结订单）
+3. **Sales report** → 选日期范围 → **Export CSV**
+
+### A5.4 — 司机路由（Web/APK，~5 min）
+
+1. 司机账号登录 → 应进入 **My Deliveries**，**不能**打开 Dashboard / Order list URL
+2. 推进一单状态 → staff 端订单详情同步
+
+### A5.5 — 离线队列（Android only，~10 min）
+
+1. 开启飞行模式 → Create Order → 确认 queued
+2. 恢复网络 → 确认同步成功、Firestore 有订单 doc
 
 ---
 
-## Counter initialization (per active company)
+## A1–A4 部署与种子（embercore-erp）
 
-Run `npm run init:counters` (production) or fill after dry-run output.
+| # | 任务 | 状态 | 日期 | 备注 |
+|---|------|------|------|------|
+| A1 | `firebase/` 在仓库 + `.firebaserc` → `embercore-erp` | ✅ | 2026-06-24 | |
+| A2 | Auth / Firestore / Storage / Hosting / Functions | ✅ | 2026-06-24 | `asia-southeast1` |
+| A3.1 | `firestore.rules` + indexes 部署 | ✅ | 2026-06-27 | registration `status+created_time` index 已加 |
+| A3.2 | `storage.rules` + CORS | ✅ | 2026-06-24 | |
+| A3.3 | Cloud Functions（含 `approveRegistrationRequest`） | ✅ | 2026-06-27 | |
+| A3.4 | `flutter build web` → Hosting | ✅ | 2026-06-27 | 含 logo + registration Timestamp 修复 |
+| A3.5 | `npm run test:firebase` | ✅ | 2026-06-27 | 101/101 |
+| A4 | 种子：superadmin + demo 租户 + 商品 | ⬜ | | Console / 脚本确认 `demo_company` counters + 至少 1 product |
+| A4b | 老花店 `tenant_platform_config` florist | ⬜ | | 无老用户可跳过 |
 
-| Company doc ID | `_delivery` current | `_retail` current | Verified after test order | Date | Notes |
-|----------------|---------------------|-------------------|---------------------------|------|-------|
-| lc3Dhfby8f35Md0E1vZC | 0 | 0 | | 2026-06-03 | init_counters PASS |
-| default | 0 | 0 | | 2026-06-03 | created by init_counters |
-
-Document IDs: `{companyDocId}_delivery` and `{companyDocId}_retail` in collection `counter`.
-App writes `{writeCompanyId}_*` (`TenantContext.writeCompanyId`); `default_*` is legacy bootstrap only.
-
----
-
-## Peak rehearsal — Key paths (D1–D5)
-
-| ID | Date | Executor | Platform | Path | Result | Order ID / evidence | Notes |
-|----|------|----------|----------|------|--------|---------------------|-------|
-| D1 | | | Android | Retail full flow (§3) | **MANUAL** | | WI format, `{companyId}_retail` counter |
-| D2 | | | | Delivery full flow (§4) | **MANUAL** | | pending, address, PDF |
-| D3 | 2026-06-03 | | unit test | Status chain | **PASS** | | `order_status_helpers_test.dart` |
-| D4 | | | Android | Bluetooth print (3 screens) | **MANUAL** | | MAC, permissions |
-| D5 | | | Web/Android | CSV export | **MANUAL** | | tenant + date filter |
+**Staging（A2 扩展）：** 见 [STAGING_EMBERCORE.md](STAGING_EMBERCORE.md) · Firestore + **rules** + indexes 已部署 · **Hosting 已部署** https://embercore-erp-staging.web.app · bootstrap 待 staging service account key
 
 ---
 
-## verify:peak warnings (2026-06-03 → closed)
+## Rules regression（`npm run test:firebase` — 2026-06-27）
 
-`npm run verify:peak` exits **0** on errors only; these **warn** findings were logged and remediated:
+| Area | Expected | Result |
+|------|----------|--------|
+| orders tenant isolation | driver/staff 不可跨 company | **PASS** |
+| Order_item tenant isolation | 同上 | **PASS** |
+| counter tenant isolation | driver 不可读他司 counter | **PASS** |
+| product / customers writes | 不可写他司 | **PASS** |
+| SaaS onboarding | registration create/read/approve；platform_config 读写边界 | **PASS** |
+| storage rules | delivery proof / invoice / product image claims | **PASS** |
+| init_counters + order counter integration | emulator 递增与建单 | **PASS** |
 
-| Code | Message | Resolution | Ticket | Status |
-|------|---------|------------|--------|--------|
-| `USER_UID_MISMATCH` | `users/{docId}` where `data.uid !== docId` (rules read `users/{auth.uid}`) | `npm run fix:user-ids` — migrated `yanyitoo1025@gmail.com` → `users/tFlQ4rhmVlhUqTjkGorHjZUhoQP2` | **peak-warn-001** | **closed** 2026-06-03 |
-| `NO_DRIVER_ACCOUNT` | No `role: driver` user for §17 smoke | `npm run create:driver` — `tfg.driver.smoke@gmail.com` → `users/XZvTGyTIn9Tat9a8S66y0XThYfs1` | **peak-warn-002** | **closed** 2026-06-03 |
+---
 
-**Re-verify (optional):** with service account set, `npm run verify:peak` — expect `findings` with no `warn` entries (or only new drift).
+## Flutter tests（2026-06-27）
+
+**Command:** `flutter test` · **Result:** **326 passed**
+
+| File | 段 A 相关 |
+|------|-----------|
+| `role_route_guard_test.dart` | A5.4 司机路由 |
+| `offline_write_queue_test.dart` | A5.5 离线队列逻辑 |
+| `tenant_product_filter_test.dart` | 租户商品过滤 |
+| `order_status_helpers_test.dart` | 状态链 |
+| `registration_approval_service_test.dart` | Timestamp → DateTime 解析 |
+| `order_id_service_test.dart` | 动态 order prefix |
+| （其余 320+） | 回归 |
+
+---
+
+## 历史记录 — tfg-sales-record（2026-06-03 — 2026-06-05）
+
+> 以下为迁移至 EmberCore 前的 **tfg-sales-record** 峰值季记录，仅供参考。
+
+**Environment:** Firebase project `tfg-sales-record` · Web **https://tfg-sales-record.web.app**
+
+### P1 automated verification (legacy)
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| Flutter unit tests | **CI** | 当时 67 cases |
+| Production counter init | **PASS** | 2026-06-03 |
+| Production user/counter audit | **PASS** | `npm run verify:peak` |
+| Deploy Web + rules | **PASS** | 2026-06-05 |
+
+### §16 Smoke — Summary (legacy)
+
+| Step | Result | Notes |
+|------|--------|-------|
+| C1-1 Deploy rules | **PASS** | 2026-06-03 |
+| C1-1b Deploy housing | **PASS** | tfg-sales-record.web.app |
+| C1-4 Driver test account | **PASS** | `tfg.driver.smoke@gmail.com` |
+| C3-2 Block staff routes | **PASS** | unit test |
+| D3 Status chain | **PASS** | unit test |
+
+### verify:peak warnings (closed 2026-06-03)
+
+| Code | Resolution |
+|------|------------|
+| `USER_UID_MISMATCH` | `npm run fix:user-ids` |
+| `NO_DRIVER_ACCOUNT` | `npm run create:driver` |
 
 ---
 
 ## Known issues / tickets
 
-| Date | ID / link | Severity | Description | Status |
-|------|-----------|----------|-------------|--------|
-| 2026-06-03 | create:driver | done | Smoke driver `tfg.driver.smoke@gmail.com` → `users/XZvTGyTIn9Tat9a8S66y0XThYfs1` | closed |
-| 2026-06-03 | fix:user-ids | fixed | Migrated `yanyitoo1025@gmail.com` from `users/gXOBFoMVqtbglOOoSq5w` → `users/tFlQ4rhmVlhUqTjkGorHjZUhoQP2` | closed |
-| 2026-06-03 | peak-warn-001 | warn | `verify:peak` → `USER_UID_MISMATCH` | closed — see table above |
-| 2026-06-03 | peak-warn-002 | warn | `verify:peak` → `NO_DRIVER_ACCOUNT` | closed — see table above |
-| — | local-java | info | `npm run test:rules` needs **JDK 21+** on PATH (firebase-tools) | use CI or install Temurin 21 |
+| Date | ID | Severity | Description | Status |
+|------|-----|----------|-------------|--------|
+| 2026-06-27 | a5-manual | info | A5.1 UI 建单/打印、A5.2–A5.3 手测待完成 | open |
+| 2026-06-27 | a5-android | info | A5.5 需 Android APK 断网手测 | open |
+| 2026-06-27 | a4-seed | info | 确认 `demo_company` counters + 测试商品已 seed | open |
+| — | local-java | info | `npm run test:firebase` 需 **JDK 21+** | use CI or Temurin 21 |
 
 ---
 
-## Manual rehearsal script (≈30 min)
-
-1. **Staff Web:** login → create delivery order → add catalog product → **custom product** (Upload Photo + Add) → complete customer form → **View Reports** date range (N7) → export CSV (D5 partial)
-2. **Admin Web:** **User List** (N1) → verify staff → **Add Staff** (N2) if needed
-3. **Staff Android:** retail walk-in → thermal print (D1, D4)
-4. **Driver Android/Web:** login (delivery page only) → filter chips + date (N5) → advance one order (C3, D3 live) → optional Maps route (N6)
-5. **Staff:** order list bulk select (N8) → confirm driver status on order detail (C3-5)
-
-*Attach screenshots or order IDs in Evidence columns above.*
-
-**Production counter init (run once before peak):**
-
-```bash
-cd firebase
-set GOOGLE_APPLICATION_CREDENTIALS=C:\path\to\serviceAccount.json
-npm run init:counters:dry-run
-npm run init:counters
-npm run verify:peak
-```
+*EmberCore by EmberSoulLabs · Smoke Test Log · updated 2026-06-27*

@@ -150,6 +150,13 @@ class FcmService {
   }
 
   void _handleOpenedMessage(RemoteMessage message) {
+    final navigationPayload = message.data['navigationPayload'];
+    if (navigationPayload != null && navigationPayload.isNotEmpty) {
+      StaffNoticeAlertService.instance.navigateFromNoticePayload(
+        navigationPayload,
+      );
+      return;
+    }
     final orderPath = message.data['orderPath'];
     if (orderPath == null || orderPath.isEmpty) {
       return;

@@ -75,7 +75,7 @@ Map<String, dynamic> buildOrderCheckoutPatch(
   return patch;
 }
 
-/// Delivery detail form after Payment Done — matches [isOrderDeliveryDetailSubmitUpdate].
+/// Delivery detail form submit — then payment summary.
 Future<void> submitOrderDeliveryDetailUpdate(
   DocumentReference orderRef,
   OrdersRecord order,

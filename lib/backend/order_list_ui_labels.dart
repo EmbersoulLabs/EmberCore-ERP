@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '/flutter_flow/flutter_flow_choice_chips.dart';
 import '/l10n/tr.dart';
+import '/platform/platform_order_types.dart';
 
 enum OrderListTypeChip {
   all,
@@ -12,6 +13,18 @@ enum OrderListTypeChip {
 
 extension OrderListTypeChipX on OrderListTypeChip {
   String label(BuildContext context) {
+    if (tenantUsesGenericOrderTypes()) {
+      switch (this) {
+        case OrderListTypeChip.all:
+          return tr(context, 'order.type.all');
+        case OrderListTypeChip.retail:
+          return tr(context, 'order.type.onSite');
+        case OrderListTypeChip.delivery:
+          return tr(context, 'order.type.remote');
+        case OrderListTypeChip.pickUp:
+          return tr(context, 'order.type.walkIn');
+      }
+    }
     switch (this) {
       case OrderListTypeChip.all:
         return tr(context, 'order.type.all');
@@ -29,11 +42,11 @@ extension OrderListTypeChipX on OrderListTypeChip {
       case OrderListTypeChip.all:
         return 'All';
       case OrderListTypeChip.retail:
-        return 'Retail';
+        return orderListChipFilterValue('retail');
       case OrderListTypeChip.delivery:
-        return 'Delivery';
+        return orderListChipFilterValue('delivery');
       case OrderListTypeChip.pickUp:
-        return 'PickUp';
+        return orderListChipFilterValue('pickUp');
     }
   }
 }
@@ -55,10 +68,19 @@ List<String> _allLabelsForKey(OrderListTypeChip key) {
     case OrderListTypeChip.all:
       return const ['All', '全部', 'Semua'];
     case OrderListTypeChip.retail:
+      if (tenantUsesGenericOrderTypes()) {
+        return const ['OnSite', '现场', 'Di Tapak'];
+      }
       return const ['Retail', '零售', 'Runcit'];
     case OrderListTypeChip.delivery:
+      if (tenantUsesGenericOrderTypes()) {
+        return const ['Remote', '远程', 'Jauh'];
+      }
       return const ['Delivery', '配送', 'Penghantaran'];
     case OrderListTypeChip.pickUp:
+      if (tenantUsesGenericOrderTypes()) {
+        return const ['WalkIn', '到店', 'Walk-in'];
+      }
       return const ['PickUp', '自取', 'Ambil Sendiri'];
   }
 }
@@ -75,7 +97,15 @@ String? orderListTypeFilterValue(String? chipLabel) {
   if (key != null) {
     return key.filterValue;
   }
-  const canonical = {'All', 'Retail', 'Delivery', 'PickUp'};
+  const canonical = {
+    'All',
+    'Retail',
+    'Delivery',
+    'PickUp',
+    'OnSite',
+    'Remote',
+    'WalkIn',
+  };
   if (chipLabel != null && canonical.contains(chipLabel)) {
     return chipLabel;
   }

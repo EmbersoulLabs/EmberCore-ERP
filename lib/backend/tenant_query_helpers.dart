@@ -509,6 +509,9 @@ Map<String, dynamic> createTenantProductRecordData({
   bool? isActive,
   String? category,
   List<Map<String, dynamic>>? recipeLines,
+  int? stockQty,
+  bool? trackStock,
+  bool? allowZeroStock,
 }) =>
     createProductRecordData(
       name: name,
@@ -518,6 +521,9 @@ Map<String, dynamic> createTenantProductRecordData({
       isActive: isActive,
       category: category,
       recipeLines: recipeLines,
+      stockQty: stockQty,
+      trackStock: trackStock,
+      allowZeroStock: allowZeroStock,
       companyRef: tenantCompanyRefForRules(),
     );
 

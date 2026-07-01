@@ -2,6 +2,6 @@
   "projects": {
     "default": "embercore-erp",
     "production": "embercore-erp",
-    "staging": "tfg-vday-record-staging"
+    "staging": "embercore-erp-staging"
   }
 }

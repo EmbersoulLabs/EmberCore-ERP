@@ -1,19 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '/auth/firebase_auth/auth_util.dart';
-import '/auth/register_user_service.dart';
 import '/auth/role_helpers.dart';
 import '/auth/viewer_role_helpers.dart';
 import '/backend/create_order_service.dart';
-import '/backend/schema/companies_record.dart';
 import '/backend/schema/enums/enums.dart';
+import '/backend/schema/util/firestore_util.dart';
 import '/backend/staff_role_helpers.dart';
 import '/backend/tenant_company_helpers.dart';
 import '/backend/user_registration_request_helpers.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/platform/platform_config_service.dart';
 import '/platform/tenant_platform_config.dart';
-import 'package:flutter/material.dart';
+
+/// Cloud Functions region for `approveRegistrationRequest` (see `firebase/functions`).
+const _functionsRegion = 'asia-southeast1';
 
 enum RegistrationRequestStatus {
   pending,
@@ -95,7 +97,7 @@ class UserRegistrationRequest {
   static UserRegistrationRequest fromSnapshot(
     DocumentSnapshot<Map<String, dynamic>> snapshot,
   ) {
-    final data = snapshot.data() ?? {};
+    final data = mapFromFirestore(snapshot.data() ?? {});
     return UserRegistrationRequest(
       id: snapshot.id,
       email: data['email']?.toString() ?? snapshot.id,
@@ -182,13 +184,21 @@ class RegistrationApprovalResult {
     this.signedOutSuperAdminSession = false,
     this.companyRef,
     this.userUid,
+    this.passwordResetLink,
   });
 
   final bool success;
   final String? errorMessage;
+
+  /// Always false for server-side approval; kept for API compatibility with the
+  /// legacy client-side flow that re-authenticated the superadmin.
   final bool signedOutSuperAdminSession;
   final DocumentReference? companyRef;
   final String? userUid;
+
+  /// Set when the director was provisioned without a password (the link lets
+  /// them set their own). Null when an initial password was supplied.
+  final String? passwordResetLink;
 }
 
 class RegistrationRejectionResult {
@@ -233,36 +243,6 @@ Future<void> initializeNewTenantFirestore(DocumentReference companyRef) async {
     },
     SetOptions(merge: true),
   );
-}
-
-Future<DocumentReference> createCompanyFromRegistrationRequest(
-  UserRegistrationRequest request,
-) async {
-  final companyRef = CompaniesRecord.collection.doc();
-  final companyId = companyRef.id;
-  final displayName = request.isCompanyAccount
-      ? (request.companyName ?? '').trim()
-      : request.name.trim();
-
-  await companyRef.set(
-    createCompaniesRecordData(
-      companyId: companyId,
-      companyName: displayName.isEmpty ? request.name.trim() : displayName,
-      companyPhone: request.isCompanyAccount
-          ? (request.companyPhone ?? request.phone).trim()
-          : request.phone.trim(),
-      companyAddress: (request.companyAddress ?? '').trim(),
-      companyUen: (request.companyUen ?? '').trim(),
-      isActive: true,
-      createdAt: getCurrentTimestamp,
-      logo: (request.companyLogoUrl ?? '').trim().isEmpty
-          ? null
-          : request.companyLogoUrl!.trim(),
-    ),
-  );
-
-  await initializeNewTenantFirestore(companyRef);
-  return companyRef;
 }
 
 Future<RegistrationRejectionResult> rejectRegistrationRequest({
@@ -318,10 +298,17 @@ Future<RegistrationRejectionResult> rejectRegistrationRequest({
   }
 }
 
+/// Approves a registration request by invoking the `approveRegistrationRequest`
+/// Cloud Function. The function provisions the tenant + director Auth user with
+/// the Admin SDK, so the calling superadmin's session is never disturbed.
+///
+/// [initialPassword] is optional: when blank, the director is provisioned
+/// passwordless and a password-reset link is returned in
+/// [RegistrationApprovalResult.passwordResetLink]; when provided it must be at
+/// least 6 characters.
 Future<RegistrationApprovalResult> approveRegistrationRequest({
-  required BuildContext context,
   required String requestId,
-  required String initialPassword,
+  String initialPassword = '',
 }) async {
   if (!isSuperAdminRole(currentViewerRole())) {
     return const RegistrationApprovalResult(
@@ -330,85 +317,39 @@ Future<RegistrationApprovalResult> approveRegistrationRequest({
     );
   }
 
-  if (initialPassword.length < 6) {
+  if (initialPassword.isNotEmpty && initialPassword.length < 6) {
     return const RegistrationApprovalResult(
       success: false,
       errorMessage: 'Initial password must be at least 6 characters.',
     );
   }
 
-  final docRef = registrationRequestDocRef(requestId);
   try {
-    final snapshot = await docRef.get();
-    if (!snapshot.exists) {
-      return const RegistrationApprovalResult(
-        success: false,
-        errorMessage: 'Registration request not found.',
-      );
-    }
-
-    final request = UserRegistrationRequest.fromSnapshot(snapshot);
-    if (!request.isPending) {
-      return const RegistrationApprovalResult(
-        success: false,
-        errorMessage: 'This request is no longer pending.',
-      );
-    }
-
-    if (request.isCompanyAccount &&
-        (request.companyName ?? '').trim().isEmpty) {
-      return const RegistrationApprovalResult(
-        success: false,
-        errorMessage: 'Company name is missing on this request.',
-      );
-    }
-
-    final companyRef = await createCompanyFromRegistrationRequest(request);
-
-    final reviewerUid = currentUserUid;
-    if (!context.mounted) {
-      return RegistrationApprovalResult(
-        success: false,
-        errorMessage: 'Approval cancelled.',
-        companyRef: companyRef,
-      );
-    }
-    final registerResult = await registerStaffUser(
-      context: context,
-      email: request.email,
-      password: initialPassword,
-      name: request.name,
-      role: UserRole.director,
-      companyRef: companyRef,
-      phoneNumber: request.phone,
-    );
-
-    if (!registerResult.success) {
-      return RegistrationApprovalResult(
-        success: false,
-        errorMessage: registerResult.errorMessage ??
-            'Could not create the director login.',
-        companyRef: companyRef,
-      );
-    }
-
-    await docRef.update({
-      'status': registrationRequestStatusKey(
-        RegistrationRequestStatus.approved,
-      ),
-      'reviewed_at': FieldValue.serverTimestamp(),
-      'reviewed_by_uid': reviewerUid,
-      'provisioned_company_ref': companyRef,
-      if (registerResult.createdUserUid != null)
-        'provisioned_user_uid': registerResult.createdUserUid,
-      'initial_password_set': true,
+    final callable = FirebaseFunctions.instanceFor(region: _functionsRegion)
+        .httpsCallable('approveRegistrationRequest');
+    final response = await callable.call<Map<String, dynamic>>({
+      'requestId': requestId,
+      if (initialPassword.isNotEmpty) 'initialPassword': initialPassword,
     });
 
+    final data = Map<String, dynamic>.from(response.data as Map);
+    final companyPath = data['companyPath']?.toString();
+    final resetLink = data['passwordResetLink']?.toString();
     return RegistrationApprovalResult(
       success: true,
-      signedOutSuperAdminSession: registerResult.signedOutAdminSession,
-      companyRef: companyRef,
-      userUid: registerResult.createdUserUid,
+      companyRef: companyPath != null && companyPath.isNotEmpty
+          ? FirebaseFirestore.instance.doc(companyPath)
+          : null,
+      userUid: data['userUid']?.toString(),
+      passwordResetLink: (resetLink == null || resetLink.isEmpty)
+          ? null
+          : resetLink,
+    );
+  } on FirebaseFunctionsException catch (error) {
+    return RegistrationApprovalResult(
+      success: false,
+      errorMessage:
+          error.message ?? 'Could not approve this registration request.',
     );
   } catch (error) {
     return RegistrationApprovalResult(

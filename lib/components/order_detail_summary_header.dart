@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '/backend/driver_assignment_helpers.dart';
 import '/backend/order_list_display_helpers.dart';
 import '/backend/schema/orders_record.dart';
+import '/backend/schema/users_record.dart';
 import '/components/ember_status_badge.dart';
 import '/l10n/tr.dart';
 import '/theme/ember_brand.dart';
@@ -95,10 +97,50 @@ class OrderDetailSummaryHeader extends StatelessWidget {
                   locale: Localizations.localeOf(context).languageCode,
                 ),
               ),
+              if (_showDriverMetric(order))
+                _AssignedDriverMetric(order: order),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+bool _showDriverMetric(OrdersRecord order) {
+  final type =
+      order.orderType.isNotEmpty ? order.orderType : order.pickupDelivery;
+  return type != 'Retail';
+}
+
+class _AssignedDriverMetric extends StatelessWidget {
+  const _AssignedDriverMetric({required this.order});
+
+  final OrdersRecord order;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!order.hasAssignedDriver()) {
+      return _Metric(
+        label: tr(context, 'order.col.driver'),
+        value: tr(context, 'order.field.unassignedDriver'),
+        valueColor: EmberBrand.amber,
+      );
+    }
+
+    return StreamBuilder<UsersRecord>(
+      stream: UsersRecord.getDocument(order.assignedDriver!),
+      builder: (context, snapshot) {
+        final value = snapshot.hasData
+            ? driverDisplayName(snapshot.data!)
+            : '…';
+        return _Metric(
+          label: tr(context, 'order.col.driver'),
+          value: value,
+          valueColor: EmberBrand.navy,
+          bold: true,
+        );
+      },
     );
   }
 }

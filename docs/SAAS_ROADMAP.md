@@ -238,22 +238,26 @@ On approve, automatically / 批准时自动:
 
 ## 3.1 Plan design / 套餐设计
 
-- [ ] Define tiers (example):
+**Canonical spec:** [PRICING_PLANS.md](PRICING_PLANS.md)
 
-| Plan | Monthly | Staff cap | Orders/mo | Features |
-|------|---------|-----------|-----------|----------|
-| Starter | RM XX | ≤ 5 | ≤ 500 | POS + delivery |
-| Pro | RM XX | ≤ 20 | Unlimited | + Shopify + reports |
-| Enterprise | Custom | Unlimited | Unlimited | + API + support |
+| Plan | Monthly (MYR) | Staff cap | Orders/mo | Upgrade hook |
+|------|---------------|-----------|-----------|--------------|
+| Starter | RM 59–89 (RM 69) | ≤ 2 | ≤ 2,000 | Core ERP + CSV import/export |
+| Pro | RM 179–249 (RM 199) | Unlimited | Unlimited | WhatsApp · Shopify · BOM/profit · audit |
+| Business | RM 449–599 (RM 499) | Unlimited | Unlimited | Multi-store · HQ dashboard · Open API |
 
-- [ ] Free trial length (e.g. 14 days)
-- [ ] Annual discount
+- [x] Tier feature matrix documented
+- [ ] Stripe Price IDs (MYR) + Functions `PLAN_LIMITS` aligned
+- [ ] `plan_tier` gates `PlatformModule` (Pro modules locked on Starter)
+- [ ] Broadcast quota (Pro 2k/mo, Business unlimited)
+- [ ] Free trial 14 days (Firestore trialing — not Stripe trial)
+- [ ] Annual discount (optional second Price per tier)
 
 ## 3.2 Data model / 数据模型
 
 On `Companies` or `subscriptions/{companyId}`:
 
-- [ ] `plan_tier` (starter / pro / enterprise)
+- [ ] `plan_tier` (starter / pro / business)
 - [ ] `subscription_status` (trialing / active / past_due / cancelled)
 - [ ] `trial_ends_at`
 - [ ] `current_period_end`

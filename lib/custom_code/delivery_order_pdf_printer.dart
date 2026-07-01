@@ -16,6 +16,8 @@ import '/backend/schema/customers_record.dart';
 import '/backend/schema/order_item_record.dart';
 import '/components/delivery_order_item_table.dart';
 import '/backend/payment_method_helpers.dart';
+import '/platform/platform_labels.dart';
+import '/platform/tenant_platform_config.dart';
 import '/custom_code/pdf_font_helpers.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 
@@ -127,7 +129,10 @@ class DeliveryOrderPdfPrinter {
     ];
   }
 
-  static List<String> recipientDetailLines(OrdersRecord order) {
+  static List<String> recipientDetailLines(
+    OrdersRecord order, {
+    String locale = 'en',
+  }) {
     final deliveryAddress = [
       order.address,
       order.postalCode,
@@ -136,18 +141,42 @@ class DeliveryOrderPdfPrinter {
     final deliveryDate = order.deliveryDate != null
         ? dateTimeFormat('yyyy-MM-dd', order.deliveryDate)
         : '-';
+    final recipientLabel = platformFieldLabelForLocale(
+      PlatformFieldKey.recipientName,
+      locale: locale,
+    );
+    final phoneLabel = platformFieldLabelForLocale(
+      PlatformFieldKey.recipientPhone,
+      locale: locale,
+    );
+    final addressLabel = platformFieldLabelForLocale(
+      PlatformFieldKey.serviceAddress,
+      locale: locale,
+    );
+    final dateLabel = platformFieldLabelForLocale(
+      PlatformFieldKey.scheduledDate,
+      locale: locale,
+    );
+    final timeLabel = platformFieldLabelForLocale(
+      PlatformFieldKey.timeWindow,
+      locale: locale,
+    );
+    final notesLabel = platformFieldLabelForLocale(
+      PlatformFieldKey.serviceNotes,
+      locale: locale,
+    );
 
     return [
       if (order.recipientName.trim().isNotEmpty)
-        'Recipient: ${order.recipientName.trim()}',
+        '$recipientLabel: ${order.recipientName.trim()}',
       if (orderRecipientPhone(order).trim().isNotEmpty)
-        'Phone: ${orderRecipientPhone(order).trim()}',
-      if (deliveryAddress.isNotEmpty) 'Address: $deliveryAddress',
-      'Delivery date: $deliveryDate',
+        '$phoneLabel: ${orderRecipientPhone(order).trim()}',
+      if (deliveryAddress.isNotEmpty) '$addressLabel: $deliveryAddress',
+      '$dateLabel: $deliveryDate',
       if (order.deliveryTimeSlot.trim().isNotEmpty)
-        'Time slot: ${order.deliveryTimeSlot.trim()}',
+        '$timeLabel: ${order.deliveryTimeSlot.trim()}',
       if (order.cardMessage.trim().isNotEmpty)
-        'Message: ${order.cardMessage.trim()}',
+        '$notesLabel: ${order.cardMessage.trim()}',
     ];
   }
 

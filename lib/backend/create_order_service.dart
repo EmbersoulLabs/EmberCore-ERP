@@ -5,12 +5,39 @@ import 'package:go_router/go_router.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/draft_order_writer.dart';
 import '/backend/offline/offline_write_queue.dart';
+import '/backend/subscription_helpers.dart';
+import '/platform/platform_labels.dart';
 import '/backend/tenant_context.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 
+Object? _unwrapFirestoreErrorCause(Object error) {
+  if (error is StateError) {
+    return null;
+  }
+  try {
+    final dynamic boxed = error;
+    final nested = boxed.error;
+    if (nested != null && nested != error) {
+      return nested as Object;
+    }
+  } catch (_) {}
+  return null;
+}
+
 /// User-visible message from Firestore / web interop errors.
 String describeFirestoreError(Object error) {
+  final nested = _unwrapFirestoreErrorCause(error);
+  if (nested != null) {
+    return describeFirestoreError(nested);
+  }
+  if (error is StateError) {
+    final msg = error.message;
+    if (msg.isNotEmpty &&
+        !msg.contains('Dart exception thrown from converted Future')) {
+      return msg;
+    }
+  }
   if (error is FirebaseException) {
     if (error.code == 'permission-denied') {
       final companyPath = TenantContext.instance.writeCompanyRef?.path;
@@ -42,6 +69,10 @@ String describeFirestoreError(Object error) {
     return 'Permission denied. Sign out and in again. '
         'Ensure users/$currentUserUid exists with role and companyRef.';
   }
+  if (text.contains('Dart exception thrown from converted Future')) {
+    return 'Could not save payment. Check network and try again. '
+        'If it keeps failing, sign out and sign in again.';
+  }
   return text;
 }
 
@@ -50,6 +81,34 @@ String describeFirestoreError(Object error) {
 Future<void> createDraftOrderAndOpenProductSelection(
   BuildContext context,
 ) async {
+  final subscriptionBlocked = await checkSubscriptionAllowsOrderWrites();
+  if (subscriptionBlocked != null) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(subscriptionBlocked),
+        duration: const Duration(seconds: 8),
+      ),
+    );
+    return;
+  }
+
+  final moduleBlocked = platformModuleOrderWriteBlockMessage();
+  if (moduleBlocked != null) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(moduleBlocked),
+        duration: const Duration(seconds: 8),
+      ),
+    );
+    return;
+  }
+
   try {
     final orderRef = await createDraftOrderDocument();
 
@@ -108,6 +167,34 @@ Future<void> runProductSelectionAction(
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(blocked),
+        duration: const Duration(seconds: 8),
+      ),
+    );
+    return;
+  }
+
+  final subscriptionBlocked = await checkSubscriptionAllowsOrderWrites();
+  if (subscriptionBlocked != null) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(subscriptionBlocked),
+        duration: const Duration(seconds: 8),
+      ),
+    );
+    return;
+  }
+
+  final moduleBlocked = platformModuleOrderWriteBlockMessage();
+  if (moduleBlocked != null) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(moduleBlocked),
         duration: const Duration(seconds: 8),
       ),
     );

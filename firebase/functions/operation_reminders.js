@@ -1,5 +1,14 @@
 const { FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { staffNoticeRecipientRef } = require("./shopify/map_order");
+const {
+  resolveOperationNoticeTemplate,
+  formatOperationNoticeTemplate,
+  loadOperationNoticeTemplates,
+} = require("./operation_notice_templates");
+const {
+  buildTomorrowPrepNoticeContent,
+  applyTomorrowPrepTemplate,
+} = require("./tomorrow_prep_notice_copy");
 
 const BUSINESS_TIMEZONE = "Asia/Singapore";
 
@@ -181,25 +190,59 @@ function summarizeDeliveryOrders(orders) {
   };
 }
 
-function buildTomorrowPrepMessage({ targetDays, summary }) {
-  if (summary.totalDelivery === 0 || summary.notStartedCount === 0) {
-    return null;
+function buildTomorrowPrepNotice({ targetDays, summary, templates = null }) {
+  const content = buildTomorrowPrepNoticeContent(summary);
+  const isWeekendBlock = targetDays.length > 1;
+  const templateKey = isWeekendBlock ? "tomorrow_prep_weekend" : "tomorrow_prep";
+  const custom = templates?.[templateKey]?.trim();
+
+  let body = content.body;
+  if (custom) {
+    if (
+      custom.includes("{line1}") ||
+      custom.includes("{line2}") ||
+      custom.includes("{body}")
+    ) {
+      body = applyTomorrowPrepTemplate(custom, content);
+    } else {
+      body = formatOperationNoticeTemplate(custom, {
+        target_date: formatShortDate(targetDays[0]),
+        target_dates: targetDays.map(formatShortDate).join(", "),
+        total_delivery: content.deliveryCount,
+        pending_count: content.pendingCount,
+        not_started: content.pendingCount,
+        incomplete: summary.incompleteCount,
+      });
+    }
   }
 
-  const isWeekendBlock = targetDays.length > 1;
-  const datePart = isWeekendBlock
-    ? `Weekend + Monday prep (${targetDays.map(formatShortDate).join(", ")})`
-    : `Tomorrow (${formatShortDate(targetDays[0])})`;
-
-  return `${datePart}: ${summary.totalDelivery} delivery order(s) (${summary.notStartedCount} not started)`;
+  return {
+    title: content.title,
+    body,
+    status: content.status,
+    deliveryCount: content.deliveryCount,
+    pendingCount: content.pendingCount,
+  };
 }
 
-function buildTodayOpsMessage({ targetDay, summary }) {
+/** @deprecated Use buildTomorrowPrepNotice */
+function buildTomorrowPrepMessage(args) {
+  return buildTomorrowPrepNotice(args).body;
+}
+
+function buildTodayOpsMessage({ targetDay, summary, templates = null }) {
   if (summary.totalDelivery === 0 || summary.notStartedCount === 0) {
     return null;
   }
 
-  return `Today (${formatShortDate(targetDay)}): ${summary.totalDelivery} delivery order(s) (${summary.notStartedCount} not started)`;
+  const template = resolveOperationNoticeTemplate(templates, "today_ops");
+  return formatOperationNoticeTemplate(template, {
+    target_date: formatShortDate(targetDay),
+    target_dates: formatShortDate(targetDay),
+    total_delivery: summary.totalDelivery,
+    not_started: summary.notStartedCount,
+    incomplete: summary.incompleteCount,
+  });
 }
 
 function resolveTargetDaysForTomorrowPrep(localDay) {
@@ -241,6 +284,10 @@ async function writeReminderNotices({
   message,
   deliveryDate,
   itemSummary,
+  noticeTitle,
+  prepDeliveryCount,
+  prepPendingCount,
+  prepStatus,
 }) {
   if (recipients.length === 0) {
     return 0;
@@ -259,6 +306,10 @@ async function writeReminderNotices({
       delivery_date: Timestamp.fromDate(deliveryDate),
       created_time: FieldValue.serverTimestamp(),
       companyRef,
+      ...(noticeTitle ? { notice_title: noticeTitle } : {}),
+      ...(prepDeliveryCount != null ? { prep_delivery_count: prepDeliveryCount } : {}),
+      ...(prepPendingCount != null ? { prep_pending_count: prepPendingCount } : {}),
+      ...(prepStatus ? { prep_status: prepStatus } : {}),
     });
     writes += 1;
   });
@@ -294,15 +345,12 @@ async function sendTomorrowPrepReminders(db, localDay) {
 
     const orders = await loadOrdersForCompanyOnDates(db, companyRef, targetDays);
     const summary = summarizeDeliveryOrders(orders);
-    const message = buildTomorrowPrepMessage({
+    const templates = await loadOperationNoticeTemplates(db, companyRef.id);
+    const notice = buildTomorrowPrepNotice({
       targetDays,
       summary,
+      templates,
     });
-
-    if (!message) {
-      results.push({ companyId: companyRef.id, noticesCreated: 0, reason: "nothing_to_remind" });
-      continue;
-    }
 
     const recipients = await loadOperationReminderRecipients(db, companyRef);
     const noticesCreated = await writeReminderNotices({
@@ -310,11 +358,15 @@ async function sendTomorrowPrepReminders(db, localDay) {
       companyRef,
       recipients,
       noticeType: NOTICE_TYPE.tomorrowPrep,
-      message,
+      message: notice.body,
       deliveryDate: targetDays[0],
       itemSummary: "",
+      noticeTitle: notice.title,
+      prepDeliveryCount: notice.deliveryCount,
+      prepPendingCount: notice.pendingCount,
+      prepStatus: notice.status,
     });
-    results.push({ companyId: companyRef.id, noticesCreated, message });
+    results.push({ companyId: companyRef.id, noticesCreated, message: notice.body });
   }
 
   return results;
@@ -344,9 +396,11 @@ async function sendTodayOpsReminders(db, localDay) {
 
     const orders = await loadOrdersForCompanyOnDates(db, companyRef, [targetDay]);
     const summary = summarizeDeliveryOrders(orders);
+    const templates = await loadOperationNoticeTemplates(db, companyRef.id);
     const message = buildTodayOpsMessage({
       targetDay,
       summary,
+      templates,
     });
 
     if (!message) {
@@ -382,6 +436,7 @@ module.exports = {
   resolveTargetDaysForTomorrowPrep,
   summarizeDeliveryOrders,
   buildTomorrowPrepMessage,
+  buildTomorrowPrepNotice,
   buildTodayOpsMessage,
   sendTomorrowPrepReminders,
   sendTodayOpsReminders,

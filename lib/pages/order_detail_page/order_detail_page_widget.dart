@@ -2,29 +2,22 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/auth/record_edit_permissions.dart';
 import '/auth/role_helpers.dart';
 import '/backend/backend.dart';
+import '/backend/create_order_service.dart';
 import '/backend/order_item_helpers.dart';
 import '/backend/tenant_context.dart';
 import '/backend/user_query_helpers.dart';
-import '/backend/order_navigation_helpers.dart';
-import '/backend/order_whatsapp_helpers.dart';
 import '/components/order_delivery_proof_section.dart';
 import '/components/order_activity_log_panel.dart';
-import '/backend/order_production_menu_helpers.dart';
-import '/backend/reprint_receipt_helpers.dart';
-import '/backend/staff_notice_helpers.dart';
 import '/backend/schema/enums/enums.dart';
-import '/components/assign_driver_sheet.dart';
+import '/backend/order_list_display_helpers.dart';
 import '/components/ember_app_shell.dart';
 import '/components/ember_status_badge.dart';
-import '/components/order_detail_summary_header.dart';
-import '/backend/order_list_display_helpers.dart';
-import '/backend/order_status_display.dart';
-import '/theme/ember_brand.dart';
-import '/theme/ember_navigation.dart';
 import '/components/edit_order_details_widget.dart';
 import '/components/edit_order_products_widget.dart';
-import '/flutter_flow/nav/nav.dart';
-import '/components/update_order_status_widget.dart';
+import '/components/order_detail_actions_panel.dart';
+import '/components/order_detail_summary_header.dart';
+import '/theme/ember_brand.dart';
+import '/theme/ember_navigation.dart';
 import '/components/order_detail_item_tile.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -105,6 +98,8 @@ class _OrderDetailPageWidgetState extends State<OrderDetailPageWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final orderRef = widget.orderRef;
+
     return GestureDetector(
       behavior: HitTestBehavior.deferToChild,
       onTap: () {
@@ -117,39 +112,40 @@ class _OrderDetailPageWidgetState extends State<OrderDetailPageWidget> {
         showBackButton: true,
         navGroups: buildEmberNavGroups(context),
         extraActions: [
-          StreamBuilder<OrdersRecord>(
-            stream: OrdersRecord.getDocument(widget!.orderRef!),
-            builder: (context, snapshot) {
-              final order = snapshot.data;
-              if (order == null ||
-                  !canEditOrderRecord(
-                    AppStateNotifier.instance.userRole,
-                    order,
-                  )) {
-                return const SizedBox.shrink();
-              }
-              return PopupMenuButton<String>(
-                icon: Icon(Icons.edit_outlined, color: EmberBrand.navy),
-                onSelected: (value) async {
-                  final latestOrder =
-                      await OrdersRecord.getDocumentOnce(widget!.orderRef!);
-                  if (!context.mounted) {
-                    return;
-                  }
-                  if (value == 'customer') {
-                    showEditOrderDetailsSheet(
-                      context,
-                      orderRef: widget!.orderRef!,
-                      order: latestOrder,
-                    );
-                  } else if (value == 'products') {
-                    showEditOrderProductsSheet(
-                      context,
-                      orderRef: widget!.orderRef!,
-                      order: latestOrder,
-                    );
-                  }
-                },
+          if (orderRef != null)
+            StreamBuilder<OrdersRecord>(
+              stream: OrdersRecord.getDocument(orderRef),
+              builder: (context, snapshot) {
+                final order = snapshot.data;
+                if (order == null ||
+                    !canEditOrderRecord(
+                      AppStateNotifier.instance.userRole,
+                      order,
+                    )) {
+                  return const SizedBox.shrink();
+                }
+                return PopupMenuButton<String>(
+                  icon: Icon(Icons.edit_outlined, color: EmberBrand.navy),
+                  onSelected: (value) async {
+                    final latestOrder =
+                        await OrdersRecord.getDocumentOnce(orderRef);
+                    if (!context.mounted) {
+                      return;
+                    }
+                    if (value == 'customer') {
+                      showEditOrderDetailsSheet(
+                        context,
+                        orderRef: orderRef,
+                        order: latestOrder,
+                      );
+                    } else if (value == 'products') {
+                      showEditOrderProductsSheet(
+                        context,
+                        orderRef: orderRef,
+                        order: latestOrder,
+                      );
+                    }
+                  },
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'customer',
@@ -168,26 +164,62 @@ class _OrderDetailPageWidgetState extends State<OrderDetailPageWidget> {
         ],
         body: SafeArea(
           top: true,
-          child: StreamBuilder<OrdersRecord>(
-            stream: OrdersRecord.getDocument(widget!.orderRef!),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return Center(
-                  child: SizedBox(
-                    width: 50.0,
-                    height: 50.0,
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        EmberBrand.navy,
-                      ),
+          child: orderRef == null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      tr(context, 'order.detail.missingOrderRef'),
+                      textAlign: TextAlign.center,
+                      style: FlutterFlowTheme.of(context).bodyLarge,
                     ),
                   ),
-                );
-              }
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: StreamBuilder<OrdersRecord>(
+                        stream: OrdersRecord.getDocument(orderRef),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(
+                                  tr(
+                                    context,
+                                    'order.detail.loadError',
+                                    params: {
+                                      'error': describeFirestoreError(
+                                        snapshot.error!,
+                                      ),
+                                    },
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      FlutterFlowTheme.of(context).bodyLarge,
+                                ),
+                              ),
+                            );
+                          }
+                          if (!snapshot.hasData) {
+                            return Center(
+                              child: SizedBox(
+                                width: 50.0,
+                                height: 50.0,
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    EmberBrand.navy,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
 
-              final containerOrdersRecord = snapshot.data!;
+                          final containerOrdersRecord = snapshot.data!;
 
-              return ListView(
+                          return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
@@ -553,7 +585,7 @@ class _OrderDetailPageWidgetState extends State<OrderDetailPageWidget> {
                                               ),
                                         ),
                                         StreamBuilder<List<OrderItemRecord>>(
-                                          stream: streamOrderLineItemsForOrder(widget!.orderRef!),
+                                          stream: streamOrderLineItemsForOrder(orderRef),
                                           builder: (context, snapshot) {
                                             // Customize what your widget looks like when it's loading.
                                             if (!snapshot.hasData) {
@@ -917,46 +949,6 @@ class _OrderDetailPageWidgetState extends State<OrderDetailPageWidget> {
                                         OrderDeliveryProofSection(
                                           order: containerOrdersRecord,
                                         ),
-                                        if (isOrderWhatsAppConfirmationEnabled)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                                top: 12.0),
-                                            child: FFButtonWidget(
-                                              onPressed: () async {
-                                                await launchOrderConfirmationWhatsApp(
-                                                  context: context,
-                                                  order: containerOrdersRecord,
-                                                );
-                                              },
-                                              text: tr(context, 'order.action.whatsappCustomer'),
-                                              icon: const FaIcon(
-                                                FontAwesomeIcons.whatsapp,
-                                                size: 18.0,
-                                              ),
-                                              options: FFButtonOptions(
-                                                width: double.infinity,
-                                                height: 44.0,
-                                                color: const Color(0xFF25D366),
-                                                textStyle:
-                                                    FlutterFlowTheme.of(
-                                                            context)
-                                                        .titleSmall
-                                                        .override(
-                                                          font: GoogleFonts
-                                                              .inter(
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                          ),
-                                                          color: Colors.white,
-                                                          letterSpacing: 0.0,
-                                                        ),
-                                                elevation: 0.0,
-                                                borderRadius:
-                                                    BorderRadius.circular(
-                                                        8.0),
-                                              ),
-                                            ),
-                                          ),
                                       ].divide(SizedBox(height: 8.0)),
                                     ),
                                   ].divide(SizedBox(height: 12.0)),
@@ -1022,7 +1014,7 @@ class _OrderDetailPageWidgetState extends State<OrderDetailPageWidget> {
                                           ),
                                           StreamBuilder<
                                               List<OrderItemRecord>>(
-                                              stream: streamOrderLineItemsForOrder(widget!.orderRef!),
+                                              stream: streamOrderLineItemsForOrder(orderRef),
                                               builder: (context, snapshot) {
                                                 // Customize what your widget looks like when it's loading.
                                                 if (!snapshot.hasData) {
@@ -1351,404 +1343,30 @@ class _OrderDetailPageWidgetState extends State<OrderDetailPageWidget> {
                               ),
                             ),
                           ),
-                          if (widget.orderRef != null)
+                          if (orderRef != null)
                             Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16.0,
                               ),
                               child: OrderActivityLogPanel(
-                                orderRef: widget.orderRef!,
+                                orderRef: orderRef,
                               ),
                             ),
-                          if (canEditOrderRecord(
-                              AppStateNotifier.instance.userRole,
-                              containerOrdersRecord))
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: FFButtonWidget(
-                                      onPressed: () {
-                                        showEditOrderDetailsSheet(
-                                          context,
-                                          orderRef:
-                                              containerOrdersRecord.reference,
-                                          order: containerOrdersRecord,
-                                        );
-                                      },
-                                      text: tr(context, 'order.action.editAddress'),
-                                      icon: const Icon(
-                                        Icons.person_outline,
-                                        size: 18.0,
-                                        color: Colors.white,
-                                      ),
-                                      options: FFButtonOptions(
-                                        height: 44.0,
-                                        color: FlutterFlowTheme.of(context)
-                                            .tertiary,
-                                        textStyle: FlutterFlowTheme.of(context)
-                                            .titleSmall
-                                            .override(
-                                              color: Colors.white,
-                                            ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8.0),
-                                  Expanded(
-                                    child: FFButtonWidget(
-                                      onPressed: () {
-                                        showEditOrderProductsSheet(
-                                          context,
-                                          orderRef:
-                                              containerOrdersRecord.reference,
-                                          order: containerOrdersRecord,
-                                        );
-                                      },
-                                      text: tr(context, 'order.action.editProducts'),
-                                      icon: const Icon(
-                                        Icons.shopping_bag_outlined,
-                                        size: 18.0,
-                                        color: Colors.white,
-                                      ),
-                                      options: FFButtonOptions(
-                                        height: 44.0,
-                                        color: FlutterFlowTheme.of(context)
-                                            .primary,
-                                        textStyle: FlutterFlowTheme.of(context)
-                                            .titleSmall
-                                            .override(
-                                              color: Colors.white,
-                                            ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          if (canAssignDriver(AppStateNotifier.instance.userRole))
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0),
-                              child: FFButtonWidget(
-                                onPressed: () {
-                                  showAssignDriverSheet(
-                                    context,
-                                    orderRef: containerOrdersRecord.reference,
-                                    order: containerOrdersRecord,
-                                  );
-                                },
-                                text: tr(context, 'order.action.assignDriver'),
-                                icon: const Icon(
-                                  Icons.local_shipping_outlined,
-                                  size: 20.0,
-                                  color: Colors.white,
-                                ),
-                                options: FFButtonOptions(
-                                  width: double.infinity,
-                                  height: 48.0,
-                                  color: FlutterFlowTheme.of(context).tertiary,
-                                  textStyle: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .override(color: Colors.white),
-                                  borderRadius: BorderRadius.circular(8.0),
-                                ),
-                              ),
-                            ),
-                          if (canPrintCashInvoice(
-                              AppStateNotifier.instance.userRole))
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0),
-                              child: FFButtonWidget(
-                                onPressed: () async {
-                                  await promptAndReprintOrderReceipt(
-                                    context,
-                                    containerOrdersRecord.reference,
-                                    containerOrdersRecord,
-                                  );
-                                },
-                                text: 'Print invoice or receipt',
-                              icon: const Icon(
-                                Icons.receipt_long,
-                                size: 20.0,
-                                color: Colors.white,
-                              ),
-                              options: FFButtonOptions(
-                                width: double.infinity,
-                                height: 48.0,
-                                padding: const EdgeInsets.all(8.0),
-                                color: FlutterFlowTheme.of(context).secondary,
-                                textStyle: FlutterFlowTheme.of(context)
-                                    .titleSmall
-                                    .override(
-                                      font: GoogleFonts.interTight(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      color: Colors.white,
-                                    ),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0),
-                            child: FFButtonWidget(
-                              onPressed: () {
-                                openProductionMenuPreview(
-                                  context,
-                                  containerOrdersRecord.reference,
-                                );
-                              },
-                              text: tr(context, 'order.action.productionMenu'),
-                              icon: const Icon(
-                                Icons.restaurant_menu,
-                                size: 20.0,
-                                color: Colors.white,
-                              ),
-                              options: FFButtonOptions(
-                                width: double.infinity,
-                                height: 48.0,
-                                padding: const EdgeInsets.all(8.0),
-                                color: FlutterFlowTheme.of(context).tertiary,
-                                textStyle: FlutterFlowTheme.of(context)
-                                    .titleSmall
-                                    .override(
-                                      font: GoogleFonts.interTight(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      color: Colors.white,
-                                    ),
-                              ),
-                            ),
-                          ),
-                          if (isSuperAdminRole(
-                              AppStateNotifier.instance.userRole))
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0),
-                              child: FFButtonWidget(
-                                onPressed: () async {
-                                  final confirmed = await showDialog<bool>(
-                                    context: context,
-                                    builder: (dialogContext) {
-                                      return AlertDialog(
-                                        title: Text(tr(
-                                          dialogContext,
-                                          'order.purchaseReminder.confirmTitle',
-                                        )),
-                                        content: Text(tr(
-                                          dialogContext,
-                                          'order.purchaseReminder.confirmBody',
-                                        )),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(
-                                              dialogContext,
-                                              false,
-                                            ),
-                                            child: Text(tr(
-                                              dialogContext,
-                                              'common.cancel',
-                                            )),
-                                          ),
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(
-                                              dialogContext,
-                                              true,
-                                            ),
-                                            child: Text(tr(
-                                              dialogContext,
-                                              'order.purchaseReminder.send',
-                                            )),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                  if (confirmed != true || !context.mounted) {
-                                    return;
-                                  }
-                                  try {
-                                    final sent =
-                                        await sendSpecialProcurementReminder(
-                                      order: containerOrdersRecord,
-                                      actorRole:
-                                          AppStateNotifier.instance.userRole,
-                                    );
-                                    if (!context.mounted) {
-                                      return;
-                                    }
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          sent > 0
-                                              ? tr(
-                                                  context,
-                                                  'order.purchaseReminder.sent',
-                                                  params: {'count': '$sent'},
-                                                )
-                                              : tr(
-                                                  context,
-                                                  'order.purchaseReminder.noRecipients',
-                                                ),
-                                        ),
-                                      ),
-                                    );
-                                  } catch (error) {
-                                    if (!context.mounted) {
-                                      return;
-                                    }
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          tr(
-                                            context,
-                                            'order.purchaseReminder.failed',
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                                text: tr(
-                                  context,
-                                  'order.action.sendPurchaseReminder',
-                                ),
-                                icon: const Icon(
-                                  Icons.local_florist,
-                                  size: 20.0,
-                                  color: Colors.white,
-                                ),
-                                options: FFButtonOptions(
-                                  width: double.infinity,
-                                  height: 48.0,
-                                  padding: const EdgeInsets.all(8.0),
-                                  color: FlutterFlowTheme.of(context).warning,
-                                  textStyle: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .override(
-                                        font: GoogleFonts.interTight(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        color: Colors.white,
-                                      ),
-                                ),
-                              ),
-                            ),
-                          if (canUpdateOrderStatus(
-                              AppStateNotifier.instance.userRole))
-                            FFButtonWidget(
-                              onPressed: () async {
-                                await showModalBottomSheet(
-                                  isScrollControlled: true,
-                                  backgroundColor: Colors.transparent,
-                                  enableDrag: false,
-                                  context: context,
-                                  builder: (context) {
-                                    return GestureDetector(
-                                      onTap: () {
-                                        FocusScope.of(context).unfocus();
-                                        FocusManager.instance.primaryFocus
-                                            ?.unfocus();
-                                      },
-                                      child: Padding(
-                                        padding:
-                                            MediaQuery.viewInsetsOf(context),
-                                        child: UpdateOrderStatusWidget(
-                                          orderRef: containerOrdersRecord
-                                              .reference,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ).then((value) => safeSetState(() {}));
-                              },
-                              text: tr(context, 'order.action.updateStatus'),
-                            icon: Icon(
-                              Icons.check_circle,
-                              size: 20.0,
-                            ),
-                            options: FFButtonOptions(
-                              width: double.infinity,
-                              height: 50.0,
-                              padding: EdgeInsets.all(8.0),
-                              iconPadding: EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 0.0, 0.0, 0.0),
-                              iconColor: Colors.white,
-                              color: FlutterFlowTheme.of(context).primary,
-                              textStyle: FlutterFlowTheme.of(context)
-                                  .titleSmall
-                                  .override(
-                                    font: GoogleFonts.interTight(
-                                      fontWeight: FontWeight.w600,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .fontStyle,
-                                    ),
-                                    color: Colors.white,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w600,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontStyle,
-                                  ),
-                              elevation: 0.0,
-                              borderRadius: BorderRadius.circular(8.0),
-                            ),
-                          ),
-                          FFButtonWidget(
-                            onPressed: () async {
-                              if (widget.orderRef == null) {
-                                return;
-                              }
-                              await runDeliveryOrderFlow(
-                                context,
-                                widget.orderRef!,
-                              );
-                            },
-                            text: tr(context, 'order.action.deliveryOrder'),
-                            icon: Icon(
-                              Icons.local_shipping,
-                              size: 20.0,
-                            ),
-                            options: FFButtonOptions(
-                              width: double.infinity,
-                              height: 50.0,
-                              padding: EdgeInsets.all(8.0),
-                              iconPadding: EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 0.0, 0.0, 0.0),
-                              iconColor: Colors.white,
-                              color: Colors.purple,
-                              textStyle: FlutterFlowTheme.of(context)
-                                  .titleSmall
-                                  .override(
-                                    font: GoogleFonts.interTight(
-                                      fontWeight: FontWeight.w600,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .fontStyle,
-                                    ),
-                                    color: Colors.white,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w600,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontStyle,
-                                  ),
-                              elevation: 0.0,
-                              borderRadius: BorderRadius.circular(8.0),
-                            ),
+                          OrderDetailActionsPanel(
+                            order: containerOrdersRecord,
+                            orderRef: containerOrdersRecord.reference,
+                            onActionComplete: () => safeSetState(() {}),
                           ),
                         ]
                             .divide(SizedBox(height: 16.0))
                             .addToStart(SizedBox(height: 16.0))
                             .addToEnd(SizedBox(height: 24.0)),
-              );
-            },
-          ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );

@@ -8,8 +8,7 @@ const {
   needsProduction,
   resolveTargetDaysForTomorrowPrep,
   summarizeDeliveryOrders,
-  buildTomorrowPrepMessage,
-  buildTodayOpsMessage,
+  buildTomorrowPrepNotice,
 } = require("../functions/operation_reminders");
 
 test("isOperationReminderRecipient excludes drivers and inactive users", () => {
@@ -87,32 +86,38 @@ test("summarizeDeliveryOrders counts not-started delivery orders", () => {
   assert.equal(summary.notStartedCount, 2);
 });
 
-test("buildTomorrowPrepMessage omits automatic custom item lines", () => {
+test("buildTomorrowPrepNotice uses professional copy", () => {
   const tomorrow = calendarDay(new Date(2026, 5, 15));
-  const message = buildTomorrowPrepMessage({
+  const notice = buildTomorrowPrepNotice({
     targetDays: [tomorrow],
     summary: {
       totalDelivery: 4,
       notStartedCount: 3,
+      incompleteCount: 4,
     },
   });
 
+  assert.equal(notice.title, "Tomorrow's Preparation");
   assert.equal(
-    message,
-    "Tomorrow (15 Jun 2026): 4 delivery order(s) (3 not started)",
+    notice.body,
+    "4 deliveries scheduled\n3 orders pending preparation",
   );
+  assert.equal(notice.status, "pending");
 });
 
-test("buildTodayOpsMessage returns null when nothing to remind", () => {
-  const today = calendarDay(new Date(2026, 5, 15));
-  const message = buildTodayOpsMessage({
-    targetDay: today,
+test("buildTomorrowPrepNotice sends no-delivery copy", () => {
+  const tomorrow = calendarDay(new Date(2026, 5, 15));
+  const notice = buildTomorrowPrepNotice({
+    targetDays: [tomorrow],
     summary: {
-      totalDelivery: 2,
+      totalDelivery: 0,
       notStartedCount: 0,
+      incompleteCount: 0,
     },
   });
-  assert.equal(message, null);
+
+  assert.equal(notice.body, "No deliveries scheduled for tomorrow.");
+  assert.equal(notice.status, "none");
 });
 
 test("needsProduction ignores completed and cancelled orders", () => {

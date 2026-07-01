@@ -45,6 +45,39 @@ const Map<String, Map<String, String>> customerStrings = {
     'zh': '群发',
     'ms': 'Siaran',
   },
+  'customer.list.importTooltip': {
+    'en': 'Import customers from Excel / CSV',
+    'zh': '从 Excel / CSV 批量导入客户',
+    'ms': 'Import pelanggan dari Excel / CSV',
+  },
+  'customer.list.exportTooltip': {
+    'en': 'Export customers to CSV',
+    'zh': '导出客户为 CSV',
+    'ms': 'Eksport pelanggan ke CSV',
+  },
+  'customer.list.importHint': {
+    'en': 'Upload .xlsx or .csv with columns: Name, Phone, Email, '
+        'Billing Address, UEN (optional), Credit Customer, Credit Term.',
+    'zh': '上传 .xlsx 或 .csv，列：姓名、电话、邮箱、账单地址、'
+        'UEN（可选）、是否信用客户、信用账期。',
+    'ms': 'Muat naik .xlsx atau .csv dengan lajur: Name, Phone, Email, '
+        'Billing Address, UEN (pilihan), Credit Customer, Credit Term.',
+  },
+  'customer.list.exportNoMatch': {
+    'en': 'No customers to export for the current filter.',
+    'zh': '当前筛选条件下没有可导出的客户。',
+    'ms': 'Tiada pelanggan untuk dieksport bagi penapis semasa.',
+  },
+  'customer.list.exportedSnack': {
+    'en': 'Exported {count} customer(s).',
+    'zh': '已导出 {count} 个客户。',
+    'ms': '{count} pelanggan dieksport.',
+  },
+  'customer.list.exportFailed': {
+    'en': 'Export failed: {error}',
+    'zh': '导出失败：{error}',
+    'ms': 'Eksport gagal: {error}',
+  },
   'customer.list.loadError': {
     'en': 'Could not load customers.',
     'zh': '无法加载客户。',

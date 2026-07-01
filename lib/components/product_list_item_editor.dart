@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '/backend/create_order_service.dart';
 import '/backend/product_edit_helpers.dart';
 import '/backend/schema/product_record.dart';
+import '/components/stock_adjustment_dialog.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
@@ -12,9 +13,13 @@ class ProductListItemEditor extends StatefulWidget {
   const ProductListItemEditor({
     super.key,
     required this.product,
+    this.selected = false,
+    this.onSelectionChanged,
   });
 
   final ProductRecord product;
+  final bool selected;
+  final ValueChanged<bool?>? onSelectionChanged;
 
   @override
   State<ProductListItemEditor> createState() => _ProductListItemEditorState();
@@ -121,6 +126,13 @@ class _ProductListItemEditorState extends State<ProductListItemEditor> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            if (widget.onSelectionChanged != null) ...[
+              Checkbox(
+                value: widget.selected,
+                onChanged: _deleting ? null : widget.onSelectionChanged,
+              ),
+              const SizedBox(width: 4.0),
+            ],
             buildZoomableProductImage(
               context: context,
               imageUrl: productImageFromRecord(product),
@@ -153,7 +165,8 @@ class _ProductListItemEditorState extends State<ProductListItemEditor> {
                       Padding(
                         padding: const EdgeInsets.only(top: 6.0),
                         child: Text(
-                          '\$$priceText · ${product.isActive ? "Active" : "Inactive"}',
+                          '\$$priceText · ${product.isActive ? "Active" : "Inactive"} · '
+                          '${tr(context, 'product.stock.onHand', params: {'qty': '${product.stockQty}'})}',
                           style: theme.labelMedium,
                         ),
                       ),
@@ -165,11 +178,48 @@ class _ProductListItemEditorState extends State<ProductListItemEditor> {
                             style: theme.bodySmall,
                           ),
                         ),
+                      if (product.allowZeroStock)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            tr(context, 'product.stock.allowZeroBadge'),
+                            style: theme.labelSmall.override(
+                              color: theme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
               ),
             ),
+            if (product.trackStock) ...[
+              IconButton(
+                tooltip: tr(context, 'product.stock.stockInTitle'),
+                icon: const Icon(Icons.add_box_outlined),
+                color: theme.primary,
+                onPressed: _deleting
+                    ? null
+                    : () => showStockAdjustmentDialog(
+                          context,
+                          product: product,
+                          stockIn: true,
+                        ),
+              ),
+              IconButton(
+                tooltip: tr(context, 'product.stock.stockOutTitle'),
+                icon: const Icon(Icons.indeterminate_check_box_outlined),
+                color: theme.secondaryText,
+                onPressed: _deleting
+                    ? null
+                    : () => showStockAdjustmentDialog(
+                          context,
+                          product: product,
+                          stockIn: false,
+                        ),
+              ),
+            ],
             if (_deleting)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8.0),

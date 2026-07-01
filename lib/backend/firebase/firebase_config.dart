@@ -29,11 +29,11 @@ FirebaseOptions _webOptionsFor(AppEnvironment env) {
     case AppEnvironment.staging:
       return const FirebaseOptions(
         apiKey: 'REDACTED_API_KEY',
-        authDomain: 'tfg-vday-record-staging.firebaseapp.com',
-        projectId: 'tfg-vday-record-staging',
-        storageBucket: 'tfg-vday-record-staging.firebasestorage.app',
-        messagingSenderId: '972558847351',
-        appId: '1:972558847351:web:3d6ebb53318abb5f9a2572',
+        authDomain: 'embercore-erp-staging.firebaseapp.com',
+        projectId: 'embercore-erp-staging',
+        storageBucket: 'embercore-erp-staging.firebasestorage.app',
+        messagingSenderId: '598171125582',
+        appId: '1:598171125582:web:140dbf5d2e9ccdafed001f',
       );
     case AppEnvironment.production:
       return const FirebaseOptions(

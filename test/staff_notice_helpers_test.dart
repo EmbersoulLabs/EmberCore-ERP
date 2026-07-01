@@ -62,20 +62,29 @@ void main() {
       );
     });
 
-    test('uses reminder message for tomorrow prep notices', () {
+    test('uses professional tomorrow prep title and body', () {
       final notice = StaffNoticesRecord.getDocumentFromData(
         {
           'type': StaffNoticeType.tomorrowPrepReminder,
+          'notice_title': "Tomorrow's Preparation",
           'message':
-              'Tomorrow (15 Jun 2026): 3 delivery order(s) (2 not started)',
+              '8 deliveries scheduled\n3 orders pending preparation',
+          'prep_status': 'pending',
         },
         FirebaseFirestore.instance.collection('staff_notices').doc('n2'),
       );
 
+      expect(staffNoticeTitle(notice), "Tomorrow's Preparation");
       expect(
         staffNoticeBody(notice),
-        'Tomorrow (15 Jun 2026): 3 delivery order(s) (2 not started)',
+        '8 deliveries scheduled\n3 orders pending preparation',
       );
+      expect(staffNoticeStatusIcon(notice), '🟠');
+      expect(
+        staffNoticeDisplayBody(notice),
+        '🟠 8 deliveries scheduled\n3 orders pending preparation',
+      );
+      expect(staffNoticeNavigationPayload(notice), staffNoticeNavTomorrowPrep);
     });
 
     test('uses reminder message for special procurement notices', () {

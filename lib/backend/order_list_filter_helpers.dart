@@ -8,6 +8,7 @@ import '/backend/schema/orders_record.dart';
 import '/backend/schema/order_item_record.dart';
 import '/backend/order_status_helpers.dart';
 import '/backend/order_whatsapp_helpers.dart';
+import '/platform/platform_order_types.dart';
 
 /// Firestore query for order list: tenant scope only.
 /// Date/type/status/search filters run in memory so retail (created_time)
@@ -60,23 +61,32 @@ bool orderMatchesOrderListDateRange(
 }
 
 bool orderMatchesOrderListType(OrdersRecord order, String orderType) {
-  if (order.orderType == orderType || order.pickupDelivery == orderType) {
+  final aliases = orderTypeAliases(orderType);
+  for (final alias in aliases) {
+    if (order.orderType == alias || order.pickupDelivery == alias) {
+      return true;
+    }
+  }
+  if (aliases.contains('Retail') && isRetailOrderRecord(order)) {
     return true;
   }
-  if (orderType == 'Retail' && isRetailOrderRecord(order)) {
-    return true;
-  }
-  if (orderType == 'Delivery') {
+  if (aliases.contains('Delivery')) {
     final raw = order.pickupDelivery.isNotEmpty
         ? order.pickupDelivery
         : order.orderType;
-    return raw.toLowerCase().contains('deliver');
+    if (raw.toLowerCase().contains('deliver') ||
+        raw.toLowerCase().contains('remote')) {
+      return true;
+    }
   }
-  if (orderType == 'PickUp') {
+  if (aliases.contains('PickUp')) {
     final raw = order.pickupDelivery.isNotEmpty
         ? order.pickupDelivery
         : order.orderType;
-    return raw.toLowerCase().contains('pick');
+    final lower = raw.toLowerCase();
+    if (lower.contains('pick') || lower.contains('walk')) {
+      return true;
+    }
   }
   return false;
 }

@@ -12,12 +12,12 @@ const {
   isCredentialsError,
 } = require("./admin_init");
 
-const STAGING_PROJECT = "tfg-vday-record-staging";
-const ADMIN_EMAIL = "staging.admin@tfg-vday.test";
+const STAGING_PROJECT = "embercore-erp-staging";
+const ADMIN_EMAIL = "staging.admin@embersoullabs.com";
 const ADMIN_PASSWORD = process.env.STAGING_ADMIN_PASSWORD;
 const ADMIN_NAME = "Staging Admin";
 const DEFAULT_COMPANY_ID = "staging_company";
-const DEFAULT_COMPANY_NAME = "TFG Staging Florist";
+const DEFAULT_COMPANY_NAME = "EmberCore Staging Demo";
 
 function argValue(flag) {
   const i = process.argv.indexOf(flag);
@@ -31,7 +31,7 @@ let authCtx;
 try {
   authCtx = initializeAdmin(projectId);
 } catch (err) {
-  console.error(credentialsHelp());
+  console.error(credentialsHelp(projectId));
   process.exit(1);
 }
 
@@ -166,7 +166,7 @@ async function main() {
         adminUser,
         login: {
           email: ADMIN_EMAIL,
-          webUrl: "https://tfg-vday-record-staging.web.app",
+          webUrl: "https://embercore-erp-staging.web.app",
         },
       },
       null,
@@ -177,7 +177,7 @@ async function main() {
 
 main().catch((err) => {
   if (isCredentialsError(err)) {
-    console.error(credentialsHelp());
+    console.error(credentialsHelp(projectId));
   } else {
     console.error(err);
   }

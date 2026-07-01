@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '/auth/role_helpers.dart';
+import '/components/ember_app_bar.dart';
+import '/components/ember_brand_logo.dart';
 import '/components/language_picker_button.dart';
 import '/components/staff_notice_app_bar_button.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -105,16 +106,11 @@ class EmberSidebar extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    kProductName,
-                    style: GoogleFonts.interTight(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
-                    ),
+                  const EmberBrandLogo(
+                    variant: EmberBrandLogoVariant.horizontalSm,
+                    width: 200,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Text(
                     tr(context, 'brand.productSubtitle'),
                     style: GoogleFonts.inter(
@@ -172,12 +168,9 @@ class EmberSidebar extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: Text(
-                kLegalEntityName,
-                style: GoogleFonts.inter(
-                  color: Colors.white.withValues(alpha: 0.35),
-                  fontSize: 11,
-                ),
+              child: const EmberBrandLogo(
+                variant: EmberBrandLogoVariant.stacked,
+                width: 120,
               ),
             ),
           ],
@@ -333,50 +326,43 @@ class _MobileAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget> extraActions;
 
   @override
-  Size get preferredSize => Size.fromHeight(subtitle != null ? 72 : 56);
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
   @override
   Widget build(BuildContext context) {
+    final compact = emberCompactAppBar(context);
+
     return AppBar(
       backgroundColor: EmberBrand.navy,
       elevation: 0,
+      toolbarHeight: kToolbarHeight,
       automaticallyImplyLeading: false,
+      leadingWidth: compact ? 40 : 56,
+      titleSpacing: compact ? 0 : NavigationToolbar.kMiddleSpacing,
+      centerTitle: false,
       leading: showBackButton
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          ? EmberAppBarIconButton(
+              icon: Icons.arrow_back_rounded,
               onPressed: () => context.pop(),
+              onPrimary: true,
             )
           : null,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title ?? kProductName,
-            style: GoogleFonts.interTight(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          if (subtitle != null)
-            Text(
-              subtitle!,
-              style: GoogleFonts.inter(
-                color: Colors.white70,
-                fontSize: 12,
-              ),
-            ),
-        ],
+      title: EmberAppBarBrandTitle(
+        pageTitle: title,
+        showBackButton: showBackButton,
+        titleStyle: emberMobileShellTitleStyle(context),
       ),
       actions: [
         if (onMenuPressed != null)
-          IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
+          EmberAppBarIconButton(
+            icon: Icons.menu,
             onPressed: onMenuPressed,
+            onPrimary: true,
           ),
         ...extraActions,
-        const StaffNoticeAppBarButton.onPrimary(),
-        const LanguagePickerAppBarButton(),
+        const StaffNoticeAppBarButton.onPrimary(compact: true),
+        const LanguagePickerAppBarButton(compact: true),
+        SizedBox(width: compact ? 2 : 8),
       ],
     );
   }

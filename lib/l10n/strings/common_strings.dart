@@ -5,6 +5,11 @@ const Map<String, Map<String, String>> commonStrings = {
     'zh': '取消',
     'ms': 'Batal',
   },
+  'common.back': {
+    'en': 'Back',
+    'zh': '返回',
+    'ms': 'Kembali',
+  },
   'common.delete': {
     'en': 'Delete',
     'zh': '删除',
@@ -174,5 +179,25 @@ const Map<String, Map<String, String>> commonStrings = {
     'en': 'Void',
     'zh': '作废',
     'ms': 'Batalkan',
+  },
+  'login.forgotPassword': {
+    'en': 'Forgot password?',
+    'zh': '忘记密码？',
+    'ms': 'Lupa kata laluan?',
+  },
+  'login.forgotPasswordEnterEmail': {
+    'en': 'Enter your email above, then tap Forgot password.',
+    'zh': '请先在上方填写邮箱，再点击「忘记密码」。',
+    'ms': 'Masukkan e-mel di atas, kemudian ketik Lupa kata laluan.',
+  },
+  'login.forgotPasswordInvalidEmail': {
+    'en': 'Please enter a valid email address.',
+    'zh': '请输入有效的邮箱地址。',
+    'ms': 'Sila masukkan alamat e-mel yang sah.',
+  },
+  'login.forgotPasswordSent': {
+    'en': 'Password reset email sent to {email}.',
+    'zh': '密码重置邮件已发送至 {email}。',
+    'ms': 'E-mel tetapan semula kata laluan dihantar ke {email}.',
   },
 };

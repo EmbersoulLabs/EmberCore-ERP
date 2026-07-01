@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '/backend/dashboard_order_stats_helpers.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/schema/staff_notices_record.dart';
 import '/backend/staff_notice_helpers.dart';
@@ -103,6 +105,7 @@ class StaffNoticeAlertService {
     required String body,
     String? orderPath,
     String? noticeId,
+    String? navigationPayload,
   }) async {
     if (!_initialized) {
       return;
@@ -135,8 +138,28 @@ class StaffNoticeAlertService {
           interruptionLevel: InterruptionLevel.timeSensitive,
         ),
       ),
-      payload: orderPath,
+      payload: navigationPayload ?? orderPath,
     );
+  }
+
+  void navigateFromNoticePayload(String payload) {
+    if (payload.isEmpty || !loggedIn) {
+      return;
+    }
+    if (payload == staffNoticeNavTomorrowPrep) {
+      final context = appNavigatorKey.currentContext;
+      if (context == null || !context.mounted) {
+        return;
+      }
+      unawaited(
+        openDashboardFilteredOrderList(
+          context,
+          DashboardOrderListFilter.tomorrowDeliveryOrders,
+        ),
+      );
+      return;
+    }
+    navigateToOrderPath(payload);
   }
 
   void navigateToOrderPath(String orderPath) {
@@ -199,7 +222,7 @@ class StaffNoticeAlertService {
           interruptionLevel: InterruptionLevel.timeSensitive,
         ),
       ),
-      payload: notice.orderRef?.path,
+      payload: staffNoticeNavigationPayload(notice),
     );
   }
 
@@ -227,13 +250,13 @@ class StaffNoticeAlertService {
           return AlertDialog(
             icon: const Icon(Icons.notifications_active_outlined, size: 36),
             title: Text(staffNoticeTitle(notice)),
-            content: Text(staffNoticeBody(notice)),
+            content: Text(staffNoticeDisplayBody(notice)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
                 child: const Text('Later'),
               ),
-              if (notice.hasOrderRef())
+              if (staffNoticeNavigationPayload(notice) != null)
                 TextButton(
                   onPressed: () async {
                     Navigator.pop(dialogContext);
@@ -242,18 +265,13 @@ class StaffNoticeAlertService {
                     if (navContext == null || !navContext.mounted) {
                       return;
                     }
-                    navContext.pushNamed(
-                      OrderDetailPageWidget.routeName,
-                      queryParameters: {
-                        'orderRef': serializeParam(
-                          notice.orderRef,
-                          ParamType.DocumentReference,
-                        )!,
-                      },
-                      extra: {'orderRef': notice.orderRef},
-                    );
+                    await openStaffNoticeTarget(navContext, notice);
                   },
-                  child: const Text('View order'),
+                  child: Text(
+                    notice.type == StaffNoticeType.tomorrowPrepReminder
+                        ? 'View preparation'
+                        : 'View order',
+                  ),
                 ),
             ],
           );
@@ -268,10 +286,10 @@ class StaffNoticeAlertService {
   }
 
   void _handleNotificationTap(NotificationResponse response) {
-    final orderPath = response.payload;
-    if (orderPath == null || orderPath.isEmpty) {
+    final payload = response.payload;
+    if (payload == null || payload.isEmpty) {
       return;
     }
-    navigateToOrderPath(orderPath);
+    navigateFromNoticePayload(payload);
   }
 }

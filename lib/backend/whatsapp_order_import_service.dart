@@ -9,10 +9,6 @@ import '/backend/order_id_service.dart';
 import '/backend/order_status_helpers.dart';
 import '/backend/order_whatsapp_import_helpers.dart';
 import '/backend/order_import_parser_service.dart';
-import '/backend/cash_payment_helpers.dart';
-import '/backend/material_cost_snapshot_helpers.dart';
-import '/backend/order_balance_helpers.dart';
-import '/backend/payment_method_helpers.dart';
 import '/backend/price_list_helpers.dart';
 import '/backend/product_edit_helpers.dart';
 import '/backend/product_match_helpers.dart';
@@ -24,6 +20,7 @@ import '/backend/tenant_query_helpers.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/flutter_flow/flutter_flow_util.dart';
 import '/components/whatsapp_order_paste_button.dart' show showWhatsAppOrderPasteDialog;
+import '/platform/platform_labels.dart';
 import '/pages/create_order_form/create_order_form_widget.dart';
 import '/pages/order_detail_page/order_detail_page_widget.dart';
 
@@ -260,125 +257,92 @@ Future<bool> _addParsedProductLine({
   return true;
 }
 
-Future<PaymentApplicationResult?> _collectWhatsAppImportPayment({
-  required BuildContext context,
-  required DocumentReference orderRef,
-  required String paymentType,
-  required double saleTotal,
-}) async {
-  if (requiresPaymentAmountEntry(paymentType)) {
-    final order = await OrdersRecord.getDocumentOnce(orderRef);
-    if (!context.mounted) {
-      return null;
-    }
-    final result = await showPaymentAmountDialog(
-      context,
-      paymentType: paymentType,
-      paymentLabel: paymentMethodLabel(paymentType),
-      saleTotal: saleTotal,
-      amountAlreadyPaid: readOrderAmountPaid(order),
-    );
-    if (result == null) {
-      return null;
-    }
-    return applyPaymentAmount(
-      saleTotal: saleTotal,
-      previousPaid: readOrderAmountPaid(order),
-      receivedThisTime: result.receivedThisTime,
-    );
-  }
-
-  if (usesExactPaymentAmount(paymentType)) {
-    if (saleTotal <= 0) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Order total must be greater than zero.'),
-          ),
-        );
-      }
-      return null;
-    }
-    final order = await OrdersRecord.getDocumentOnce(orderRef);
-    final balanceDue = calculateBalanceDue(
-      saleTotal: saleTotal,
-      amountPaid: readOrderAmountPaid(order),
-    );
-    if (balanceDue <= 0.005) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('This order is already fully paid.')),
-        );
-      }
-      return null;
-    }
-    return applyPaymentAmount(
-      saleTotal: saleTotal,
-      previousPaid: readOrderAmountPaid(order),
-      receivedThisTime: balanceDue,
-    );
-  }
-
-  return null;
-}
-
-Future<void> _finalizeWhatsAppImportedOrder({
+Future<void> _prepareImportedOrderForDeliveryForm({
   required DocumentReference orderRef,
   required WhatsAppParsedOrderDetails parsed,
-  required String paymentType,
-  PaymentApplicationResult? paymentApplied,
 }) async {
   final postalCode = parsed.postalCode ?? '';
   final region = parsed.region ??
       (postalCode.isNotEmpty ? functions.newCustomFunction(postalCode) : null);
   final orderId = await OrderIdService.nextDeliveryOrderId();
   final orderType = resolveWhatsAppImportOrderType(parsed.orderType);
-  final isCash = paymentType == 'Cash';
 
-  final updateData = createOrdersRecordData(
-    orderId: orderId,
-    clientName: parsed.clientName ?? '',
-    recipientName: parsed.recipientName ?? '',
-    recipientPhoneNumber: parsed.phone ?? '',
-    address: parsed.address ?? '',
-    postalCode: postalCode,
-    region: region ?? '',
-    deliveryDate: parsed.deliveryDate,
-    deliveryTimeSlot:
-        resolveWhatsAppDeliveryTimeSlot(parsed.deliveryTimeSlot),
-    cardMessage: parsed.cardMessage ?? '',
-    orderType: orderType,
-    pickupDelivery: orderType,
-    paymentType: paymentType,
-    status: OrderStatus.pending,
-    orderstatus: legacyOrderStatusLabel(OrderStatus.pending),
-  );
-
-  if (paymentApplied != null) {
-    updateData.addAll(
-      createOrdersRecordData(
-        amountPaid: paymentApplied.amountPaid,
-        balanceDue: paymentApplied.balanceDue,
-        totalAmount: paymentApplied.saleTotal,
-        total: paymentApplied.saleTotal,
-        cashReceived: isCash ? paymentApplied.receivedThisTime : 0,
-        cashChange: isCash ? paymentApplied.change : 0,
-      ),
-    );
-  }
-
-  final order = await OrdersRecord.getDocumentOnce(orderRef);
-  updateData.addAll(
-    await materialCostSnapshotUpdateFields(
-      orderRef: orderRef,
-      order: order,
-      paymentType: paymentType,
-      totalAmount: paymentApplied?.saleTotal,
+  await orderRef.update(
+    createOrdersRecordData(
+      orderId: orderId,
+      clientName: parsed.clientName ?? '',
+      recipientName: parsed.recipientName ?? '',
+      recipientPhoneNumber: parsed.phone ?? '',
+      address: parsed.address ?? '',
+      postalCode: postalCode,
+      region: region ?? '',
+      deliveryDate: parsed.deliveryDate,
+      deliveryTimeSlot:
+          resolveWhatsAppDeliveryTimeSlot(parsed.deliveryTimeSlot),
+      cardMessage: parsed.cardMessage ?? '',
+      orderType: orderType,
+      pickupDelivery: orderType,
       status: OrderStatus.pending,
+      orderstatus: legacyOrderStatusLabel(OrderStatus.pending),
     ),
   );
+}
 
-  await orderRef.update(updateData);
+Future<bool?> showOrderImportAnalysisDialog(
+  BuildContext context,
+  WhatsAppParsedOrderDetails parsed,
+) {
+  final lines = <String>[
+    if (parsed.clientName != null && parsed.clientName!.isNotEmpty)
+      'Customer: ${parsed.clientName}',
+    if (parsed.recipientName != null && parsed.recipientName!.isNotEmpty)
+      'Recipient: ${parsed.recipientName}',
+    if (parsed.phone != null && parsed.phone!.isNotEmpty) 'Phone: ${parsed.phone}',
+    if (parsed.address != null && parsed.address!.isNotEmpty)
+      'Address: ${parsed.address}',
+    if (parsed.productHint != null && parsed.productHint!.isNotEmpty)
+      'Product: ${parsed.productHint}',
+    if (parsed.deliveryDate != null)
+      'Delivery date: ${dateTimeFormat('yMMMd', parsed.deliveryDate)}',
+    if (parsed.deliveryTimeSlot != null &&
+        parsed.deliveryTimeSlot!.trim().isNotEmpty)
+      'Time slot: ${parsed.deliveryTimeSlot}',
+    if (parsed.needsReferencePhoto)
+      'Reference photo (如图) can be uploaded next.',
+  ];
+
+  return showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Order import analysis'),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (lines.isEmpty)
+              const Text('Parsed order details are ready to review.')
+            else
+              for (final line in lines)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(line),
+                ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Continue'),
+        ),
+      ],
+    ),
+  );
 }
 
 void _openCreateOrderForm(BuildContext context, DocumentReference orderRef) {
@@ -407,9 +371,20 @@ void _openOrderDetail(BuildContext context, DocumentReference orderRef) {
   );
 }
 
-/// Dashboard entry: paste WhatsApp text, match products, add fees, open form.
+/// Dashboard entry: paste → analysis → delivery detail → payment → order detail.
 Future<void> runWhatsAppOrderImportFromDashboard(BuildContext context) async {
   if (!isWhatsAppOrderImportEnabled) {
+    return;
+  }
+
+  final moduleBlocked = platformModuleWhatsAppImportBlockMessage();
+  if (moduleBlocked != null) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(moduleBlocked)),
+    );
     return;
   }
 
@@ -455,8 +430,8 @@ Future<void> runWhatsAppOrderImportFromDashboard(BuildContext context) async {
     return;
   }
 
-  final paymentType = await showPaymentModePickerDialog(context);
-  if (paymentType == null || !context.mounted) {
+  final confirmed = await showOrderImportAnalysisDialog(context, parsed);
+  if (confirmed != true || !context.mounted) {
     return;
   }
 
@@ -485,55 +460,10 @@ Future<void> runWhatsAppOrderImportFromDashboard(BuildContext context) async {
       return;
     }
 
-    final saleTotal = await loadOrderSaleTotal(orderRef);
-    if (!context.mounted) {
-      return;
-    }
-
-    final paymentApplied = await _collectWhatsAppImportPayment(
-      context: context,
-      orderRef: orderRef,
-      paymentType: paymentType,
-      saleTotal: saleTotal,
-    );
-    if ((requiresPaymentAmountEntry(paymentType) ||
-            usesExactPaymentAmount(paymentType)) &&
-        paymentApplied == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Payment not recorded. Order import cancelled.'),
-          ),
-        );
-      }
-      return;
-    }
-
-    await _finalizeWhatsAppImportedOrder(
+    await _prepareImportedOrderForDeliveryForm(
       orderRef: orderRef,
       parsed: parsed,
-      paymentType: paymentType,
-      paymentApplied: paymentApplied,
     );
-
-    if (context.mounted && paymentApplied != null) {
-      if (paymentType == 'Cash' && paymentApplied.change > 0.005) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Change: ${formatCashMoney(paymentApplied.change)}'),
-          ),
-        );
-      } else if (paymentApplied.isFullyPaid &&
-          usesExactPaymentAmount(paymentType)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${paymentMethodLabel(paymentType)} payment recorded.',
-            ),
-          ),
-        );
-      }
-    }
 
     final createdOrder = await OrdersRecord.getDocumentOnce(orderRef);
     await auditLogCreateOrder(createdOrder);
@@ -544,7 +474,11 @@ Future<void> runWhatsAppOrderImportFromDashboard(BuildContext context) async {
 
     _openCreateOrderForm(context, orderRef);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Order imported. Complete details.')),
+      const SnackBar(
+        content: Text(
+          'Order imported. Review delivery details, then continue to payment.',
+        ),
+      ),
     );
   } catch (error) {
     if (!context.mounted) {

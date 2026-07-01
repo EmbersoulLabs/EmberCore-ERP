@@ -3,15 +3,30 @@ import 'package:intl/intl.dart';
 
 import '/backend/schema/counter_record.dart';
 import '/backend/tenant_context.dart';
+import '/platform/platform_config_service.dart';
 
 /// Generates sequential order IDs via Firestore counters scoped by month
 /// (`default_delivery_JUN26`, `default_retail_JUN26`, …).
+///
+/// The human-facing prefix (`TFG-…`, `EC-…`, customer code `TFG01`) is read
+/// from the active tenant's `tenant_platform_config.order_id_prefix` so the
+/// same app serves multiple tenants without hard-coded branding. Legacy florist
+/// tenants keep `TFG` by setting `order_id_prefix: TFG` on their config.
 class OrderIdService {
   static const deliveryCounterId = 'default_delivery';
   static const retailCounterId = 'default_retail';
   static const invoiceCounterId = 'default_invoice';
   static const customerCounterId = 'default_customer';
   static const int maxCustomerIdSequence = 1000;
+
+  /// Fallback prefix when no tenant config is loaded (matches generic preset).
+  static const String fallbackPrefix = 'EC';
+
+  /// Active tenant's order-id prefix, or [fallbackPrefix] when unset/blank.
+  static String activeOrderPrefix() {
+    final prefix = PlatformConfigService.instance.config.orderIdPrefix.trim();
+    return prefix.isEmpty ? fallbackPrefix : prefix;
+  }
 
   static String _orderPeriodSuffix([DateTime? when]) {
     final date = when ?? DateTime.now();
@@ -33,46 +48,64 @@ class OrderIdService {
   static DocumentReference _counterRef(String counterId) =>
       CounterRecord.collection.doc(counterId);
 
+  // Order-id classification is prefix-agnostic so it keeps working across
+  // tenants (and mixed legacy data) without knowing each tenant's prefix.
+  // Retail ids carry a `-WI` marker; invoices start with `IN-`; delivery ids
+  // are the remaining `{prefix}-{period}-{seq}` shape.
+  static final RegExp _retailPattern =
+      RegExp(r'^[A-Za-z]+-[A-Z]{3}\d{2}-WI\d+$');
+  static final RegExp _retailLegacyPattern = RegExp(r'^[A-Za-z]+-WI');
+  static final RegExp _deliveryPattern =
+      RegExp(r'^[A-Za-z]+-[A-Z]{3}\d{2}-\d+$');
+  static final RegExp _deliveryLegacyPattern = RegExp(r'^[A-Za-z]+-\d{4}-\d+$');
+  static final RegExp _invoicePattern =
+      RegExp(r'^IN-[A-Za-z]+-[A-Z]{3}\d{2}-\d+$');
+
   static bool isRetailOrderId(String? orderId) {
     if (orderId == null || orderId.isEmpty) {
       return false;
     }
-    if (RegExp(r'^TFG-[A-Z]{3}\d{2}-WI000\d+$').hasMatch(orderId)) {
-      return true;
-    }
-    return orderId.startsWith('TFG-WI');
+    return _retailPattern.hasMatch(orderId) ||
+        _retailLegacyPattern.hasMatch(orderId);
   }
 
   static bool isDeliveryOrderId(String? orderId) {
     if (orderId == null || orderId.isEmpty) {
       return false;
     }
-    if (RegExp(r'^TFG-[A-Z]{3}\d{2}-000\d+$').hasMatch(orderId)) {
+    if (isInvoiceNumber(orderId) || isRetailOrderId(orderId)) {
+      return false;
+    }
+    if (_deliveryPattern.hasMatch(orderId)) {
       return true;
     }
-    return RegExp(r'^TFG-\d{4}-\d+$').hasMatch(orderId);
+    return _deliveryLegacyPattern.hasMatch(orderId);
   }
 
-  static Future<String> nextDeliveryOrderId() async {
+  static Future<String> nextDeliveryOrderId({String? prefix}) async {
+    final p = prefix ?? activeOrderPrefix();
     final period = _orderPeriodSuffix();
     final seq = await _incrementCounter('delivery', period: period);
-    return 'TFG-$period-000$seq';
+    return '$p-$period-000$seq';
   }
 
-  static Future<String> nextRetailOrderId() async {
+  static Future<String> nextRetailOrderId({String? prefix}) async {
+    final p = prefix ?? activeOrderPrefix();
     final period = _orderPeriodSuffix();
     final seq = await _incrementCounter('retail', period: period);
-    return 'TFG-$period-WI000$seq';
+    return '$p-$period-WI000$seq';
   }
 
-  static Future<String> nextInvoiceNumber() async {
+  static Future<String> nextInvoiceNumber({String? prefix}) async {
+    final p = prefix ?? activeOrderPrefix();
     final period = _orderPeriodSuffix();
     final seq = await _incrementCounter('invoice', period: period);
-    return 'IN-TFG-$period-000$seq';
+    return 'IN-$p-$period-000$seq';
   }
 
   /// Next invoice number without incrementing the counter (confirm screen preview).
-  static Future<String> previewNextInvoiceNumber() async {
+  static Future<String> previewNextInvoiceNumber({String? prefix}) async {
+    final p = prefix ?? activeOrderPrefix();
     final period = _orderPeriodSuffix();
     final counterRef = _counterRef(counterDocId('invoice', period: period));
     try {
@@ -80,9 +113,9 @@ class OrderIdService {
       final data = snap.data() as Map<String, dynamic>?;
       final current =
           snap.exists ? (data?['current'] as num?)?.toInt() ?? 0 : 0;
-      return 'IN-TFG-$period-000${current + 1}';
+      return 'IN-$p-$period-000${current + 1}';
     } catch (_) {
-      return 'IN-TFG-$period-0001';
+      return 'IN-$p-$period-0001';
     }
   }
 
@@ -90,27 +123,32 @@ class OrderIdService {
     if (invoiceNumber == null || invoiceNumber.isEmpty) {
       return false;
     }
-    return RegExp(r'^IN-TFG-[A-Z]{3}\d{2}-000\d+$').hasMatch(invoiceNumber);
+    return _invoicePattern.hasMatch(invoiceNumber);
   }
 
-  /// Public customer code: TFG01 … TFG99, TFG100 … TFG1000.
-  static String formatCustomerId(int sequence) {
+  /// Public customer code: `{prefix}01` … `{prefix}99`, `{prefix}100` …
+  /// e.g. `TFG01` (florist) or `EC01` (generic). Prefix defaults to the active
+  /// tenant's [activeOrderPrefix].
+  static String formatCustomerId(int sequence, {String? prefix}) {
     if (sequence < 1 || sequence > maxCustomerIdSequence) {
       throw StateError(
         'Customer ID sequence must be between 1 and $maxCustomerIdSequence',
       );
     }
+    final p = prefix ?? activeOrderPrefix();
     if (sequence <= 99) {
-      return 'TFG${sequence.toString().padLeft(2, '0')}';
+      return '$p${sequence.toString().padLeft(2, '0')}';
     }
-    return 'TFG$sequence';
+    return '$p$sequence';
   }
 
-  static int? parseCustomerIdSequence(String? value) {
+  static int? parseCustomerIdSequence(String? value, {String? prefix}) {
     if (value == null || value.isEmpty) {
       return null;
     }
-    final match = RegExp(r'^TFG(\d+)$').firstMatch(value.trim().toUpperCase());
+    final p = (prefix ?? activeOrderPrefix()).toUpperCase();
+    final match = RegExp('^${RegExp.escape(p)}(\\d+)\$')
+        .firstMatch(value.trim().toUpperCase());
     if (match == null) {
       return null;
     }
@@ -121,8 +159,8 @@ class OrderIdService {
     return seq;
   }
 
-  static bool isCustomerPublicId(String? value) =>
-      parseCustomerIdSequence(value) != null;
+  static bool isCustomerPublicId(String? value, {String? prefix}) =>
+      parseCustomerIdSequence(value, prefix: prefix) != null;
 
   /// Smallest reusable sequence, or next after [current] when pool is empty.
   static int? pickNextCustomerSequence({

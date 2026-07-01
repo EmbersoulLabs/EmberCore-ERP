@@ -64,5 +64,5 @@ if ($SkipLiveSmoke) {
 }
 
 Write-Host "`nStaging gate complete." -ForegroundColor Green
-Write-Host "URL: https://tfg-vday-record-staging.web.app" -ForegroundColor Green
+Write-Host "URL: https://embercore-erp-staging.web.app" -ForegroundColor Green
 Write-Host "Manual: Add Staff, Create Order, delivery proof upload" -ForegroundColor Green

@@ -355,6 +355,26 @@ describe("orders tenant isolation", () => {
     );
   });
 
+  it("staff marks stock_deducted after payment inventory", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc("orders/orderStockDeduct").set({
+        Order_Id: "TFG-JUN26-0101",
+        status: "pending",
+        orderstatus: "pending",
+        totalAmount: 48,
+        amount_paid: 48,
+        balance_due: 0,
+        paymentType: "PayNow",
+        companyRef: db.doc("Companies/companyB"),
+      });
+    });
+    const db = authed("staffB").firestore();
+    await assertSucceeds(
+      db.doc("orders/orderStockDeduct").update({ stock_deducted: true }),
+    );
+  });
+
   it("senior_florist cannot change payment on fully paid order", async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore();
@@ -1220,7 +1240,9 @@ describe("staff registration intents", () => {
 });
 
 describe("legacy companyRef isolation", () => {
-  it("staff cannot read order without companyRef", async () => {
+  // Legacy path: staff may access orders missing companyRef until backfill completes
+  // (see npm run verify:company-ref / npm run backfill:company-ref).
+  it("staff can read legacy order without companyRef during migration", async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore();
       await db.doc("orders/legacyOrder").set({
@@ -1230,7 +1252,7 @@ describe("legacy companyRef isolation", () => {
       });
     });
     const db = authed("floristA").firestore();
-    await assertFails(db.doc("orders/legacyOrder").get());
+    await assertSucceeds(db.doc("orders/legacyOrder").get());
   });
 
   it("superadmin can read order without companyRef", async () => {
@@ -1342,13 +1364,120 @@ describe("legacy companyRef isolation", () => {
     );
   });
 
-  it("staff cannot create order without companyRef", async () => {
+  it("staff can create legacy order without companyRef during migration", async () => {
     const db = authed("floristA").firestore();
-    await assertFails(
+    await assertSucceeds(
       db.collection("orders").add({
         Order_Id: "TFG-2026-LEGACY",
         status: "pending",
         orderstatus: "pending",
+      }),
+    );
+  });
+});
+
+describe("SaaS onboarding rules", () => {
+  const signupPayload = (emailKey) => ({
+    email: emailKey,
+    name: "New Shop",
+    phone: "+60123456789",
+    account_type: "company",
+    company_name: "Demo Florist",
+    status: "pending",
+  });
+
+  it("anonymous user creates user_registration_requests", async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertSucceeds(
+      db.doc("user_registration_requests/shop@example.com").set(
+        signupPayload("shop@example.com"),
+      ),
+    );
+  });
+
+  it("applicant reads own registration request when signed in", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc("user_registration_requests/shop@example.com").set(
+        signupPayload("shop@example.com"),
+      );
+    });
+    const db = authedWithEmail("shop", "shop@example.com").firestore();
+    await assertSucceeds(
+      db.doc("user_registration_requests/shop@example.com").get(),
+    );
+  });
+
+  it("staff cannot read another applicant registration request", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc("user_registration_requests/other@example.com").set(
+        signupPayload("other@example.com"),
+      );
+    });
+    const db = authed("floristA").firestore();
+    await assertFails(
+      db.doc("user_registration_requests/other@example.com").get(),
+    );
+  });
+
+  it("superadmin approves registration request", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc("user_registration_requests/shop@example.com").set(
+        signupPayload("shop@example.com"),
+      );
+    });
+    const db = authed("superA").firestore();
+    await assertSucceeds(
+      db.doc("user_registration_requests/shop@example.com").update({
+        status: "approved",
+        reviewed_at: new Date(),
+      }),
+    );
+  });
+
+  it("staff reads own tenant_platform_config only", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc("tenant_platform_config/companyA").set({
+        industry_key: "florist",
+        order_id_prefix: "TFG",
+      });
+      await db.doc("tenant_platform_config/companyB").set({
+        industry_key: "generic",
+        order_id_prefix: "EC",
+      });
+    });
+    const db = authed("floristA").firestore();
+    await assertSucceeds(db.doc("tenant_platform_config/companyA").get());
+    await assertFails(db.doc("tenant_platform_config/companyB").get());
+  });
+
+  it("superadmin reads and writes any tenant_platform_config", async () => {
+    const db = authed("superA").firestore();
+    await assertSucceeds(
+      db.doc("tenant_platform_config/companyB").set({
+        industry_key: "generic",
+        order_id_prefix: "EC",
+      }),
+    );
+    await assertSucceeds(db.doc("tenant_platform_config/companyB").get());
+  });
+
+  it("director cannot write tenant_platform_config", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc("users/directorA").set({
+        role: "director",
+        email: "directorA@test.com",
+        companyRef: db.doc("Companies/companyA"),
+      });
+    });
+    const db = authed("directorA").firestore();
+    await assertFails(
+      db.doc("tenant_platform_config/companyA").set({
+        industry_key: "florist",
       }),
     );
   });

@@ -293,6 +293,18 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => const RegistrationRequestsPageWidget(),
         ),
         FFRoute(
+          name: TenantListPageWidget.routeName,
+          path: TenantListPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const TenantListPageWidget(),
+        ),
+        FFRoute(
+          name: BillingPageWidget.routeName,
+          path: BillingPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const BillingPageWidget(),
+        ),
+        FFRoute(
           name: CustomerListPageWidget.routeName,
           path: CustomerListPageWidget.routePath,
           requireAuth: true,
@@ -859,6 +871,24 @@ class FFRoute {
               return LoginPageWidget.routePath;
             }
             if (role != null && !isSuperAdminRole(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path == TenantListPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !isSuperAdminRole(role)) {
+              return defaultRoutePathForRole(role);
+            }
+          }
+
+          if (path == BillingPageWidget.routePath) {
+            if (!appStateNotifier.loggedIn) {
+              return LoginPageWidget.routePath;
+            }
+            if (role != null && !canManageBilling(role)) {
               return defaultRoutePathForRole(role);
             }
           }

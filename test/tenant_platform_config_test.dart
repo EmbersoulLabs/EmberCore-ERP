@@ -78,5 +78,19 @@ void main() {
       expect(config.isModuleEnabled(PlatformModule.appointments), isTrue);
       expect(config.isModuleEnabled(PlatformModule.drivers), isFalse);
     });
+
+    test('merges operation notice templates', () {
+      final config = TenantPlatformConfig.fromFirestore({
+        'operation_notice_templates': {
+          'today_ops': '今日 {target_date}：{total_delivery} 单',
+        },
+      });
+      expect(config.operationNoticeTemplates.todayOps,
+          '今日 {target_date}：{total_delivery} 单');
+      expect(
+        config.operationNoticeTemplates.tomorrowPrep,
+        OperationNoticeTemplates.defaults().tomorrowPrep,
+      );
+    });
   });
 }

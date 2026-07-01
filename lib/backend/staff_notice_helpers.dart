@@ -11,7 +11,14 @@ import '/backend/schema/users_record.dart';
 import '/backend/tenant_company_helpers.dart';
 import '/backend/tenant_query_helpers.dart';
 import '/backend/user_list_helpers.dart';
+import '/backend/dashboard_order_stats_helpers.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/index.dart';
+import 'package:flutter/material.dart';
+
+const staffNoticeNavTomorrowPrep = 'nav:tomorrow_prep';
+
+const tomorrowPrepNoticeTitle = "Tomorrow's Preparation";
 
 abstract final class StaffNoticeType {
   static const orderCreated = 'order_created';
@@ -63,13 +70,16 @@ bool receivesOperationReminders(UserRole? role) {
 bool isStaffNoticeUnread(StaffNoticesRecord notice) => !notice.hasReadAt();
 
 String staffNoticeTitle(StaffNoticesRecord notice) {
+  if (notice.hasNoticeTitle()) {
+    return notice.noticeTitle;
+  }
   switch (notice.type) {
     case StaffNoticeType.driverAssigned:
       return 'Delivery assigned';
     case StaffNoticeType.shopifyOrderImported:
       return 'New Shopify Order';
     case StaffNoticeType.tomorrowPrepReminder:
-      return 'Tomorrow prep reminder';
+      return tomorrowPrepNoticeTitle;
     case StaffNoticeType.todayOpsReminder:
       return 'Today production reminder';
     case StaffNoticeType.specialProcurementReminder:
@@ -125,6 +135,87 @@ String staffNoticeBody(StaffNoticesRecord notice) {
     'Delivery ${staffNoticeDeliveryDateLabel(notice)}',
     if (notice.itemSummary.isNotEmpty) notice.itemSummary,
   ].join('\n');
+}
+
+/// In-app list/dialog body with optional status icon for tomorrow prep.
+String staffNoticeDisplayBody(StaffNoticesRecord notice) {
+  final body = staffNoticeBody(notice);
+  if (notice.type != StaffNoticeType.tomorrowPrepReminder) {
+    return body;
+  }
+  final icon = staffNoticeStatusIcon(notice);
+  if (icon == null) {
+    return body;
+  }
+  return '$icon $body';
+}
+
+String? staffNoticeStatusIcon(StaffNoticesRecord notice) {
+  if (notice.type != StaffNoticeType.tomorrowPrepReminder) {
+    return null;
+  }
+  if (notice.hasPrepStatus()) {
+    return switch (notice.prepStatus) {
+      'none' => '⚪',
+      'ready' => '🟢',
+      'pending' => '🟠',
+      _ => null,
+    };
+  }
+  if (bodyIndicatesNoTomorrowDeliveries(notice.message)) {
+    return '⚪';
+  }
+  if (bodyIndicatesAllOrdersReady(notice.message)) {
+    return '🟢';
+  }
+  if (notice.message.isNotEmpty) {
+    return '🟠';
+  }
+  return null;
+}
+
+bool bodyIndicatesNoTomorrowDeliveries(String message) {
+  return message.contains('No deliveries scheduled for tomorrow');
+}
+
+bool bodyIndicatesAllOrdersReady(String message) {
+  return message.contains('All orders are ready');
+}
+
+String? staffNoticeNavigationPayload(StaffNoticesRecord notice) {
+  if (notice.type == StaffNoticeType.tomorrowPrepReminder) {
+    return staffNoticeNavTomorrowPrep;
+  }
+  if (notice.hasOrderRef()) {
+    return notice.orderRef!.path;
+  }
+  return null;
+}
+
+Future<void> openStaffNoticeTarget(
+  BuildContext context,
+  StaffNoticesRecord notice,
+) async {
+  if (notice.type == StaffNoticeType.tomorrowPrepReminder) {
+    await openDashboardFilteredOrderList(
+      context,
+      DashboardOrderListFilter.tomorrowDeliveryOrders,
+    );
+    return;
+  }
+  if (!notice.hasOrderRef()) {
+    return;
+  }
+  await context.pushNamed(
+    OrderDetailPageWidget.routeName,
+    queryParameters: {
+      'orderRef': serializeParam(
+        notice.orderRef,
+        ParamType.DocumentReference,
+      )!,
+    },
+    extra: {'orderRef': notice.orderRef},
+  );
 }
 
 Stream<List<StaffNoticesRecord>> streamStaffNoticesForRecipient(

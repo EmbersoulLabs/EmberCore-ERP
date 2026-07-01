@@ -220,9 +220,21 @@ class _SalesReportPageWidgetState extends State<SalesReportPageWidget> {
                               isToday: isToday,
                             ),
                             const SizedBox(height: 20),
-                            _buildProductSection(theme),
-                            const SizedBox(height: 20),
                             _buildSummaryCards(theme),
+                            if (_report!.dayOverDayComparison != null) ...[
+                              const SizedBox(height: 12),
+                              _buildDayOverDayCard(theme),
+                            ],
+                            if (_report!.hasUnpaidOrders) ...[
+                              const SizedBox(height: 12),
+                              _buildUnpaidAlert(theme),
+                            ],
+                            const SizedBox(height: 20),
+                            _buildTopProductsSection(theme),
+                            const SizedBox(height: 20),
+                            _buildHourlyChartSection(theme),
+                            const SizedBox(height: 20),
+                            _buildProductSection(theme),
                             const SizedBox(height: 20),
                             Text(
                               tr(context, 'report.paymentMethods'),
@@ -489,27 +501,350 @@ class _SalesReportPageWidgetState extends State<SalesReportPageWidget> {
 
   Widget _buildSummaryCards(FlutterFlowTheme theme) {
     final report = _report!;
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _metricCard(
-            theme,
-            label: tr(context, 'report.totalOrders'),
-            value: report.totalOrders.toString(),
-            icon: Icons.receipt_long_outlined,
-            color: theme.primary,
+        Row(
+          children: [
+            Expanded(
+              child: _metricCard(
+                theme,
+                label: tr(context, 'report.totalOrders'),
+                value: report.totalOrders.toString(),
+                icon: Icons.receipt_long_outlined,
+                color: theme.primary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _metricCard(
+                theme,
+                label: tr(context, 'report.totalSales'),
+                value: _currency.format(report.totalSalesAmount),
+                icon: Icons.payments_outlined,
+                color: theme.success,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _metricCard(
+          theme,
+          label: tr(context, 'report.averageOrderAmount'),
+          value: _currency.format(report.averageOrderAmount),
+          icon: Icons.calculate_outlined,
+          color: theme.secondary,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDayOverDayCard(FlutterFlowTheme theme) {
+    final cmp = _report!.dayOverDayComparison!;
+    final pct = cmp.changePercent;
+    final trendColor = cmp.isFlat
+        ? theme.secondaryText
+        : cmp.isUp
+            ? theme.success
+            : theme.error;
+    final trendIcon = cmp.isFlat
+        ? Icons.remove
+        : cmp.isUp
+            ? Icons.arrow_upward_rounded
+            : Icons.arrow_downward_rounded;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.secondaryBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.alternate),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr(context, 'report.vsYesterday'),
+                  style: theme.labelMedium.override(color: theme.secondaryText),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  tr(
+                    context,
+                    'report.yesterdaySales',
+                    params: {'amount': _currency.format(cmp.previousAmount)},
+                  ),
+                  style: theme.bodySmall.override(color: theme.secondaryText),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(trendIcon, color: trendColor, size: 22),
+              const SizedBox(width: 6),
+              Text(
+                pct != null
+                    ? '${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%'
+                    : tr(context, 'report.dayOverDayNew'),
+                style: theme.titleMedium.override(
+                  font: GoogleFonts.interTight(fontWeight: FontWeight.w700),
+                  color: trendColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnpaidAlert(FlutterFlowTheme theme) {
+    final report = _report!;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.error.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, color: theme.error, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              tr(
+                context,
+                'report.unpaidOrdersAlert',
+                params: {
+                  'count': '${report.unpaidOrdersCount}',
+                  'amount': _currency.format(report.unpaidOrdersTotalAmount),
+                },
+              ),
+              style: theme.titleSmall.override(
+                font: GoogleFonts.interTight(fontWeight: FontWeight.w600),
+                color: theme.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopProductsSection(FlutterFlowTheme theme) {
+    final top = _report!.topProducts;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          tr(context, 'report.topProducts'),
+          style: theme.titleMedium.override(
+            font: GoogleFonts.interTight(fontWeight: FontWeight.w600),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _metricCard(
-            theme,
-            label: tr(context, 'report.totalSales'),
-            value: _currency.format(report.totalSalesAmount),
-            icon: Icons.payments_outlined,
-            color: theme.success,
+        const SizedBox(height: 12),
+        if (top.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: theme.secondaryBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.alternate),
+            ),
+            child: Text(
+              tr(context, 'report.noTopProducts'),
+              style: theme.bodyMedium.override(color: theme.secondaryText),
+            ),
+          )
+        else
+          Column(
+            children: [
+              for (var i = 0; i < top.length; i++)
+                Padding(
+                  padding: EdgeInsets.only(bottom: i < top.length - 1 ? 8 : 0),
+                  child: _topProductCard(theme, rank: i + 1, row: top[i]),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _topProductCard(
+    FlutterFlowTheme theme, {
+    required int rank,
+    required ProductSalesBreakdown row,
+  }) {
+    final rankColors = [
+      const Color(0xFFFFD700),
+      const Color(0xFFC0C0C0),
+      const Color(0xFFCD7F32),
+    ];
+    final rankColor = rankColors[(rank - 1).clamp(0, 2)];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: theme.secondaryBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.alternate),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: rankColor.withValues(alpha: 0.25),
+            child: Text(
+              '$rank',
+              style: theme.labelLarge.override(
+                font: GoogleFonts.interTight(fontWeight: FontWeight.w800),
+                color: theme.primaryText,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row.productName,
+                  style: theme.titleSmall.override(
+                    font: GoogleFonts.interTight(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${tr(context, 'common.qty')}: ${row.totalQty}',
+                  style: theme.bodySmall.override(color: theme.secondaryText),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            _currency.format(row.totalAmount),
+            style: theme.titleSmall.override(
+              font: GoogleFonts.interTight(fontWeight: FontWeight.w700),
+              color: theme.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHourlyChartSection(FlutterFlowTheme theme) {
+    final buckets = _report!.hourlyBreakdown;
+    final maxAmount = buckets
+        .map((bucket) => bucket.totalAmount)
+        .fold(0.0, (a, b) => a > b ? a : b);
+    final busiest = buckets.isEmpty
+        ? null
+        : buckets.reduce(
+            (a, b) => a.totalAmount >= b.totalAmount ? a : b,
+          );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          tr(context, 'report.hourlySales'),
+          style: theme.titleMedium.override(
+            font: GoogleFonts.interTight(fontWeight: FontWeight.w600),
           ),
         ),
+        if (busiest != null && busiest.totalAmount > 0) ...[
+          const SizedBox(height: 4),
+          Text(
+            tr(
+              context,
+              'report.busiestHour',
+              params: {
+                'hour': '${busiest.hour}',
+                'nextHour': '${(busiest.hour + 1) % 24}',
+              },
+            ),
+            style: theme.bodySmall.override(color: theme.secondaryText),
+          ),
+        ],
+        const SizedBox(height: 12),
+        if (maxAmount <= 0)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: theme.secondaryBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.alternate),
+            ),
+            child: Text(
+              tr(context, 'report.hourlySalesEmpty'),
+              style: theme.bodyMedium.override(color: theme.secondaryText),
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+            decoration: BoxDecoration(
+              color: theme.secondaryBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.alternate),
+            ),
+            child: SizedBox(
+              height: 160,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (final bucket in buckets)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 1),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (bucket.totalAmount > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  bucket.orderCount.toString(),
+                                  style: theme.labelSmall.override(
+                                    color: theme.secondaryText,
+                                    fontSize: 9,
+                                  ),
+                                ),
+                              ),
+                            Container(
+                              height: (140 * bucket.totalAmount / maxAmount)
+                                  .clamp(4, 140),
+                              decoration: BoxDecoration(
+                                color: bucket.totalAmount == maxAmount
+                                    ? theme.primary
+                                    : theme.primary.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${bucket.hour}',
+                              style: theme.labelSmall.override(
+                                color: theme.secondaryText,
+                                fontSize: 9,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }

@@ -232,6 +232,14 @@ class OrdersRecord extends FirestoreRecord {
   DateTime? get materialCostSnapshottedAt => _materialCostSnapshottedAt;
   bool hasMaterialCostSnapshot() => _materialCostSnapshottedAt != null;
 
+  bool? _inventoryFrozen;
+  bool get inventoryFrozen => _inventoryFrozen ?? false;
+  bool hasInventoryFrozen() => _inventoryFrozen != null;
+
+  bool? _stockDeducted;
+  bool get stockDeducted => _stockDeducted ?? false;
+  bool hasStockDeducted() => _stockDeducted != null;
+
   static List<String> _parseStringList(dynamic raw) {
     if (raw is! List) {
       return const [];
@@ -301,6 +309,8 @@ class OrdersRecord extends FirestoreRecord {
         ),
       );
     }
+    _inventoryFrozen = snapshotData['inventory_frozen'] as bool?;
+    _stockDeducted = snapshotData['stock_deducted'] as bool?;
   }
 
   static CollectionReference get collection =>
@@ -388,6 +398,8 @@ Map<String, dynamic> createOrdersRecordData({
   double? materialUsageCost,
   Map<String, double>? materialCostSnapshot,
   DateTime? materialCostSnapshottedAt,
+  bool? inventoryFrozen,
+  bool? stockDeducted,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -437,6 +449,8 @@ Map<String, dynamic> createOrdersRecordData({
       'material_usage_cost': materialUsageCost,
       'material_cost_snapshot': materialCostSnapshot,
       'material_cost_snapshotted_at': materialCostSnapshottedAt,
+      'inventory_frozen': inventoryFrozen,
+      'stock_deducted': stockDeducted,
     }.withoutNulls,
   );
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '/backend/company_profile_helpers.dart';
@@ -8,7 +9,6 @@ import '/backend/user_registration_request_helpers.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import '/index.dart';
 
 class ManageRegistrationRequestsPanel extends StatefulWidget {
   const ManageRegistrationRequestsPanel({super.key});
@@ -41,6 +41,52 @@ class _ManageRegistrationRequestsPanelState
       RegistrationRequestStatus.approved => theme.success,
       RegistrationRequestStatus.rejected => theme.error,
     };
+  }
+
+  Future<void> _showPasswordResetLinkDialog(String link) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          tr(dialogContext, 'admin.registrationRequests.passwordResetLinkTitle'),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              tr(dialogContext, 'admin.registrationRequests.passwordResetLinkBody'),
+            ),
+            const SizedBox(height: 12),
+            SelectableText(link),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: link));
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext);
+              }
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      tr(context, 'admin.registrationRequests.linkCopied'),
+                    ),
+                  ),
+                );
+              }
+            },
+            child: Text(tr(dialogContext, 'admin.registrationRequests.copyLink')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(tr(dialogContext, 'common.close')),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _reject(UserRegistrationRequest request) async {
@@ -121,9 +167,9 @@ class _ManageRegistrationRequestsPanelState
             ),
             const SizedBox(height: 8),
             Text(
-              tr(dialogContext, 'admin.registrationRequests.approveSessionWarning'),
+              tr(dialogContext, 'admin.registrationRequests.approveServerNote'),
               style: FlutterFlowTheme.of(dialogContext).bodySmall.override(
-                    color: FlutterFlowTheme.of(dialogContext).warning,
+                    color: FlutterFlowTheme.of(dialogContext).secondaryText,
                   ),
             ),
           ],
@@ -147,7 +193,6 @@ class _ManageRegistrationRequestsPanelState
 
     setState(() => _acting = true);
     final result = await approveRegistrationRequest(
-      context: context,
       requestId: request.id,
       initialPassword: passwordController.text,
     );
@@ -158,18 +203,17 @@ class _ManageRegistrationRequestsPanelState
     setState(() => _acting = false);
 
     if (result.success) {
+      if (result.passwordResetLink != null && result.passwordResetLink!.isNotEmpty) {
+        await _showPasswordResetLinkDialog(result.passwordResetLink!);
+      }
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            result.signedOutSuperAdminSession
-                ? tr(context, 'admin.registrationRequests.approvedSignInAgain')
-                : tr(context, 'admin.registrationRequests.approved'),
-          ),
+          content: Text(tr(context, 'admin.registrationRequests.approved')),
         ),
       );
-      if (result.signedOutSuperAdminSession) {
-        context.go(LoginPageWidget.routePath);
-      }
       return;
     }
 

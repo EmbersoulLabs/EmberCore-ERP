@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '/auth/auth_redirect.dart';
 import '/auth/firebase_auth/auth_util.dart';
+import '/backend/tenant_admin_service.dart';
 import '/backend/user_list_helpers.dart';
 import '/backend/user_query_helpers.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -53,6 +54,21 @@ class _PostLoginRouterWidgetState extends State<PostLoginRouterWidget> {
           });
         }
         return;
+      }
+
+      if (profile != null) {
+        final companyBlocked =
+            await inactiveCompanyLoginBlockMessage(profile);
+        if (companyBlocked != null) {
+          await authManager.signOut();
+          AppStateNotifier.instance.clearUserRole();
+          if (mounted) {
+            setState(() {
+              _errorMessage = companyBlocked;
+            });
+          }
+          return;
+        }
       }
 
       final path = await getPostLoginRoutePath();

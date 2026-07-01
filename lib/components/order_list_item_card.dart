@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '/backend/order_list_display_helpers.dart';
+import '/backend/order_list_filter_helpers.dart';
 import '/backend/responsive_layout_helpers.dart';
 import '/backend/schema/order_item_record.dart';
 import '/backend/schema/orders_record.dart';
+import '/components/order_list_driver_cell.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/l10n/tr.dart';
 import '/theme/ember_brand.dart';
@@ -46,7 +48,7 @@ class OrderListItemCard extends StatelessWidget {
       orderListDeliveryTimeSlot(order),
       statusLabel,
       paymentLabel,
-      orderListDriverLabel(order),
+      '',
       orderListTotal(order),
       tr(context, 'order.col.view'),
     ];
@@ -80,6 +82,7 @@ class OrderListItemCard extends StatelessWidget {
                         constraints.maxWidth >= kOrderListOpsBreakpoint;
                     if (opsWide) {
                       return _OpsWideRow(
+                        order: order,
                         cells: cells,
                         statusColor: statusColor,
                         paymentColor: paymentColor,
@@ -218,6 +221,7 @@ int _columnFlex(int index) {
 
 class _OpsWideRow extends StatelessWidget {
   const _OpsWideRow({
+    required this.order,
     required this.cells,
     required this.statusColor,
     required this.paymentColor,
@@ -225,6 +229,7 @@ class _OpsWideRow extends StatelessWidget {
     required this.onView,
   });
 
+  final OrdersRecord order;
   final List<String> cells;
   final Color statusColor;
   final Color paymentColor;
@@ -242,6 +247,7 @@ class _OpsWideRow extends StatelessWidget {
             child: switch (i) {
               6 => _StatusChip(label: cells[i], color: statusColor),
               7 => _StatusChip(label: cells[i], color: paymentColor),
+              8 => OrderListDriverCell(order: order, theme: theme),
               10 => IconButton(
                   onPressed: onView,
                   icon: const Icon(Icons.arrow_forward_ios, size: 14),
@@ -378,6 +384,31 @@ class _NarrowColumn extends StatelessWidget {
           tr(context, 'order.col.paymentStatus'),
           paymentLabel,
         ),
+        if (!isRetailOrderRecord(order))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${tr(context, 'order.col.driver')}: ',
+                  style: GoogleFonts.inter(
+                    fontSize: 11.5,
+                    height: 1.25,
+                    fontWeight: FontWeight.w600,
+                    color: theme.secondaryText,
+                  ),
+                ),
+                Expanded(
+                  child: OrderListDriverCell(
+                    order: order,
+                    theme: theme,
+                    compact: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
         _compactLine(tr(context, 'order.col.total'), orderListTotal(order)),
         _compactLine(
           tr(context, 'order.col.product'),

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '/auth/role_helpers.dart';
-import '/auth/viewer_role_helpers.dart';
+import '/components/ember_app_bar.dart';
 import '/components/home_nav_button.dart';
 import '/components/manage_registration_requests_panel.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
+import '/auth/role_helpers.dart';
+import '/auth/viewer_role_helpers.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 
@@ -29,25 +28,15 @@ class _RegistrationRequestsPageWidgetState
 
     return Scaffold(
       backgroundColor: theme.primaryBackground,
-      appBar: AppBar(
+      appBar: EmberPrimaryAppBar(
+        title: emberCompactAppBar(context)
+            ? tr(context, 'admin.registrationRequests.titleShort')
+            : tr(context, 'admin.registrationRequests.title'),
+        onBack: () => context.pop(),
         backgroundColor: theme.primary,
-        automaticallyImplyLeading: false,
-        leading: FlutterFlowIconButton(
-          borderRadius: 30,
-          buttonSize: 60,
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 30),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          tr(context, 'admin.registrationRequests.title'),
-          style: theme.headlineMedium.override(
-            font: GoogleFonts.interTight(fontWeight: FontWeight.w600),
-            color: Colors.white,
-            fontSize: 22,
-          ),
-        ),
-        actions: const [HomeNavIconButton()],
-        centerTitle: true,
+        centerTitle: false,
+        useBrandLogo: true,
+        actions: const [HomeNavIconButton.onPrimary()],
       ),
       body: !isSuperAdmin
           ? Center(child: Text(tr(context, 'admin.registrationRequests.noAccess')))

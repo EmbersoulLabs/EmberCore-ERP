@@ -7,6 +7,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/backend/create_order_service.dart';
 import '/backend/dashboard_order_stats_helpers.dart';
+import '/components/ember_app_bar.dart';
 import '/backend/tenant_context.dart';
 import '/backend/user_query_helpers.dart';
 import '/backend/whatsapp_order_import_service.dart';
@@ -16,7 +17,6 @@ import '/components/ember_app_shell.dart';
 import '/components/ember_dashboard_sections.dart';
 import '/components/ember_metric_card.dart';
 import '/components/whatsapp_order_paste_button.dart';
-import '/flutter_flow/flutter_flow_util.dart';
 import '/theme/ember_brand.dart';
 import '/theme/ember_navigation.dart';
 import '/index.dart';
@@ -186,17 +186,33 @@ class _SalesDashBoardWidgetState extends State<SalesDashBoardWidget> {
               if (!isSuperAdminRole(AppStateNotifier.instance.userRole)) {
                 return const SizedBox.shrink();
               }
-              return TextButton.icon(
-                onPressed: () {
-                  context.pushNamed(CompanySelectionPageWidget.routeName);
-                },
-                icon: Icon(
-                  TenantContext.instance.isViewingAllCompanies
-                      ? Icons.business
-                      : Icons.filter_alt,
-                  size: 18,
+              final scopeLabel = TenantContext.instance.viewScopeLabel;
+              final icon = TenantContext.instance.isViewingAllCompanies
+                  ? Icons.business
+                  : Icons.filter_alt;
+              if (emberCompactAppBar(context)) {
+                return EmberAppBarIconButton(
+                  icon: icon,
+                  tooltip: scopeLabel,
+                  onPrimary: true,
+                  onPressed: () {
+                    context.pushNamed(CompanySelectionPageWidget.routeName);
+                  },
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: TextButton.icon(
+                  onPressed: () {
+                    context.pushNamed(CompanySelectionPageWidget.routeName);
+                  },
+                  icon: Icon(icon, size: 18, color: Colors.white),
+                  label: Text(
+                    scopeLabel,
+                    style: const TextStyle(color: Colors.white),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                label: Text(TenantContext.instance.viewScopeLabel),
               );
             },
           ),
@@ -399,12 +415,10 @@ class _SalesDashBoardWidgetState extends State<SalesDashBoardWidget> {
                         text: _creatingOrder
                             ? tr(context, 'dashboard.creating')
                             : tr(context, 'dashboard.createOrder'),
-                        icon: const Icon(Icons.add_rounded, size: 22.0),
                         options: FFButtonOptions(
                           width: double.infinity,
                           height: 52.0,
                           color: EmberBrand.navy,
-                          iconColor: Colors.white,
                           textStyle: theme.titleMedium.override(
                             font: GoogleFonts.interTight(
                               fontWeight: FontWeight.w600,

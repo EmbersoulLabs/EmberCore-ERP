@@ -186,4 +186,34 @@ void main() {
     );
     expect(filtered.map((o) => o.reference.id), ['a', 'b']);
   });
+
+  test('Retail filter matches OnSite generic order type', () {
+    final orders = [
+      _order(id: '1', orderType: 'OnSite'),
+      _order(id: '2', orderType: 'Remote'),
+    ];
+    final retailOnly = applyOrderListClientFilters(
+      orders: orders,
+      orderItems: [],
+      orderType: 'Retail',
+      searchText: '',
+    );
+    expect(retailOnly.length, 1);
+    expect(retailOnly.first.reference.id, '1');
+  });
+
+  test('Delivery filter matches Remote generic order type', () {
+    final orders = [
+      _order(id: '1', orderType: 'OnSite'),
+      _order(id: '2', pickupDelivery: 'Remote'),
+    ];
+    final deliveryOnly = applyOrderListClientFilters(
+      orders: orders,
+      orderItems: [],
+      orderType: 'Delivery',
+      searchText: '',
+    );
+    expect(deliveryOnly.length, 1);
+    expect(deliveryOnly.first.reference.id, '2');
+  });
 }

@@ -1,8 +1,10 @@
 import '/auth/role_helpers.dart';
 import '/backend/backend.dart';
+import '/backend/branch_helpers.dart';
 import '/backend/create_order_service.dart';
 import '/backend/company_query_helpers.dart';
 import '/backend/tenant_context.dart';
+import '/components/add_company_dialog.dart';
 import '/components/home_nav_button.dart';
 import '/backend/user_query_helpers.dart';
 import '/platform/platform_config_service.dart';
@@ -61,6 +63,7 @@ class _CompanySelectionPageWidgetState
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
   UsersRecord? _profile;
+  String? _orgIdFilter;
 
   @override
   void initState() {
@@ -71,6 +74,7 @@ class _CompanySelectionPageWidgetState
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _profile = await resolveCurrentUserProfile();
+      _orgIdFilter = await orgIdForUserProfile(_profile);
       safeSetState(() {});
     });
   }
@@ -101,6 +105,37 @@ class _CompanySelectionPageWidgetState
       return;
     }
     context.go(SalesDashBoardWidget.routePath);
+  }
+
+  Future<void> _openAddCompanyDialog() async {
+    final result = await showAddCompanyDialog(context);
+    if (!mounted || result == null) {
+      return;
+    }
+    if (!result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.errorMessage ?? tr(context, 'admin.registrationRequests.actionFailed'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.signedOutSuperAdminSession
+              ? tr(context, 'admin.addCompany.successSignInAgain')
+              : tr(context, 'admin.addCompany.success'),
+        ),
+      ),
+    );
+
+    if (result.signedOutSuperAdminSession) {
+      context.go(LoginPageWidget.routePath);
+    }
   }
 
   Future<void> _openIndustrySettingsForCompany(CompaniesRecord company) async {
@@ -341,6 +376,29 @@ class _CompanySelectionPageWidgetState
                         ),
                   ),
                   const SizedBox(height: 12.0),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => context.pushNamed(
+                          RegistrationRequestsPageWidget.routeName,
+                        ),
+                        icon: const Icon(Icons.how_to_reg_outlined, size: 18),
+                        label: Text(
+                          tr(context, 'admin.registrationRequests.title'),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => context.pushNamed(
+                          TenantListPageWidget.routeName,
+                        ),
+                        icon: const Icon(Icons.apartment_outlined, size: 18),
+                        label: Text(tr(context, 'admin.tenants.title')),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12.0),
                 ],
                 TextFormField(
                   controller: _model.searchController,
@@ -383,8 +441,9 @@ class _CompanySelectionPageWidgetState
                         stream: queryCompaniesRecord(
                           queryBuilder:
                               TenantContext.instance.companiesQueryForUser(
-                            _profile,
-                          ),
+                                _profile,
+                                orgIdFilter: _orgIdFilter,
+                              ),
                         ),
                         builder: (context, snapshot) {
                           if (snapshot.hasError) {
@@ -518,6 +577,13 @@ class _CompanySelectionPageWidgetState
             ),
           ),
         ),
+        floatingActionButton: isSuperAdminRole(_profile?.role)
+            ? FloatingActionButton.extended(
+                onPressed: _openAddCompanyDialog,
+                icon: const Icon(Icons.add_business_outlined),
+                label: Text(tr(context, 'admin.addCompany.button')),
+              )
+            : null,
       ),
     );
   }

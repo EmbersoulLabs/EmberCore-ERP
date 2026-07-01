@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '/backend/backend.dart';
 import '/backend/material_cost_snapshot_helpers.dart';
+import '/backend/inventory_service.dart';
 
 class PaymentApplicationResult {
   const PaymentApplicationResult({
@@ -104,6 +105,9 @@ Future<void> writeOrderPaymentBalance(
     ),
   );
   await orderRef.update(updateData);
+  if (applied.isFullyPaid) {
+    await applyInventoryOnOrderPayment(orderRef);
+  }
 }
 
 Future<void> markOrderFullyPaid(
@@ -130,6 +134,7 @@ Future<void> markOrderFullyPaid(
     ),
   );
   await orderRef.update(updateData);
+  await applyInventoryOnOrderPayment(orderRef);
 }
 
 Future<String?> ensurePaymentTypeSelected(

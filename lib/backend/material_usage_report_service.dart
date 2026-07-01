@@ -1,11 +1,7 @@
 import '/backend/backend.dart';
 import '/backend/daily_sales_report_service.dart';
 import '/backend/order_item_helpers.dart';
-import '/backend/order_list_filter_helpers.dart';
 import '/backend/product_recipe_helpers.dart';
-import '/backend/schema/order_item_record.dart';
-import '/backend/schema/product_record.dart';
-import '/backend/tenant_query_helpers.dart';
 
 class MaterialUsageBreakdown {
   const MaterialUsageBreakdown({
@@ -202,51 +198,19 @@ Future<List<OrderItemRecord>> loadPaidOrderItemsForSalesReportRange({
   required DateTime startDate,
   required DateTime endDate,
 }) async {
-  final range = normalizeSalesReportDateRange(
+  final paidOrders = await loadPaidOrdersForSalesReportRange(
     startDate: startDate,
     endDate: endDate,
   );
-  final rangeStart = startOfDay(range.start);
-  final rangeEnd = endOfDay(range.end);
-
-  List<OrdersRecord> orders;
-  try {
-    orders = await queryTenantOrdersRecordOnce(
-      queryBuilder: (q) => q
-          .where('created_time', isGreaterThanOrEqualTo: rangeStart)
-          .where('created_time', isLessThanOrEqualTo: rangeEnd),
-    );
-    orders = orders
-        .where(
-          (order) => orderMatchesDailySalesDateRange(
-            order,
-            startDate: range.start,
-            endDate: range.end,
-          ),
-        )
-        .toList();
-  } catch (_) {
-    orders = await queryTenantOrdersRecordOnce();
-    orders = orders
-        .where(
-          (order) => orderMatchesDailySalesDateRange(
-            order,
-            startDate: range.start,
-            endDate: range.end,
-          ),
-        )
-        .toList();
-  }
-
-  final paidOrders =
-      orders.where(orderQualifiesForDailySales).toList(growable: false);
   final paidOrderIds = paidOrders.map((order) => order.reference.id).toSet();
+  final deletedDocIds = await loadActiveDeletedOrderDocIds();
   final orderItems = await queryTenantOrderItemRecordOnce();
   return orderItems
       .where(
         (item) =>
             item.orderRef != null &&
-            paidOrderIds.contains(item.orderRef!.id),
+            paidOrderIds.contains(item.orderRef!.id) &&
+            !deletedDocIds.contains(item.orderRef!.id),
       )
       .toList(growable: false);
 }

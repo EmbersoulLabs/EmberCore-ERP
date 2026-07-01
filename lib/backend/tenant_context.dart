@@ -8,6 +8,7 @@ import '/backend/schema/enums/enums.dart';
 import '/auth/role_helpers.dart';
 import '/backend/schema/users_record.dart';
 import '/backend/tenant_company_helpers.dart';
+import '/backend/tenant_admin_service.dart';
 import '/backend/user_query_helpers.dart';
 import '/backend/user_permissions_helpers.dart';
 import '/auth/permission_service.dart';
@@ -242,6 +243,11 @@ class TenantContext extends ChangeNotifier {
       await setActiveCompany(companyRef, viewAll: false);
     }
 
+    final companyBlocked = await inactiveCompanyLoginBlockMessage(profile);
+    if (companyBlocked != null) {
+      return companyBlocked;
+    }
+
     return null;
   }
 
@@ -273,16 +279,22 @@ class TenantContext extends ChangeNotifier {
   }
 
   /// Companies visible on the selection screen.
-  Query Function(Query) companiesQueryForUser(UsersRecord? profile) {
+  /// When [orgIdFilter] is set (Business org), shows HQ + branches.
+  Query Function(Query) companiesQueryForUser(
+    UsersRecord? profile, {
+    String? orgIdFilter,
+  }) {
     return (Query query) {
       query = query.where('is_active', isEqualTo: true);
+      if (orgIdFilter != null && orgIdFilter.isNotEmpty) {
+        return query.where('org_id', isEqualTo: orgIdFilter);
+      }
       if (!canViewAllCompanies(profile) && profile?.companyRef != null) {
         query = query.where(
           FieldPath.documentId,
           isEqualTo: profile!.companyRef!.id,
         );
       }
-      // Sort client-side — composite index on is_active + Company_name is not required.
       return query;
     };
   }

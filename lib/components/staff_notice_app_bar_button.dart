@@ -7,6 +7,7 @@ import '/backend/schema/staff_notices_record.dart';
 import '/backend/schema/users_record.dart';
 import '/backend/staff_notice_helpers.dart';
 import '/backend/user_query_helpers.dart';
+import '/components/ember_app_bar.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
@@ -16,11 +17,16 @@ class StaffNoticeAppBarButton extends StatefulWidget {
   const StaffNoticeAppBarButton({
     super.key,
     this.iconColor = Colors.white,
+    this.compact = false,
   });
 
-  const StaffNoticeAppBarButton.onPrimary({super.key}) : iconColor = Colors.white;
+  const StaffNoticeAppBarButton.onPrimary({
+    super.key,
+    this.compact = false,
+  }) : iconColor = Colors.white;
 
   final Color iconColor;
+  final bool compact;
 
   @override
   State<StaffNoticeAppBarButton> createState() =>
@@ -111,19 +117,10 @@ class _StaffNoticeAppBarButtonState extends State<StaffNoticeAppBarButton> {
                           onTap: () async {
                             Navigator.of(sheetContext).pop();
                             await markStaffNoticeRead(notice.reference);
-                            if (!context.mounted || !notice.hasOrderRef()) {
+                            if (!context.mounted) {
                               return;
                             }
-                            context.pushNamed(
-                              OrderDetailPageWidget.routeName,
-                              queryParameters: {
-                                'orderRef': serializeParam(
-                                  notice.orderRef,
-                                  ParamType.DocumentReference,
-                                )!,
-                              },
-                              extra: {'orderRef': notice.orderRef},
-                            );
+                            await openStaffNoticeTarget(context, notice);
                           },
                         );
                       },
@@ -140,9 +137,20 @@ class _StaffNoticeAppBarButtonState extends State<StaffNoticeAppBarButton> {
   @override
   Widget build(BuildContext context) {
     if (_recipientRef == null) {
+      final size = widget.compact
+          ? emberAppBarIconButtonSize(context)
+          : 44.0;
       return IconButton(
         onPressed: null,
-        icon: Icon(Icons.notifications_outlined, color: widget.iconColor),
+        padding: widget.compact ? EdgeInsets.zero : null,
+        constraints: BoxConstraints(minWidth: size, minHeight: size),
+        visualDensity:
+            widget.compact ? VisualDensity.compact : VisualDensity.standard,
+        icon: Icon(
+          Icons.notifications_outlined,
+          color: widget.iconColor,
+          size: emberAppBarIconSize(context),
+        ),
       );
     }
 
@@ -153,8 +161,16 @@ class _StaffNoticeAppBarButtonState extends State<StaffNoticeAppBarButton> {
         final unread =
             notices.where((notice) => isStaffNoticeUnread(notice)).length;
 
+        final size = widget.compact
+            ? emberAppBarIconButtonSize(context)
+            : 44.0;
+
         return IconButton(
           tooltip: 'Notices',
+          padding: widget.compact ? EdgeInsets.zero : null,
+          constraints: BoxConstraints(minWidth: size, minHeight: size),
+          visualDensity:
+              widget.compact ? VisualDensity.compact : VisualDensity.standard,
           onPressed: () => _openNoticeSheet(notices),
           icon: Badge(
             isLabelVisible: unread > 0,
@@ -164,6 +180,7 @@ class _StaffNoticeAppBarButtonState extends State<StaffNoticeAppBarButton> {
                   ? Icons.notifications_active_outlined
                   : Icons.notifications_outlined,
               color: widget.iconColor,
+              size: emberAppBarIconSize(context),
             ),
           ),
         );
@@ -197,7 +214,7 @@ class _NoticeTile extends StatelessWidget {
             font: GoogleFonts.interTight(fontWeight: FontWeight.w600),
           ),
         ),
-        subtitle: Text(staffNoticeBody(notice)),
+        subtitle: Text(staffNoticeDisplayBody(notice)),
         isThreeLine: true,
         trailing: unread
             ? Icon(Icons.fiber_manual_record, size: 10, color: theme.primary)

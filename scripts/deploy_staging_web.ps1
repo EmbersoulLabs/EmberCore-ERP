@@ -32,5 +32,5 @@ npm run deploy:hosting:staging
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
-Write-Host "Staging web URL: https://tfg-vday-record-staging.web.app" -ForegroundColor Green
-Write-Host "Login: staging.admin@tfg-vday.test (password from team vault / STAGING_ADMIN_PASSWORD)" -ForegroundColor Green
+Write-Host "Staging web URL: https://embercore-erp-staging.web.app" -ForegroundColor Green
+Write-Host "Login: staging.admin@embersoullabs.com (password from STAGING_ADMIN_PASSWORD)" -ForegroundColor Green

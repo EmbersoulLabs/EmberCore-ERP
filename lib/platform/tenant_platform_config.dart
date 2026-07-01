@@ -1,5 +1,66 @@
 import '/platform/platform_module.dart';
 
+/// Placeholder-based templates for scheduled operation reminders (Cloud Functions).
+class OperationNoticeTemplates {
+  const OperationNoticeTemplates({
+    required this.tomorrowPrep,
+    required this.tomorrowPrepWeekend,
+    required this.todayOps,
+  });
+
+  final String tomorrowPrep;
+  final String tomorrowPrepWeekend;
+  final String todayOps;
+
+  static OperationNoticeTemplates defaults() => const OperationNoticeTemplates(
+        tomorrowPrep: '{line1}\n{line2}',
+        tomorrowPrepWeekend: '{line1}\n{line2}',
+        todayOps:
+            'Today ({target_date}): {total_delivery} delivery order(s) ({not_started} not started)',
+      );
+
+  OperationNoticeTemplates copyWith({
+    String? tomorrowPrep,
+    String? tomorrowPrepWeekend,
+    String? todayOps,
+  }) {
+    return OperationNoticeTemplates(
+      tomorrowPrep: tomorrowPrep ?? this.tomorrowPrep,
+      tomorrowPrepWeekend: tomorrowPrepWeekend ?? this.tomorrowPrepWeekend,
+      todayOps: todayOps ?? this.todayOps,
+    );
+  }
+
+  static OperationNoticeTemplates fromFirestore(
+    Map? raw,
+    OperationNoticeTemplates fallback,
+  ) {
+    if (raw == null) {
+      return fallback;
+    }
+    String pick(String key, String base) {
+      final value = raw[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+      return base;
+    }
+
+    return OperationNoticeTemplates(
+      tomorrowPrep: pick('tomorrow_prep', fallback.tomorrowPrep),
+      tomorrowPrepWeekend:
+          pick('tomorrow_prep_weekend', fallback.tomorrowPrepWeekend),
+      todayOps: pick('today_ops', fallback.todayOps),
+    );
+  }
+
+  Map<String, String> toFirestore() => {
+        'tomorrow_prep': tomorrowPrep,
+        'tomorrow_prep_weekend': tomorrowPrepWeekend,
+        'today_ops': todayOps,
+      };
+}
+
 /// Known industry presets. Tenants can use [generic] or override per company in Firestore.
 enum IndustryPreset {
   generic,
@@ -47,6 +108,7 @@ class TenantPlatformConfig {
     required this.statusLabelsEn,
     required this.driverRoleLabelEn,
     required this.driverRoleLabelZh,
+    required this.operationNoticeTemplates,
   });
 
   final IndustryPreset industryPreset;
@@ -58,6 +120,7 @@ class TenantPlatformConfig {
   final Map<String, String> statusLabelsEn;
   final String driverRoleLabelEn;
   final String driverRoleLabelZh;
+  final OperationNoticeTemplates operationNoticeTemplates;
 
   bool isModuleEnabled(PlatformModule module) => enabledModules.contains(module);
 
@@ -85,6 +148,7 @@ class TenantPlatformConfig {
     Map<String, String>? statusLabelsEn,
     String? driverRoleLabelEn,
     String? driverRoleLabelZh,
+    OperationNoticeTemplates? operationNoticeTemplates,
   }) {
     return TenantPlatformConfig(
       industryPreset: industryPreset ?? this.industryPreset,
@@ -96,6 +160,8 @@ class TenantPlatformConfig {
       statusLabelsEn: statusLabelsEn ?? this.statusLabelsEn,
       driverRoleLabelEn: driverRoleLabelEn ?? this.driverRoleLabelEn,
       driverRoleLabelZh: driverRoleLabelZh ?? this.driverRoleLabelZh,
+      operationNoticeTemplates:
+          operationNoticeTemplates ?? this.operationNoticeTemplates,
     );
   }
 
@@ -131,6 +197,7 @@ class TenantPlatformConfig {
       statusLabelsEn: Map<String, String>.from(_genericStatusLabelsEn),
       driverRoleLabelEn: 'Field staff',
       driverRoleLabelZh: '外勤人员',
+      operationNoticeTemplates: OperationNoticeTemplates.defaults(),
     );
   }
 
@@ -163,6 +230,7 @@ class TenantPlatformConfig {
       statusLabelsEn: Map<String, String>.from(_genericStatusLabelsEn),
       driverRoleLabelEn: 'Driver',
       driverRoleLabelZh: '司机',
+      operationNoticeTemplates: OperationNoticeTemplates.defaults(),
     );
   }
 
@@ -228,6 +296,10 @@ class TenantPlatformConfig {
           (data['driver_role_label_en'] as String?) ?? base.driverRoleLabelEn,
       driverRoleLabelZh:
           (data['driver_role_label_zh'] as String?) ?? base.driverRoleLabelZh,
+      operationNoticeTemplates: OperationNoticeTemplates.fromFirestore(
+        data['operation_notice_templates'] as Map?,
+        base.operationNoticeTemplates,
+      ),
     );
   }
 
@@ -246,6 +318,7 @@ class TenantPlatformConfig {
         'status_labels_en': statusLabelsEn,
         'driver_role_label_en': driverRoleLabelEn,
         'driver_role_label_zh': driverRoleLabelZh,
+        'operation_notice_templates': operationNoticeTemplates.toFirestore(),
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 

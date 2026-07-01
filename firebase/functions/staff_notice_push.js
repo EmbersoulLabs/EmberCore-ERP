@@ -1,15 +1,20 @@
 const admin = require("firebase-admin");
+const { TOMORROW_PREP_TITLE } = require("./tomorrow_prep_notice_copy");
 
 const ANDROID_CHANNEL_ID = "tfg_staff_notices";
+const NAV_TOMORROW_PREP = "nav:tomorrow_prep";
 
-function staffNoticeTitle(type) {
+function staffNoticeTitle(type, notice = {}) {
+  if (notice.notice_title && String(notice.notice_title).trim()) {
+    return String(notice.notice_title).trim();
+  }
   switch (type) {
     case "driver_assigned":
       return "Delivery assigned";
     case "shopify_order_imported":
       return "New Shopify Order";
     case "tomorrow_prep_reminder":
-      return "Tomorrow prep reminder";
+      return TOMORROW_PREP_TITLE;
     case "today_ops_reminder":
       return "Today production reminder";
     case "special_procurement_reminder":
@@ -79,6 +84,13 @@ function orderRefPath(notice) {
   return "";
 }
 
+function staffNoticeNavigationPayload(notice) {
+  if (notice.type === "tomorrow_prep_reminder") {
+    return NAV_TOMORROW_PREP;
+  }
+  return orderRefPath(notice);
+}
+
 async function loadRecipientTokenDocs(db, recipientUserRef) {
   if (!recipientUserRef || !recipientUserRef.id) {
     return [];
@@ -123,9 +135,10 @@ async function sendStaffNoticePush(db, notice, noticeId) {
   }
 
   const tokens = tokenDocs.map((doc) => doc.data().token);
-  const title = staffNoticeTitle(notice.type);
+  const title = staffNoticeTitle(notice.type, notice);
   const body = staffNoticeBody(notice);
   const orderPath = orderRefPath(notice);
+  const navigationPayload = staffNoticeNavigationPayload(notice);
 
   const response = await admin.messaging().sendEachForMulticast({
     tokens,
@@ -136,6 +149,7 @@ async function sendStaffNoticePush(db, notice, noticeId) {
     data: {
       noticeId: noticeId || "",
       orderPath,
+      navigationPayload,
       type: notice.type || "",
       title,
       body,
@@ -164,7 +178,9 @@ async function sendStaffNoticePush(db, notice, noticeId) {
 }
 
 module.exports = {
+  NAV_TOMORROW_PREP,
   staffNoticeTitle,
   staffNoticeBody,
+  staffNoticeNavigationPayload,
   sendStaffNoticePush,
 };

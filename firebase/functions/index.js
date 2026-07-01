@@ -17,6 +17,18 @@ const {
   readBootstrapConfig,
 } = require("./bootstrap_platform");
 const { parseOrderMessageWithGemini } = require("./order_import_parser");
+const {
+  assertCallerIsSuperadmin,
+  approveRegistrationRequestImpl,
+} = require("./registration_provisioning");
+const { createBranchImpl } = require("./branch_provisioning");
+const {
+  createCheckoutSessionImpl,
+  createPortalSessionImpl,
+  handleStripeWebhookEvent,
+  readStripeConfig,
+  getStripe,
+} = require("./stripe_billing");
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -391,5 +403,132 @@ exports.parseOrderImport = functions
         "internal",
         error.message || "Order import parsing failed",
       );
+    }
+  });
+
+/**
+ * Callable: approveRegistrationRequest
+ * Superadmin-only. Provisions a tenant (Companies + config + counters +
+ * staff_roles + role_permissions) and the director Auth user server-side, then
+ * marks the request approved. Keeps the superadmin's session intact.
+ */
+exports.approveRegistrationRequest = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 120,
+    memory: "256MB",
+  })
+  .https.onCall(async (data, context) => {
+    const reviewerUid = await assertCallerIsSuperadmin(db, context);
+    const result = await approveRegistrationRequestImpl(db, data, reviewerUid);
+    functions.logger.info("registration request approved", {
+      reviewerUid,
+      companyId: result.companyId,
+      userUid: result.userUid,
+      passwordSet: result.passwordSet,
+    });
+    return result;
+  });
+
+/**
+ * Callable: createBranch
+ * Business plan — add a branch under HQ (superadmin or org director/admin).
+ */
+exports.createBranch = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 120,
+    memory: "256MB",
+  })
+  .https.onCall(async (data, context) => {
+    const result = await createBranchImpl(db, context, data);
+    functions.logger.info("branch created", {
+      branchId: result.branchId,
+      orgId: result.orgId,
+      headquartersCompanyId: result.headquartersCompanyId,
+      callerUid: context.auth?.uid,
+    });
+    return result;
+  });
+
+/**
+ * Callable: createCheckoutSession
+ * Director/admin starts Stripe Checkout for Starter or Pro.
+ */
+exports.createCheckoutSession = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 60,
+    memory: "256MB",
+  })
+  .https.onCall(async (data, context) => {
+    return createCheckoutSessionImpl(db, data, context);
+  });
+
+/**
+ * Callable: createPortalSession
+ * Director/admin opens Stripe Customer Portal (renew, upgrade, cancel).
+ */
+exports.createPortalSession = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 60,
+    memory: "256MB",
+  })
+  .https.onCall(async (data, context) => {
+    return createPortalSessionImpl(db, data, context);
+  });
+
+/**
+ * POST /stripeWebhook
+ * Stripe subscription lifecycle → Firestore Companies subscription fields.
+ */
+exports.stripeWebhook = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 60,
+    memory: "256MB",
+  })
+  .https.onRequest(async (req, res) => {
+    if (req.method !== "POST") {
+      res.set("Allow", "POST");
+      return res.status(405).send("Method not allowed");
+    }
+
+    const stripe = getStripe();
+    const { webhookSecret } = readStripeConfig();
+    if (!stripe || !webhookSecret) {
+      functions.logger.error("Stripe webhook not configured");
+      return res.status(500).send("Stripe not configured");
+    }
+
+    const signature = req.headers["stripe-signature"];
+    if (!signature) {
+      return res.status(400).send("Missing stripe-signature");
+    }
+
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        rawBodyBuffer(req),
+        signature,
+        webhookSecret,
+      );
+    } catch (error) {
+      functions.logger.warn("Stripe webhook signature failed", {
+        message: error.message,
+      });
+      return res.status(400).send(`Webhook Error: ${error.message}`);
+    }
+
+    try {
+      await handleStripeWebhookEvent(db, event);
+      return res.status(200).json({ received: true });
+    } catch (error) {
+      functions.logger.error("Stripe webhook handler failed", {
+        type: event.type,
+        message: error.message,
+      });
+      return res.status(500).send("Webhook handler failed");
     }
   });

@@ -1,8 +1,9 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/audit_log_helpers.dart';
 import '/backend/backend.dart';
+import '/auth/frozen_order_permissions.dart';
+import '/auth/viewer_role_helpers.dart';
 import '/backend/order_navigation_helpers.dart';
-import '/backend/dashboard_order_stats_helpers.dart';
 import '/backend/order_status_helpers.dart';
 import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -343,15 +344,31 @@ class _OrderMoreActionSheetWidgetState
                                   hoverColor: Colors.transparent,
                                   highlightColor: Colors.transparent,
                                   onTap: () async {
+                                    if (!canCancelOrVoidFrozenOrder(
+                                      currentViewerRole(),
+                                      containerOrdersRecord!,
+                                    )) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            tr(
+                                              context,
+                                              'order.inventory.frozenCancelDenied',
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
                                     await auditLogCancelOrder(
                                         containerOrdersRecord!);
-                                    await widget!.orderRef!
-                                        .update(createOrderStatusUpdateData(
+                                    await updateOrderStatus(
+                                      widget!.orderRef!,
                                       OrderStatus.cancelled,
-                                    ));
+                                    );
                                     await containerOrdersRecord!.reference
                                         .delete();
-                                    notifyDashboardStatsChanged();
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
@@ -399,12 +416,29 @@ class _OrderMoreActionSheetWidgetState
                                           hoverColor: Colors.transparent,
                                           highlightColor: Colors.transparent,
                                           onTap: () async {
+                                            if (!canCancelOrVoidFrozenOrder(
+                                              currentViewerRole(),
+                                              containerOrdersRecord!,
+                                            )) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    tr(
+                                                      context,
+                                                      'order.inventory.frozenCancelDenied',
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                              return;
+                                            }
                                             await auditLogCancelOrder(
                                                 containerOrdersRecord!);
-                                            await widget!.orderRef!
-                                                .update(createOrderStatusUpdateData(
+                                            await updateOrderStatus(
+                                              widget!.orderRef!,
                                               OrderStatus.cancelled,
-                                            ));
+                                            );
                                             ScaffoldMessenger.of(context)
                                                 .showSnackBar(
                                               SnackBar(

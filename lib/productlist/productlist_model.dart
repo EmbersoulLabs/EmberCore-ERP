@@ -21,6 +21,18 @@ class ProductlistModel extends FlutterFlowModel<ProductlistWidget> {
   FocusNode? searchFocusNode;
   String? selectedCategory;
 
+  final Set<String> selectedProductPaths = {};
+
+  List<ProductRecord> selectedProducts(List<ProductRecord> visibleProducts) =>
+      visibleProducts
+          .where((p) => selectedProductPaths.contains(p.reference.path))
+          .toList();
+
+  void pruneSelection(Iterable<ProductRecord> products) {
+    final validPaths = products.map((p) => p.reference.path).toSet();
+    selectedProductPaths.removeWhere((path) => !validPaths.contains(path));
+  }
+
   @override
   void initState(BuildContext context) {}
 

@@ -23,6 +23,16 @@ This is a pickup order. Please show your Order ID to our staff when you collect 
         'TFG-MAR26-WI0003',
       );
     });
+
+    test('finds EC prefix id in text', () {
+      expect(
+        extractOrderIdFromWhatsAppText(
+          'Order ID: EC-JUN26-00042',
+          orderIdPrefix: 'EC',
+        ),
+        'EC-JUN26-00042',
+      );
+    });
   });
 
   group('parseWhatsAppOrderText', () {

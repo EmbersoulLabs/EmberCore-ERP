@@ -43,6 +43,10 @@ class ProductselectionCopyModel
   FocusNode? textFieldFocusNode3;
   TextEditingController? textController3;
   String? Function(BuildContext, String?)? textController3Validator;
+  // State field(s) for custom product qty.
+  FocusNode? textFieldFocusNode4;
+  TextEditingController? textController4;
+  String? Function(BuildContext, String?)? textController4Validator;
 
   TextEditingController? searchController;
   FocusNode? searchFocusNode;
@@ -61,6 +65,9 @@ class ProductselectionCopyModel
 
     textFieldFocusNode3?.dispose();
     textController3?.dispose();
+
+    textFieldFocusNode4?.dispose();
+    textController4?.dispose();
 
     searchFocusNode?.dispose();
     searchController?.dispose();

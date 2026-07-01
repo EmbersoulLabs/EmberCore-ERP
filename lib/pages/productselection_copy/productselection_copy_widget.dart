@@ -1,4 +1,4 @@
-import '/auth/firebase_auth/auth_util.dart';
+﻿import '/auth/firebase_auth/auth_util.dart';
 import '/backend/audit_log_helpers.dart';
 import '/backend/backend.dart';
 import '/backend/create_order_service.dart';
@@ -24,6 +24,7 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import 'dart:ui';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
+import '/theme/ember_brand.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -43,7 +44,7 @@ export 'productselection_copy_model.dart';
 /// UI:
 /// Display products using GridView or ListView
 /// Query only products where isActive == true
-/// Each product card shows image, name, price, and “Add” button
+/// Each product card shows image, name, price, and â€œAddâ€ button
 /// Add button action:
 /// If order_items exists for same orderRef + productRef, increase qty and
 /// update subtotal
@@ -51,8 +52,8 @@ export 'productselection_copy_model.dart';
 /// Show Snackbar confirmation
 /// Bottom section:
 /// Show total qty and total amount
-/// Button “Cashier”: update orders.order_type = "cashier", go to POS page
-/// Button “Delivery”: update orders.order_type = "delivery", go to delivery
+/// Button â€œCashierâ€: update orders.order_type = "cashier", go to POS page
+/// Button â€œDeliveryâ€: update orders.order_type = "delivery", go to delivery
 /// form
 class ProductselectionCopyWidget extends StatefulWidget {
   const ProductselectionCopyWidget({
@@ -77,12 +78,13 @@ class _ProductselectionCopyWidgetState
   final scaffoldKey = GlobalKey<ScaffoldState>();
   bool _tenantReady = false;
 
-  /// Cached once per page visit — avoids re-subscribing Firestore listeners on
+  /// Cached once per page visit â€” avoids re-subscribing Firestore listeners on
   /// every rebuild (search/filter), which can trigger web SDK ca9/b815 asserts.
   Stream<List<ProductRecord>>? _activeProductsStream;
   Stream<List<String>>? _tenantCategoriesStream;
   Stream<OrdersRecord>? _orderStream;
   Stream<List<OrderItemRecord>>? _orderItemsStream;
+  bool _customProductExpanded = false;
 
   void _ensureTenantStreams() {
     _activeProductsStream ??= queryActiveProductsForTenant();
@@ -107,6 +109,9 @@ class _ProductselectionCopyWidgetState
 
     _model.textController3 ??= TextEditingController();
     _model.textFieldFocusNode3 ??= FocusNode();
+
+    _model.textController4 ??= TextEditingController(text: '1');
+    _model.textFieldFocusNode4 ??= FocusNode();
 
     _model.searchController ??= TextEditingController();
     _model.searchFocusNode ??= FocusNode();
@@ -290,11 +295,11 @@ class _ProductselectionCopyWidgetState
                                               context,
                                               filteredProducts,
                                             ),
-                                          _buildProductSelectionFooter(context),
                                         ],
                                       ),
                                     ),
                                   ),
+                                  _buildProductSelectionFooter(context),
                                 ],
                               );
                             },
@@ -307,550 +312,336 @@ class _ProductselectionCopyWidgetState
   }
 
   Widget _buildProductSelectionFooter(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final wide = MediaQuery.sizeOf(context).width >= 640;
+
     return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).secondaryBackground,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: EmberBrand.card,
+        border: const Border(top: BorderSide(color: EmberBrand.border)),
+        boxShadow: [
+          BoxShadow(
+            color: EmberBrand.navy.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          12 + MediaQuery.paddingOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Material(
+              color: EmberBrand.background,
+              borderRadius: BorderRadius.circular(EmberBrand.radiusMd),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => setState(
+                  () => _customProductExpanded = !_customProductExpanded,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.add_box_outlined,
+                        size: 20,
+                        color: theme.primary,
                       ),
-                      child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  tr(context, 'product.select.customPrompt'),
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                ),
-                                Container(
-                                  width: double.infinity,
-                                  child: TextFormField(
-                                    controller: _model.textController1,
-                                    focusNode: _model.textFieldFocusNode1,
-                                    autofocus: false,
-                                    enabled: true,
-                                    obscureText: false,
-                                    decoration: InputDecoration(
-                                      isDense: true,
-                                      labelStyle: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontStyle,
-                                            ),
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                      hintText: tr(context, 'product.select.customName'),
-                                      hintStyle: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontStyle,
-                                            ),
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: FlutterFlowTheme.of(context)
-                                              .alternate,
-                                          width: 1.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(8.0),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Color(0x00000000),
-                                          width: 1.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(8.0),
-                                      ),
-                                      errorBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
-                                          width: 1.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(8.0),
-                                      ),
-                                      focusedErrorBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
-                                          width: 1.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(8.0),
-                                      ),
-                                      filled: true,
-                                      fillColor: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                    ),
-                                    style: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                    cursorColor: FlutterFlowTheme.of(context)
-                                        .primaryText,
-                                    enableInteractiveSelection: true,
-                                    validator: _model.textController1Validator
-                                        .asValidator(context),
-                                  ),
-                                ),
-                                Container(
-                                  width: double.infinity,
-                                  child: TextFormField(
-                                    controller: _model.textController2,
-                                    focusNode: _model.textFieldFocusNode2,
-                                    autofocus: false,
-                                    enabled: true,
-                                    obscureText: false,
-                                    decoration: InputDecoration(
-                                      isDense: true,
-                                      labelStyle: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontStyle,
-                                            ),
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                      hintText: tr(context, 'product.select.remark'),
-                                      hintStyle: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontStyle,
-                                            ),
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: FlutterFlowTheme.of(context)
-                                              .alternate,
-                                          width: 1.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(8.0),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Color(0x00000000),
-                                          width: 1.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(8.0),
-                                      ),
-                                      errorBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
-                                          width: 1.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(8.0),
-                                      ),
-                                      focusedErrorBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
-                                          width: 1.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(8.0),
-                                      ),
-                                      filled: true,
-                                      fillColor: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                    ),
-                                    style: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                    cursorColor: FlutterFlowTheme.of(context)
-                                        .primaryText,
-                                    enableInteractiveSelection: true,
-                                    validator: _model.textController2Validator
-                                        .asValidator(context),
-                                  ),
-                                ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        width: 20.0,
-                                        child: TextFormField(
-                                          controller: _model.textController3,
-                                          focusNode: _model.textFieldFocusNode3,
-                                          autofocus: false,
-                                          enabled: true,
-                                          obscureText: false,
-                                          decoration: InputDecoration(
-                                            isDense: true,
-                                            labelStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .override(
-                                                      font: GoogleFonts.inter(
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontStyle,
-                                                      ),
-                                                      letterSpacing: 0.0,
-                                                      fontWeight:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .labelMedium
-                                                              .fontWeight,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .labelMedium
-                                                              .fontStyle,
-                                                    ),
-                                            hintText: tr(context, 'product.form.price'),
-                                            hintStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .override(
-                                                      font: GoogleFonts.inter(
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontStyle,
-                                                      ),
-                                                      letterSpacing: 0.0,
-                                                      fontWeight:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .labelMedium
-                                                              .fontWeight,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .labelMedium
-                                                              .fontStyle,
-                                                    ),
-                                            enabledBorder: OutlineInputBorder(
-                                              borderSide: BorderSide(
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .alternate,
-                                                width: 1.0,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8.0),
-                                            ),
-                                            focusedBorder: OutlineInputBorder(
-                                              borderSide: BorderSide(
-                                                color: Color(0x00000000),
-                                                width: 1.0,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8.0),
-                                            ),
-                                            errorBorder: OutlineInputBorder(
-                                              borderSide: BorderSide(
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .error,
-                                                width: 1.0,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8.0),
-                                            ),
-                                            focusedErrorBorder:
-                                                OutlineInputBorder(
-                                              borderSide: BorderSide(
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .error,
-                                                width: 1.0,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8.0),
-                                            ),
-                                            filled: true,
-                                            fillColor:
-                                                FlutterFlowTheme.of(context)
-                                                    .secondaryBackground,
-                                          ),
-                                          style: FlutterFlowTheme.of(context)
-                                              .bodyMedium
-                                              .override(
-                                                font: GoogleFonts.inter(
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontStyle,
-                                                ),
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
-                                          cursorColor:
-                                              FlutterFlowTheme.of(context)
-                                                  .primaryText,
-                                          enableInteractiveSelection: true,
-                                          validator: _model
-                                              .textController3Validator
-                                              .asValidator(context),
-                                        ),
-                                      ),
-                                    ),
-                                    FFButtonWidget(
-                                      onPressed: () async {
-                                        final added =
-                                            await submitCustomProductWithPhotoChoice(
-                                          context: context,
-                                          orderRef: widget!.orderRef,
-                                          name: _model.textController1.text,
-                                          qty: 1,
-                                          price: double.tryParse(
-                                            _model.textController3.text,
-                                          ),
-                                          remark: _model.textController2.text,
-                                        );
-                                        if (!added || !context.mounted) {
-                                          return;
-                                        }
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              tr(context, 'product.select.addedToCart'),
-                                              style: TextStyle(
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primaryText,
-                                              ),
-                                            ),
-                                            duration:
-                                                const Duration(milliseconds: 4000),
-                                            backgroundColor:
-                                                FlutterFlowTheme.of(context)
-                                                    .secondary,
-                                          ),
-                                        );
-                                      },
-                                      text: tr(context, 'product.select.createCustom'),
-                                      options: FFButtonOptions(
-                                        width: 100.0,
-                                        height: 40.0,
-                                        padding: EdgeInsetsDirectional.fromSTEB(
-                                            16.0, 0.0, 16.0, 0.0),
-                                        iconPadding:
-                                            EdgeInsetsDirectional.fromSTEB(
-                                                0.0, 0.0, 0.0, 0.0),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondary,
-                                        textStyle: FlutterFlowTheme.of(context)
-                                            .titleSmall
-                                            .override(
-                                              font: GoogleFonts.interTight(
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .titleSmall
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .titleSmall
-                                                        .fontStyle,
-                                              ),
-                                              color: FlutterFlowTheme.of(
-                                                      context)
-                                                  .primaryText,
-                                              letterSpacing: 0.0,
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .titleSmall
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .titleSmall
-                                                      .fontStyle,
-                                            ),
-                                        elevation: 0.0,
-                                        borderRadius: BorderRadius.circular(8.0),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                          const SizedBox(height: 8),
-                          Text(
-                            tr(context, 'product.select.chooseMethod'),
-                            style: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .override(
-                                  font: GoogleFonts.inter(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontStyle,
-                                ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          tr(context, 'product.select.addCustomProduct'),
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: EmberBrand.navy,
                           ),
-                          _buildOrderMethodSelector(context),
-                            ],
-                          ),
-                        );
+                        ),
+                      ),
+                      Icon(
+                        _customProductExpanded
+                            ? Icons.expand_less_rounded
+                            : Icons.expand_more_rounded,
+                        color: EmberBrand.textSecondary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: _buildCustomProductForm(context, wide: wide),
+              ),
+              crossFadeState: _customProductExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 200),
+            ),
+            const SizedBox(height: 12),
+            _buildCartSummaryBar(context),
+            const SizedBox(height: 12),
+            Text(
+              tr(context, 'product.select.chooseMethod'),
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: EmberBrand.textSecondary,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildOrderMethodSelector(context),
+          ],
+        ),
+      ),
+    );
   }
+
+  Widget _buildCustomProductForm(BuildContext context, {required bool wide}) {
+    final theme = FlutterFlowTheme.of(context);
+
+    Future<void> createCustom() async {
+      final qty = int.tryParse(_model.textController4?.text.trim() ?? '');
+      if (qty == null || qty <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(tr(context, 'product.stock.qtyRequired')),
+          ),
+        );
+        return;
+      }
+      final added = await submitCustomProductWithPhotoChoice(
+        context: context,
+        orderRef: widget!.orderRef,
+        name: _model.textController1.text,
+        qty: qty,
+        price: double.tryParse(_model.textController3.text),
+        remark: _model.textController2.text,
+      );
+      if (!added || !context.mounted) {
+        return;
+      }
+      _model.textController1?.clear();
+      _model.textController2?.clear();
+      _model.textController3?.clear();
+      _model.textController4?.text = '1';
+      setState(() => _customProductExpanded = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr(context, 'product.select.addedToCart')),
+          duration: const Duration(milliseconds: 3000),
+          backgroundColor: EmberBrand.teal,
+        ),
+      );
+    }
+
+    final nameField = _buildFooterField(
+      context,
+      controller: _model.textController1,
+      focusNode: _model.textFieldFocusNode1,
+      hint: tr(context, 'product.select.customName'),
+      validator: _model.textController1Validator,
+      textInputAction: TextInputAction.next,
+    );
+    final remarkField = _buildFooterField(
+      context,
+      controller: _model.textController2,
+      focusNode: _model.textFieldFocusNode2,
+      hint: tr(context, 'product.select.remark'),
+      validator: _model.textController2Validator,
+      textInputAction: TextInputAction.next,
+    );
+    final priceField = _buildFooterField(
+      context,
+      controller: _model.textController3,
+      focusNode: _model.textFieldFocusNode3,
+      hint: tr(context, 'product.form.price'),
+      validator: _model.textController3Validator,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.done,
+    );
+    final qtyField = _buildFooterField(
+      context,
+      controller: _model.textController4,
+      focusNode: _model.textFieldFocusNode4,
+      hint: tr(context, 'product.stock.qty'),
+      validator: _model.textController4Validator,
+      keyboardType: TextInputType.number,
+      textInputAction: TextInputAction.next,
+    );
+
+    if (wide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 3, child: nameField),
+          const SizedBox(width: 8),
+          Expanded(flex: 2, child: remarkField),
+          const SizedBox(width: 8),
+          SizedBox(width: 72, child: qtyField),
+          const SizedBox(width: 8),
+          Expanded(flex: 2, child: priceField),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: createCustom,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text(tr(context, 'product.select.createCustom')),
+              style: FilledButton.styleFrom(
+                backgroundColor: theme.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        nameField,
+        const SizedBox(height: 8),
+        remarkField,
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 80, child: qtyField),
+            const SizedBox(width: 8),
+            Expanded(child: priceField),
+            const SizedBox(width: 10),
+            SizedBox(
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: createCustom,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: Text(tr(context, 'product.select.createCustom')),
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCartSummaryBar(BuildContext context) {
+    final orderRef = widget.orderRef;
+    if (orderRef == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<List<OrderItemRecord>>(
+      stream: _orderItemsStream,
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const [];
+        if (items.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: EmberBrand.amber.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(EmberBrand.radiusMd),
+              border: Border.all(
+                color: EmberBrand.amber.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.shopping_cart_outlined,
+                  size: 18,
+                  color: EmberBrand.amber.withValues(alpha: 0.9),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr(context, 'product.select.emptyCart'),
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: EmberBrand.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final total = functions.calculationTotal(
+          items.map((e) => e.price).toList(),
+          items.map((e) => e.qty).toList(),
+        );
+        final qty = items.fold<int>(0, (sum, item) => sum + item.qty);
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: EmberBrand.teal.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(EmberBrand.radiusMd),
+            border: Border.all(
+              color: EmberBrand.teal.withValues(alpha: 0.25),
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.shopping_cart_checkout_outlined,
+                size: 18,
+                color: EmberBrand.teal,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tr(
+                    context,
+                    'product.select.cartSummary',
+                    params: {
+                      'count': '$qty',
+                      'total': EmberBrand.formatMoney(total),
+                    },
+                  ),
+                  style: GoogleFonts.interTight(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: EmberBrand.navy,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
 
   Widget _buildOrderMethodSelector(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
@@ -920,182 +711,243 @@ class _ProductselectionCopyWidgetState
             final orderItems = itemsSnapshot.data ?? const [];
             final hasOrderItems = orderItems.isNotEmpty;
 
-            return Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FFButtonWidget(
-                      onPressed: hasOrderItems
-                          ? () => runProductSelectionAction(
-                                context,
-                                () async {
-                                  final retailOrderId =
-                                      OrderIdService.isRetailOrderId(
-                                            order.orderId,
-                                          )
-                                          ? order.orderId
-                                          : await OrderIdService
-                                              .nextRetailOrderId();
-                                  await stampOrderCompanyRefBeforeCheckout(
-                                    orderRef,
-                                  );
-                                  final freshOrder =
-                                      await OrdersRecord.getDocumentOnce(
-                                    orderRef,
-                                  );
-                                  await orderRef.update(
-                                    buildOrderCheckoutPatch(
-                                      freshOrder,
-                                      {
-                                        ...createTenantOrdersRecordData(
-                                          orderType: 'Retail',
-                                          orderId: retailOrderId,
-                                          pickupDelivery: 'Retail',
-                                          deliveryDate:
-                                              freshOrder.createdTime ??
-                                                  getCurrentTimestamp,
-                                        ),
-                                        ...createOrderStatusUpdateData(
-                                          OrderStatus.completed,
-                                        ),
-                                      },
-                                    ),
-                                  );
-                                  final createdOrder =
-                                      await OrdersRecord.getDocumentOnce(
-                                    orderRef,
-                                  );
-                                  await auditLogCreateOrder(createdOrder);
-
-                                  context.pushNamed(
-                                    RetailSummaryWidget.routeName,
-                                    queryParameters: {
-                                      'orderRef': serializeParam(
-                                        orderRef,
-                                        ParamType.DocumentReference,
-                                      ),
-                                    }.withoutNulls,
-                                  );
-                                },
-                              )
-                          : null,
-                      text: tr(context, 'product.select.retail'),
-                      options: FFButtonOptions(
-                        height: 40.0,
-                        padding: const EdgeInsetsDirectional.fromSTEB(
-                          16.0,
-                          0.0,
-                          16.0,
-                          0.0,
-                        ),
-                        color: theme.primary,
-                        textStyle: theme.titleSmall.override(
-                          font: GoogleFonts.interTight(
-                            fontWeight: FontWeight.w600,
-                          ),
-                          color: Colors.white,
-                        ),
-                        borderRadius: BorderRadius.circular(8.0),
+            return Row(
+              children: [
+                SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: OutlinedButton(
+                    onPressed: () => context.safePop(),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      foregroundColor: EmberBrand.navy,
+                      side: const BorderSide(color: EmberBrand.border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(EmberBrand.radiusMd),
                       ),
                     ),
+                    child: const Icon(Icons.arrow_back_rounded, size: 22),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FFButtonWidget(
-                      onPressed: hasOrderItems
-                          ? () => runProductSelectionAction(
-                                context,
-                                () async {
-                                  final deliveryOrderId =
-                                      OrderIdService.isDeliveryOrderId(
-                                            order.orderId,
-                                          )
-                                          ? order.orderId
-                                          : await OrderIdService
-                                              .nextDeliveryOrderId();
-                                  final deliverySaleTotal =
-                                      functions.calculationTotal(
-                                    orderItems.map((e) => e.price).toList(),
-                                    orderItems.map((e) => e.qty).toList(),
-                                  );
-                                  await stampOrderCompanyRefBeforeCheckout(
-                                    orderRef,
-                                  );
-                                  final freshOrder =
-                                      await OrdersRecord.getDocumentOnce(
-                                    orderRef,
-                                  );
-                                  await orderRef.update(
-                                    buildOrderCheckoutPatch(
-                                      freshOrder,
-                                      {
-                                        ...createTenantOrdersRecordData(
-                                          clientName: freshOrder.clientName,
-                                          orderId: deliveryOrderId,
-                                          pickupDelivery: 'Delivery',
-                                          totalAmount: deliverySaleTotal,
-                                          total: deliverySaleTotal,
-                                          productSelection:
-                                              orderItems.isNotEmpty
-                                                  ? orderItems.first.reference
-                                                  : null,
-                                          totalQty:
-                                              functions.calculateTotalItem(
-                                            orderItems.length,
-                                          ),
-                                          orderType: 'Delivery',
-                                        ),
-                                        ...createOrderStatusUpdateData(
-                                          OrderStatus.pending,
-                                        ),
-                                      },
-                                    ),
-                                  );
-                                  final createdOrder =
-                                      await OrdersRecord.getDocumentOnce(
-                                    orderRef,
-                                  );
-                                  await auditLogCreateOrder(createdOrder);
-
-                                  context.pushNamed(
-                                    DCSummaryCopyWidget.routeName,
-                                    queryParameters: {
-                                      'orderRef': serializeParam(
-                                        orderRef,
-                                        ParamType.DocumentReference,
-                                      ),
-                                    }.withoutNulls,
-                                  );
-                                },
-                              )
-                          : null,
-                      text: tr(context, 'product.select.deliveryPickUp'),
-                      options: FFButtonOptions(
-                        height: 40.0,
-                        padding: const EdgeInsetsDirectional.fromSTEB(
-                          16.0,
-                          0.0,
-                          16.0,
-                          0.0,
-                        ),
-                        color: theme.primary,
-                        textStyle: theme.titleSmall.override(
-                          font: GoogleFonts.interTight(
-                            fontWeight: FontWeight.w600,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildOrderMethodButton(
+                    context,
+                    enabled: hasOrderItems,
+                    icon: Icons.point_of_sale_outlined,
+                    label: tr(context, 'product.select.retail'),
+                    onPressed: () => runProductSelectionAction(
+                      context,
+                      () async {
+                        final retailOrderId =
+                            OrderIdService.isRetailOrderId(order.orderId)
+                                ? order.orderId
+                                : await OrderIdService.nextRetailOrderId();
+                        await stampOrderCompanyRefBeforeCheckout(orderRef);
+                        final freshOrder =
+                            await OrdersRecord.getDocumentOnce(orderRef);
+                        await orderRef.update(
+                          buildOrderCheckoutPatch(
+                            freshOrder,
+                            {
+                              ...createTenantOrdersRecordData(
+                                orderType: 'Retail',
+                                orderId: retailOrderId,
+                                pickupDelivery: 'Retail',
+                                deliveryDate: freshOrder.createdTime ??
+                                    getCurrentTimestamp,
+                              ),
+                              ...createOrderStatusUpdateData(
+                                OrderStatus.completed,
+                              ),
+                            },
                           ),
-                          color: Colors.white,
-                        ),
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
+                        );
+                        final createdOrder =
+                            await OrdersRecord.getDocumentOnce(orderRef);
+                        await auditLogCreateOrder(createdOrder);
+
+                        context.pushNamed(
+                          RetailSummaryWidget.routeName,
+                          queryParameters: {
+                            'orderRef': serializeParam(
+                              orderRef,
+                              ParamType.DocumentReference,
+                            ),
+                          }.withoutNulls,
+                        );
+                      },
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildOrderMethodButton(
+                    context,
+                    enabled: hasOrderItems,
+                    icon: Icons.local_shipping_outlined,
+                    label: tr(context, 'product.select.deliveryPickUp'),
+                    accent: EmberBrand.teal,
+                    onPressed: () => runProductSelectionAction(
+                      context,
+                      () async {
+                        final deliveryOrderId =
+                            OrderIdService.isDeliveryOrderId(order.orderId)
+                                ? order.orderId
+                                : await OrderIdService.nextDeliveryOrderId();
+                        final deliverySaleTotal = functions.calculationTotal(
+                          orderItems.map((e) => e.price).toList(),
+                          orderItems.map((e) => e.qty).toList(),
+                        );
+                        await stampOrderCompanyRefBeforeCheckout(orderRef);
+                        final freshOrder =
+                            await OrdersRecord.getDocumentOnce(orderRef);
+                        await orderRef.update(
+                          buildOrderCheckoutPatch(
+                            freshOrder,
+                            {
+                              ...createTenantOrdersRecordData(
+                                clientName: freshOrder.clientName,
+                                orderId: deliveryOrderId,
+                                pickupDelivery: 'Delivery',
+                                totalAmount: deliverySaleTotal,
+                                total: deliverySaleTotal,
+                                productSelection: orderItems.isNotEmpty
+                                    ? orderItems.first.reference
+                                    : null,
+                                totalQty: functions.calculateTotalItem(
+                                  orderItems.length,
+                                ),
+                                orderType: 'Delivery',
+                              ),
+                              ...createOrderStatusUpdateData(
+                                OrderStatus.pending,
+                              ),
+                            },
+                          ),
+                        );
+                        final createdOrder =
+                            await OrdersRecord.getDocumentOnce(orderRef);
+                        await auditLogCreateOrder(createdOrder);
+
+                        context.pushNamed(
+                          CreateOrderFormWidget.routeName,
+                          queryParameters: {
+                            'orderRef': serializeParam(
+                              orderRef,
+                              ParamType.DocumentReference,
+                            ),
+                          }.withoutNulls,
+                          extra: <String, dynamic>{
+                            'orderRef': orderRef,
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
             );
           },
         );
       },
+    );
+  }
+
+  InputDecoration _footerInputDecoration(BuildContext context, String hint) {
+    final theme = FlutterFlowTheme.of(context);
+    final radius = BorderRadius.circular(10);
+    return InputDecoration(
+      isDense: true,
+      hintText: hint,
+      hintStyle: theme.labelMedium.override(color: theme.secondaryText),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      enabledBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: EmberBrand.border),
+        borderRadius: radius,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: theme.primary, width: 1.5),
+        borderRadius: radius,
+      ),
+      errorBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: theme.error),
+        borderRadius: radius,
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: theme.error, width: 1.5),
+        borderRadius: radius,
+      ),
+      filled: true,
+      fillColor: EmberBrand.background,
+    );
+  }
+
+  Widget _buildFooterField(
+    BuildContext context, {
+    required TextEditingController? controller,
+    required FocusNode? focusNode,
+    required String hint,
+    required String? Function(BuildContext, String?)? validator,
+    TextInputAction textInputAction = TextInputAction.done,
+    TextInputType? keyboardType,
+  }) {
+    final theme = FlutterFlowTheme.of(context);
+    return TextFormField(
+      controller: controller,
+      focusNode: focusNode,
+      textInputAction: textInputAction,
+      keyboardType: keyboardType,
+      decoration: _footerInputDecoration(context, hint),
+      style: theme.bodyMedium,
+      cursorColor: theme.primary,
+      validator: validator?.asValidator(context),
+    );
+  }
+
+  Widget _buildOrderMethodButton(
+    BuildContext context, {
+    required bool enabled,
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+    Color? accent,
+  }) {
+    final theme = FlutterFlowTheme.of(context);
+    final bg = accent ?? theme.primary;
+    final foreground = enabled ? Colors.white : EmberBrand.textSecondary;
+    return Material(
+      color: enabled ? bg : EmberBrand.border.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(EmberBrand.radiusMd),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: enabled ? onPressed : null,
+        child: SizedBox(
+          height: 52,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: foreground, size: 20),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    color: foreground,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

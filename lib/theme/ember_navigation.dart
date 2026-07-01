@@ -69,31 +69,37 @@ List<EmberNavGroup> buildEmberNavGroups(
           icon: Icons.dashboard_outlined,
           routePath: SalesDashBoardWidget.routePath,
           routeName: SalesDashBoardWidget.routeName,
+          visible: platformModuleEnabled(PlatformModule.orders) ||
+              platformModuleEnabled(PlatformModule.reports),
         ),
         item(
           labelKey: 'nav.orders',
           icon: Icons.receipt_long_outlined,
           routePath: OrderlistWidget.routePath,
           routeName: OrderlistWidget.routeName,
+          visible: platformModuleEnabled(PlatformModule.orders),
         ),
         item(
           labelKey: 'nav.pos',
           icon: Icons.point_of_sale_outlined,
           routePath: SalesDashBoardWidget.routePath,
           onTap: onCreateOrder,
+          visible: platformModuleEnabled(PlatformModule.pos),
         ),
         item(
           labelKey: 'nav.customers',
           icon: Icons.people_outline,
           routePath: CustomerListPageWidget.routePath,
           routeName: CustomerListPageWidget.routeName,
+          visible: platformModuleEnabled(PlatformModule.customers),
         ),
         item(
           labelKey: 'nav.delivery',
           icon: Icons.local_shipping_outlined,
           routePath: DriverAssignmentsPageWidget.routePath,
           routeName: DriverAssignmentsPageWidget.routeName,
-          visible: canAssignDriver(role),
+          visible: platformModuleEnabled(PlatformModule.drivers) &&
+              canAssignDriver(role),
         ),
       ],
     ),
@@ -105,6 +111,7 @@ List<EmberNavGroup> buildEmberNavGroups(
           icon: Icons.inventory_2_outlined,
           routePath: ProductlistWidget.routePath,
           routeName: ProductlistWidget.routeName,
+          visible: platformModuleEnabled(PlatformModule.products),
         ),
         item(
           labelKey: 'nav.staff',
@@ -125,6 +132,7 @@ List<EmberNavGroup> buildEmberNavGroups(
           icon: Icons.assessment_outlined,
           routePath: SalesReportPageWidget.routePath,
           routeName: SalesReportPageWidget.routeName,
+          visible: platformModuleEnabled(PlatformModule.reports),
         ),
       ],
     ),
@@ -147,6 +155,13 @@ List<EmberNavGroup> buildEmberNavGroups(
           visible: canEditCompanyProfile(role),
         ),
         item(
+          labelKey: 'nav.billing',
+          icon: Icons.credit_card_outlined,
+          routePath: BillingPageWidget.routePath,
+          routeName: BillingPageWidget.routeName,
+          visible: canManageBilling(role),
+        ),
+        item(
           labelKey: 'nav.industrySettings',
           icon: Icons.tune,
           routePath: IndustrySettingsPageWidget.routePath,
@@ -158,4 +173,9 @@ List<EmberNavGroup> buildEmberNavGroups(
   ];
 }
 
-String emberNavLabel(BuildContext context, String key) => tr(context, key);
+String emberNavLabel(BuildContext context, String key) {
+  if (key == 'nav.delivery') {
+    return platformDriverRoleLabel(context);
+  }
+  return tr(context, key);
+}

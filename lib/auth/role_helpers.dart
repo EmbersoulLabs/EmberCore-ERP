@@ -120,6 +120,12 @@ bool canCreateProducts(UserRole? role) =>
 bool canEditCompanyProfile(UserRole? role) =>
     hasAppPermission(role, AppPermission.editCompanyProfile);
 
+/// Director/admin/superadmin — Stripe billing management.
+bool canManageBilling(UserRole? role) =>
+    isDirectorRole(role) ||
+    isCompanyAdminRole(role) ||
+    isSuperAdminRole(role);
+
 bool canViewAuditLog(UserRole? role) =>
     hasAppPermission(role, AppPermission.viewAuditLog);
 

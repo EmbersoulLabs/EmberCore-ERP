@@ -5,6 +5,7 @@ const admin = require("firebase-admin");
 const DEFAULT_KEY_PATHS = [
   path.resolve(__dirname, "../keys/serviceAccount.json"),
   path.resolve(__dirname, "../keys/embercore-erp-serviceAccount.json"),
+  path.resolve(__dirname, "../keys/embercore-erp-staging-serviceAccount.json"),
   path.resolve(__dirname, "../keys/tfg-sales-record-serviceAccount.json"),
   path.resolve(__dirname, "../keys/tfg-vday-record-staging-serviceAccount.json"),
 ];
@@ -87,7 +88,7 @@ function credentialsHelp(projectId = "embercore-erp") {
     "Option B — service account key:\n" +
     `  1. Open https://console.firebase.google.com/project/${projectId}/settings/serviceaccounts/adminsdk\n` +
     "  2. Generate new private key → save JSON\n" +
-    "  3. Save as firebase\\keys\\tfg-sales-record-serviceAccount.json\n" +
+    "  3. Save as firebase\\keys\\embercore-erp-serviceAccount.json\n" +
     "  4. Run again\n\n" +
     "Or: set GOOGLE_APPLICATION_CREDENTIALS=C:\\path\\to\\production-key.json"
   );

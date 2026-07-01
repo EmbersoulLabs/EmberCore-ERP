@@ -3,13 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '/auth/firebase_auth/auth_util.dart';
+import '/auth/role_helpers.dart';
+import '/auth/viewer_role_helpers.dart';
 import '/backend/create_order_service.dart';
+import '/backend/customer_export_helpers.dart';
 import '/backend/customer_helpers.dart';
 import '/backend/customer_navigation_helpers.dart';
 import '/backend/customer_broadcast_helpers.dart';
 import '/backend/schema/customers_record.dart';
 import '/backend/tenant_context.dart';
 import '/backend/user_query_helpers.dart';
+import '/components/customer_import_button.dart';
 import '/components/home_nav_button.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -33,7 +37,14 @@ class _CustomerListPageWidgetState extends State<CustomerListPageWidget> {
   List<CustomersRecord> _customers = const [];
   bool _loading = true;
   String? _loadError;
+  bool _exportingCsv = false;
   final Set<String> _selectedCustomerPaths = {};
+
+  bool get _canEditCustomers =>
+      canEditCustomers(currentViewerRole());
+
+  bool get _canManageCredit =>
+      canManageCreditAndInvoices(currentViewerRole());
 
   @override
   void initState() {
@@ -169,6 +180,62 @@ class _CustomerListPageWidgetState extends State<CustomerListPageWidget> {
     }
   }
 
+  Future<void> _exportFilteredCustomers() async {
+    if (_exportingCsv) {
+      return;
+    }
+    final customers = _filteredCustomers;
+    if (customers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr(context, 'customer.list.exportNoMatch'))),
+      );
+      return;
+    }
+
+    setState(() => _exportingCsv = true);
+    try {
+      await downloadCustomersCsv(
+        context: context,
+        customers: customers,
+        filenameBase: 'customers_${DateTime.now().millisecondsSinceEpoch}',
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            tr(
+              context,
+              'customer.list.exportedSnack',
+              params: {'count': '${customers.length}'},
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            tr(
+              context,
+              'customer.list.exportFailed',
+              params: {'error': '$error'},
+            ),
+          ),
+          duration: const Duration(seconds: 8),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _exportingCsv = false);
+      }
+    }
+  }
+
   @override
   void dispose() {
     _model.dispose();
@@ -202,6 +269,36 @@ class _CustomerListPageWidgetState extends State<CustomerListPageWidget> {
           ),
         ),
         actions: [
+          if (_canEditCustomers)
+            Tooltip(
+              message: tr(context, 'customer.list.exportTooltip'),
+              child: IconButton(
+                icon: _exportingCsv
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.download_outlined, color: Colors.white),
+                onPressed:
+                    _exportingCsv ? null : _exportFilteredCustomers,
+              ),
+            ),
+          if (_canEditCustomers)
+            Tooltip(
+              message: tr(context, 'customer.list.importTooltip'),
+              child: IconButton(
+                icon: const Icon(Icons.upload_file_outlined, color: Colors.white),
+                onPressed: () => pickAndImportCustomers(
+                  context,
+                  allowCreditCustomers: _canManageCredit,
+                  onImportComplete: _loadCustomers,
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.price_change_outlined, color: Colors.white),
             tooltip: loc(context,
@@ -237,6 +334,15 @@ class _CustomerListPageWidgetState extends State<CustomerListPageWidget> {
                       ),
                     ),
                   ),
+                  if (_canEditCustomers) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      tr(context, 'customer.list.importHint'),
+                      style: theme.bodySmall.override(
+                        color: theme.secondaryText,
+                      ),
+                    ),
+                  ],
                   if (!_loading && _filteredCustomers.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     Row(

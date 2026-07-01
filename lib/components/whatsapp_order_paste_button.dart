@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '/backend/schema/order_item_record.dart';
 import '/backend/custom_product_helpers.dart';
@@ -208,11 +207,6 @@ class WhatsAppOrderPasteButton extends StatelessWidget {
     return FFButtonWidget(
       onPressed: () => _handlePaste(context),
       text: label,
-      icon: const FaIcon(
-        FontAwesomeIcons.whatsapp,
-        size: 18.0,
-        color: Colors.white,
-      ),
       options: FFButtonOptions(
         width: fullWidth ? double.infinity : null,
         height: 44.0,

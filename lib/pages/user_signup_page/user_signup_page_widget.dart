@@ -1,5 +1,5 @@
-import '/app_branding.dart';
 import '/backend/user_registration_request_helpers.dart';
+import '/components/ember_brand_logo.dart';
 import '/components/customer_birthday_picker.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -211,13 +211,14 @@ class _UserSignupPageWidgetState extends State<UserSignupPageWidget> {
         appBar: AppBar(
           backgroundColor: theme.secondaryBackground,
           elevation: 0,
+          centerTitle: true,
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: theme.primaryText),
             onPressed: () => context.go(LoginPageWidget.routePath),
           ),
-          title: Text(
-            loc(context, en: 'Sign up · $kProductName', zh: '注册 · $kProductName'),
-            style: theme.titleLarge,
+          title: EmberBrandLogo(
+            variant: EmberBrandLogoVariant.horizontalSm,
+            height: EmberBrandLogo.appBarHeight(context),
           ),
         ),
         body: SafeArea(

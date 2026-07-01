@@ -1,14 +1,18 @@
 import '/app_branding.dart';
 import '/auth/auth_redirect.dart';
+import '/components/ember_brand_logo.dart';
 import '/auth/firebase_auth/auth_util.dart';
+import '/auth/firebase_auth/firebase_auth_error_messages.dart';
 import '/auth/saved_login_credentials.dart';
 import '/index.dart';
 import '/components/language_picker_button.dart';
 import '/flutter_flow/nav/nav.dart';
 import '/l10n/locale_text.dart';
+import '/l10n/tr.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'login_page_model.dart';
@@ -131,6 +135,57 @@ class _LoginPageWidgetState extends State<LoginPageWidget> {
     context.go(routePath);
   }
 
+  Future<void> _requestPasswordReset() async {
+    FocusScope.of(context).unfocus();
+
+    final email = _model.emailAddressTextController!.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr(context, 'login.forgotPasswordEnterEmail')),
+        ),
+      );
+      return;
+    }
+    if (!email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(tr(context, 'login.forgotPasswordInvalidEmail')),
+        ),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            tr(
+              context,
+              'login.forgotPasswordSent',
+              params: {'email': email},
+            ),
+          ),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            firebaseAuthErrorMessage(e.code, fallbackMessage: e.message),
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _model.dispose();
@@ -154,24 +209,15 @@ class _LoginPageWidgetState extends State<LoginPageWidget> {
           mainAxisSize: MainAxisSize.max,
           children: [
             Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(0.0, 32.0, 0.0, 16.0),
-              child: Text(
-                kProductName,
-                textAlign: TextAlign.center,
-                style: FlutterFlowTheme.of(context).displaySmall.override(
-                      font: GoogleFonts.interTight(
-                        fontWeight: FlutterFlowTheme.of(context)
-                            .displaySmall
-                            .fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).displaySmall.fontStyle,
-                      ),
-                      letterSpacing: 0.0,
-                      fontWeight:
-                          FlutterFlowTheme.of(context).displaySmall.fontWeight,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).displaySmall.fontStyle,
-                    ),
+              padding: const EdgeInsetsDirectional.fromSTEB(0.0, 32.0, 0.0, 12.0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 360),
+                  child: const EmberBrandLogo(
+                    variant: EmberBrandLogoVariant.horizontal,
+                    width: 320,
+                  ),
+                ),
               ),
             ),
             Padding(
@@ -634,6 +680,33 @@ class _LoginPageWidgetState extends State<LoginPageWidget> {
                                                 ),
                                               ),
                                             ),
+                                            Align(
+                                              alignment: AlignmentDirectional
+                                                  .centerEnd,
+                                              child: TextButton(
+                                                onPressed:
+                                                    _requestPasswordReset,
+                                                child: Text(
+                                                  tr(
+                                                    context,
+                                                    'login.forgotPassword',
+                                                  ),
+                                                  style: FlutterFlowTheme.of(
+                                                          context)
+                                                      .bodyMedium
+                                                      .override(
+                                                        font: GoogleFonts.inter(
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                        color:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .primary,
+                                                      ),
+                                                ),
+                                              ),
+                                            ),
                                             Padding(
                                               padding:
                                                   const EdgeInsetsDirectional
@@ -735,112 +808,6 @@ class _LoginPageWidgetState extends State<LoginPageWidget> {
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                             12.0),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            Align(
-                                              alignment: AlignmentDirectional(
-                                                  0.0, 0.0),
-                                              child: Padding(
-                                                padding: EdgeInsetsDirectional
-                                                    .fromSTEB(
-                                                        0.0, 0.0, 0.0, 16.0),
-                                                child: FFButtonWidget(
-                                                  onPressed: () async {
-                                                    final email = _model
-                                                        .emailAddressTextController
-                                                        .text
-                                                        .trim();
-                                                    if (email.isEmpty) {
-                                                      ScaffoldMessenger.of(
-                                                              context)
-                                                          .showSnackBar(
-                                                        const SnackBar(
-                                                          content: Text(
-                                                            'Please enter your email above, then tap Forgot Password.',
-                                                          ),
-                                                        ),
-                                                      );
-                                                      return;
-                                                    }
-                                                    if (!email.contains('@')) {
-                                                      ScaffoldMessenger.of(
-                                                              context)
-                                                          .showSnackBar(
-                                                        const SnackBar(
-                                                          content: Text(
-                                                            'Please enter a valid email address.',
-                                                          ),
-                                                        ),
-                                                      );
-                                                      return;
-                                                    }
-                                                    await authManager
-                                                        .resetPassword(
-                                                      email: email,
-                                                      context: context,
-                                                    );
-                                                    if (!context.mounted) {
-                                                      return;
-                                                    }
-                                                  },
-                                                  text: loc(
-                                                    context,
-                                                    en: 'Forgot Password?',
-                                                    zh: '忘记密码？',
-                                                    ms: 'Lupa Kata Laluan?',
-                                                  ),
-                                                  options: FFButtonOptions(
-                                                    height: 44.0,
-                                                    padding:
-                                                        EdgeInsetsDirectional
-                                                            .fromSTEB(32.0, 0.0,
-                                                                32.0, 0.0),
-                                                    iconPadding:
-                                                        EdgeInsetsDirectional
-                                                            .fromSTEB(0.0, 0.0,
-                                                                0.0, 0.0),
-                                                    color: FlutterFlowTheme.of(
-                                                            context)
-                                                        .secondaryBackground,
-                                                    textStyle: FlutterFlowTheme
-                                                            .of(context)
-                                                        .bodyMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                    elevation: 0.0,
-                                                    borderSide: BorderSide(
-                                                      color: FlutterFlowTheme
-                                                              .of(context)
-                                                          .secondaryBackground,
-                                                      width: 2.0,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            40.0),
-                                                    hoverColor:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .primaryBackground,
                                                   ),
                                                 ),
                                               ),

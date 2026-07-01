@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '/backend/product_import_helpers.dart';
 import '/backend/tenant_query_helpers.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
+import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 
 Future<void> showProductImportPreviewDialog(
@@ -21,7 +22,7 @@ Future<void> showProductImportPreviewDialog(
       return StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            title: const Text('Import products'),
+            title: Text(tr(context, 'product.list.importTitle')),
             content: SizedBox(
               width: double.maxFinite,
               child: SingleChildScrollView(
@@ -29,30 +30,39 @@ Future<void> showProductImportPreviewDialog(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'File: ${parseResult.fileLabel}',
+                      tr(
+                        context,
+                        'product.list.importFile',
+                        params: {'name': parseResult.fileLabel},
+                      ),
                       style: FlutterFlowTheme.of(context).bodyMedium,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${parseResult.rows.length} rows · '
-                      '${parseResult.validCount} ready · '
-                      '${parseResult.errorCount} with errors',
+                      tr(
+                        context,
+                        'product.list.importSummary',
+                        params: {
+                          'total': '${parseResult.rows.length}',
+                          'ready': '${parseResult.validCount}',
+                          'errors': '${parseResult.errorCount}',
+                        },
+                      ),
                     ),
                     if (parseResult.errorCount > 0) ...[
                       const SizedBox(height: 8),
                       Text(
-                        'Rows with errors will be skipped.',
+                        tr(context, 'product.list.importSkipErrors'),
                         style: FlutterFlowTheme.of(context).bodySmall.override(
-                              fontFamily: 'Outfit',
                               color: FlutterFlowTheme.of(context).error,
                             ),
                       ),
                     ],
                     if (previewRows.isNotEmpty) ...[
                       const SizedBox(height: 16),
-                      const Text(
-                        'Preview',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      Text(
+                        tr(context, 'product.list.importPreview'),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 8),
                       ...previewRows.map(
@@ -67,7 +77,13 @@ Future<void> showProductImportPreviewDialog(
                       ),
                       if (validRows.length > previewRows.length)
                         Text(
-                          '…and ${validRows.length - previewRows.length} more',
+                          tr(
+                            context,
+                            'product.list.importMore',
+                            params: {
+                              'count': '${validRows.length - previewRows.length}',
+                            },
+                          ),
                           style: FlutterFlowTheme.of(context).bodySmall,
                         ),
                     ],
@@ -80,7 +96,7 @@ Future<void> showProductImportPreviewDialog(
                 onPressed: importing
                     ? null
                     : () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
+                child: Text(tr(context, 'common.cancel')),
               ),
               FFButtonWidget(
                 onPressed: importing || validRows.isEmpty
@@ -98,19 +114,22 @@ Future<void> showProductImportPreviewDialog(
                           }
                           Navigator.pop(dialogContext);
                           final summary = StringBuffer()
-                            ..write('Created ${result.created} product');
-                          if (result.created == 1) {
-                            summary.write('.');
-                          } else {
-                            summary.write('s.');
-                          }
+                            ..write(
+                              tr(
+                                context,
+                                'product.list.importCreated',
+                                params: {'count': '${result.created}'},
+                              ),
+                            );
                           if (result.skippedDuplicates > 0) {
                             summary.write(
-                              ' Skipped ${result.skippedDuplicates} duplicate SKU(s).',
+                              ' ${tr(context, 'product.list.importSkippedDuplicates', params: {'count': '${result.skippedDuplicates}'})}',
                             );
                           }
                           if (result.failed > 0) {
-                            summary.write(' ${result.failed} failed.');
+                            summary.write(
+                              ' ${tr(context, 'product.list.importFailedCount', params: {'count': '${result.failed}'})}',
+                            );
                           }
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(summary.toString())),
@@ -121,17 +140,26 @@ Future<void> showProductImportPreviewDialog(
                           }
                           setDialogState(() => importing = false);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Import failed: $error')),
+                            SnackBar(
+                              content: Text(
+                                tr(
+                                  context,
+                                  'product.list.importFailed',
+                                  params: {'error': '$error'},
+                                ),
+                              ),
+                            ),
                           );
                         }
                       },
-                text: importing ? 'Importing...' : 'Import',
+                text: importing
+                    ? tr(context, 'product.list.importing')
+                    : tr(context, 'product.list.importConfirm'),
                 options: FFButtonOptions(
                   height: 40,
                   padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 0),
-                  color: const Color(0xFF6F61EF),
+                  color: FlutterFlowTheme.of(context).primary,
                   textStyle: FlutterFlowTheme.of(context).titleSmall.override(
-                        fontFamily: 'Figtree',
                         color: Colors.white,
                       ),
                   elevation: 2,
@@ -146,6 +174,62 @@ Future<void> showProductImportPreviewDialog(
   );
 }
 
+Future<void> pickAndImportProducts(BuildContext context) async {
+  final picked = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: const ['csv', 'xlsx'],
+    withData: true,
+    allowMultiple: false,
+  );
+  if (picked == null || picked.files.isEmpty) {
+    return;
+  }
+  final file = picked.files.first;
+  final bytes = file.bytes;
+  if (bytes == null || bytes.isEmpty) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(tr(context, 'product.list.importReadFailed'))),
+    );
+    return;
+  }
+
+  try {
+    final parsed = parseProductImportFile(
+      bytes: bytes,
+      filename: file.name,
+    );
+    if (!context.mounted) {
+      return;
+    }
+    await showProductImportPreviewDialog(context, parsed);
+  } on ProductImportException catch (error) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error.message)),
+    );
+  } catch (error) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          tr(
+            context,
+            'product.list.importFailed',
+            params: {'error': '$error'},
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ProductImportButton extends StatelessWidget {
   const ProductImportButton({
     super.key,
@@ -154,63 +238,15 @@ class ProductImportButton extends StatelessWidget {
 
   final bool fullWidth;
 
-  Future<void> _pickAndImport(BuildContext context) async {
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['csv', 'xlsx'],
-      withData: true,
-      allowMultiple: false,
-    );
-    if (picked == null || picked.files.isEmpty) {
-      return;
-    }
-    final file = picked.files.first;
-    final bytes = file.bytes;
-    if (bytes == null || bytes.isEmpty) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not read the selected file.')),
-      );
-      return;
-    }
-
-    try {
-      final parsed = parseProductImportFile(
-        bytes: bytes,
-        filename: file.name,
-      );
-      if (!context.mounted) {
-        return;
-      }
-      await showProductImportPreviewDialog(context, parsed);
-    } on ProductImportException catch (error) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
-    } catch (error) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Import failed: $error')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return FFButtonWidget(
-      onPressed: () => _pickAndImport(context),
-      text: 'Import from Excel / CSV',
-      icon: const Icon(
+      onPressed: () => pickAndImportProducts(context),
+      text: tr(context, 'product.list.importButton'),
+      icon: Icon(
         Icons.upload_file,
         size: 18,
-        color: Color(0xFF6F61EF),
+        color: FlutterFlowTheme.of(context).primary,
       ),
       options: FFButtonOptions(
         width: fullWidth ? double.infinity : null,
@@ -219,13 +255,12 @@ class ProductImportButton extends StatelessWidget {
         iconPadding: const EdgeInsetsDirectional.fromSTEB(0, 0, 8, 0),
         color: Colors.white,
         textStyle: FlutterFlowTheme.of(context).titleSmall.override(
-              fontFamily: 'Figtree',
-              color: const Color(0xFF6F61EF),
+              color: FlutterFlowTheme.of(context).primary,
               fontWeight: FontWeight.w500,
             ),
         elevation: 0,
-        borderSide: const BorderSide(
-          color: Color(0xFF6F61EF),
+        borderSide: BorderSide(
+          color: FlutterFlowTheme.of(context).primary,
           width: 1,
         ),
         borderRadius: BorderRadius.circular(8),

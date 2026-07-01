@@ -203,4 +203,123 @@ void main() {
     expect(sunflower.totalQty, 1);
     expect(sunflower.totalAmount, 30.0);
   });
+
+  test('aggregateHourlySales buckets paid orders by local hour', () {
+    final buckets = aggregateHourlySales([
+      _order(
+        id: '1',
+        totalAmount: 100,
+        paymentType: 'Cash',
+        createdTime: DateTime(2026, 6, 5, 10, 15),
+      ),
+      _order(
+        id: '2',
+        totalAmount: 50,
+        paymentType: 'Cash',
+        createdTime: DateTime(2026, 6, 5, 10, 45),
+      ),
+      _order(
+        id: '3',
+        totalAmount: 80,
+        paymentType: 'Card',
+        createdTime: DateTime(2026, 6, 5, 14, 0),
+      ),
+    ]);
+
+    expect(buckets.length, 24);
+    expect(buckets[10].totalAmount, 150);
+    expect(buckets[10].orderCount, 2);
+    expect(buckets[14].totalAmount, 80);
+    expect(buckets[9].totalAmount, 0);
+  });
+
+  test('DayOverDayComparison computes percent change', () {
+    const up = DayOverDayComparison(currentAmount: 150, previousAmount: 100);
+    expect(up.changePercent, 50.0);
+    expect(up.isUp, isTrue);
+
+    const down = DayOverDayComparison(currentAmount: 80, previousAmount: 100);
+    expect(down.changePercent, -20.0);
+    expect(down.isDown, isTrue);
+
+    const fromZero =
+        DayOverDayComparison(currentAmount: 50, previousAmount: 0);
+    expect(fromZero.changePercent, isNull);
+  });
+
+  test('unpaidOrderOutstandingAmount prefers balance_due', () {
+    final order = OrdersRecord.getDocumentFromData(
+      {
+        'totalAmount': 100.0,
+        'balance_due': 40.0,
+        'paymentType': 'Credit',
+      },
+      FirebaseFirestore.instance.collection('orders').doc('u1'),
+    );
+    expect(unpaidOrderOutstandingAmount(order), 40.0);
+  });
+
+  test('excludeArchivedDeletedOrders removes archived order doc ids', () {
+    final kept = _order(
+      id: 'active-1',
+      paymentType: 'Cash',
+      totalAmount: 100,
+    );
+    final stale = _order(
+      id: 'deleted-1',
+      paymentType: 'Cash',
+      totalAmount: 200,
+    );
+    final filtered = excludeArchivedDeletedOrders(
+      [kept, stale],
+      {'deleted-1'},
+    );
+    expect(filtered.length, 1);
+    expect(filtered.first.reference.id, 'active-1');
+  });
+
+  test('isExcludedDeletedSalesOrder matches original order doc id', () {
+    final order = _order(id: 'abc123', paymentType: 'Cash');
+    expect(isExcludedDeletedSalesOrder(order, {'abc123'}), isTrue);
+    expect(isExcludedDeletedSalesOrder(order, {'other'}), isFalse);
+  });
+
+  test('DailySalesReport average and topProducts helpers', () {
+    final report = DailySalesReport(
+      startDate: DateTime(2026, 6, 5),
+      endDate: DateTime(2026, 6, 5),
+      totalOrders: 4,
+      totalSalesAmount: 200,
+      productBreakdown: [
+        ProductSalesBreakdown(
+          productName: 'A',
+          totalQty: 1,
+          totalAmount: 90,
+        ),
+        ProductSalesBreakdown(
+          productName: 'B',
+          totalQty: 2,
+          totalAmount: 60,
+        ),
+        ProductSalesBreakdown(
+          productName: 'C',
+          totalQty: 1,
+          totalAmount: 30,
+        ),
+        ProductSalesBreakdown(
+          productName: 'D',
+          totalQty: 1,
+          totalAmount: 20,
+        ),
+      ],
+      paymentBreakdown: const [],
+      unpaidOrdersCount: 0,
+      unpaidOrdersTotalAmount: 0,
+      hourlyBreakdown: const [],
+    );
+
+    expect(report.averageOrderAmount, 50);
+    expect(report.topProducts.length, 3);
+    expect(report.topProducts.first.productName, 'A');
+  });
 }

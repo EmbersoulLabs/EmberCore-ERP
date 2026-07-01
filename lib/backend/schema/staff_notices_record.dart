@@ -56,6 +56,22 @@ class StaffNoticesRecord extends FirestoreRecord {
   DocumentReference? get companyRef => _companyRef;
   bool hasCompanyRef() => _companyRef != null;
 
+  String? _noticeTitle;
+  String get noticeTitle => _noticeTitle ?? '';
+  bool hasNoticeTitle() => _noticeTitle != null && _noticeTitle!.isNotEmpty;
+
+  int? _prepDeliveryCount;
+  int get prepDeliveryCount => _prepDeliveryCount ?? 0;
+  bool hasPrepDeliveryCount() => _prepDeliveryCount != null;
+
+  int? _prepPendingCount;
+  int get prepPendingCount => _prepPendingCount ?? 0;
+  bool hasPrepPendingCount() => _prepPendingCount != null;
+
+  String? _prepStatus;
+  String get prepStatus => _prepStatus ?? '';
+  bool hasPrepStatus() => _prepStatus != null && _prepStatus!.isNotEmpty;
+
   void _initializeFields() {
     _type = snapshotData['type'] as String?;
     _recipientUserRef = snapshotData['recipient_user_ref'] as DocumentReference?;
@@ -67,6 +83,10 @@ class StaffNoticesRecord extends FirestoreRecord {
     _createdTime = snapshotData['created_time'] as DateTime?;
     _readAt = snapshotData['read_at'] as DateTime?;
     _companyRef = snapshotData['companyRef'] as DocumentReference?;
+    _noticeTitle = snapshotData['notice_title'] as String?;
+    _prepDeliveryCount = (snapshotData['prep_delivery_count'] as num?)?.toInt();
+    _prepPendingCount = (snapshotData['prep_pending_count'] as num?)?.toInt();
+    _prepStatus = snapshotData['prep_status'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -114,6 +134,10 @@ Map<String, dynamic> createStaffNoticesRecordData({
   DateTime? createdTime,
   DateTime? readAt,
   DocumentReference? companyRef,
+  String? noticeTitle,
+  int? prepDeliveryCount,
+  int? prepPendingCount,
+  String? prepStatus,
 }) {
   return mapToFirestore(
     <String, dynamic>{
@@ -127,6 +151,10 @@ Map<String, dynamic> createStaffNoticesRecordData({
       'created_time': createdTime,
       'read_at': readAt,
       'companyRef': companyRef,
+      'notice_title': noticeTitle,
+      'prep_delivery_count': prepDeliveryCount,
+      'prep_pending_count': prepPendingCount,
+      'prep_status': prepStatus,
     }.withoutNulls,
   );
 }

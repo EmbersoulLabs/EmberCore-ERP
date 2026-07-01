@@ -31,6 +31,10 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:provider/provider.dart';
+import '/l10n/tr.dart';
+import '/platform/platform_labels.dart';
+import '/platform/platform_order_types.dart';
+import '/platform/tenant_platform_config.dart';
 import 'create_order_form_model.dart';
 export 'create_order_form_model.dart';
 
@@ -80,6 +84,10 @@ class _CreateOrderFormWidgetState extends State<CreateOrderFormWidget> {
   List<CustomersRecord> _customers = const [];
   List<CustomersRecord> _customerMatches = const [];
   bool _usingWalkInCustomer = false;
+
+  String _fieldLabel(PlatformFieldKey key) => platformFieldLabel(context, key);
+
+  List<String> get _fulfillmentTypeOptions => deliveryFormOrderTypeOptions();
 
   @override
   void initState() {
@@ -160,9 +168,6 @@ class _CreateOrderFormWidgetState extends State<CreateOrderFormWidget> {
     }
     if (order.deliveryTimeSlot.isNotEmpty) {
       _model.textController6!.text = order.deliveryTimeSlot;
-    }
-    if (order.cardMessage.isNotEmpty) {
-      _model.textController7!.text = order.cardMessage;
     }
     if (order.deliveryDate != null) {
       _model.datePicked = order.deliveryDate;
@@ -484,7 +489,7 @@ class _CreateOrderFormWidgetState extends State<CreateOrderFormWidget> {
                                               EdgeInsetsDirectional.fromSTEB(
                                                   0.0, 16.0, 0.0, 8.0),
                                           child: Text(
-                                            'Recipient:',
+                                            '${_fieldLabel(PlatformFieldKey.recipientName)}:',
                                             style: FlutterFlowTheme.of(context)
                                                 .bodyMedium
                                                 .override(
@@ -586,7 +591,7 @@ class _CreateOrderFormWidgetState extends State<CreateOrderFormWidget> {
                                               EdgeInsetsDirectional.fromSTEB(
                                                   0.0, 0.0, 0.0, 8.0),
                                           child: Text(
-                                            'Recipient Phone Number',
+                                            _fieldLabel(PlatformFieldKey.recipientPhone),
                                             style: FlutterFlowTheme.of(context)
                                                 .bodyMedium
                                                 .override(
@@ -794,7 +799,7 @@ class _CreateOrderFormWidgetState extends State<CreateOrderFormWidget> {
                                               EdgeInsetsDirectional.fromSTEB(
                                                   0.0, 0.0, 0.0, 8.0),
                                           child: Text(
-                                            'Delivery Address',
+                                            _fieldLabel(PlatformFieldKey.serviceAddress),
                                             style: FlutterFlowTheme.of(context)
                                                 .bodyMedium
                                                 .override(
@@ -1421,7 +1426,7 @@ class _CreateOrderFormWidgetState extends State<CreateOrderFormWidget> {
                                               EdgeInsetsDirectional.fromSTEB(
                                                   0.0, 0.0, 0.0, 8.0),
                                           child: Text(
-                                            'Date',
+                                            _fieldLabel(PlatformFieldKey.scheduledDate),
                                             style: FlutterFlowTheme.of(context)
                                                 .bodyMedium
                                                 .override(
@@ -1628,7 +1633,7 @@ class _CreateOrderFormWidgetState extends State<CreateOrderFormWidget> {
                                               EdgeInsetsDirectional.fromSTEB(
                                                   0.0, 0.0, 0.0, 8.0),
                                           child: Text(
-                                            'Time',
+                                            _fieldLabel(PlatformFieldKey.timeWindow),
                                             style: FlutterFlowTheme.of(context)
                                                 .bodyMedium
                                                 .override(
@@ -1791,211 +1796,7 @@ class _CreateOrderFormWidgetState extends State<CreateOrderFormWidget> {
                                               EdgeInsetsDirectional.fromSTEB(
                                                   0.0, 0.0, 0.0, 8.0),
                                           child: Text(
-                                            'Card Message',
-                                            style: FlutterFlowTheme.of(context)
-                                                .bodyMedium
-                                                .override(
-                                                  font: GoogleFonts.inter(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodyMedium
-                                                            .fontStyle,
-                                                  ),
-                                                  letterSpacing: 0.0,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontStyle,
-                                                ),
-                                          ),
-                                        ),
-                                        TextFormField(
-                                          controller: _model.textController7,
-                                          focusNode: _model.textFieldFocusNode7,
-                                          autofocus: false,
-                                          textCapitalization:
-                                              TextCapitalization.words,
-                                          textInputAction: TextInputAction.next,
-                                          obscureText: false,
-                                          decoration: InputDecoration(
-                                            isDense: true,
-                                            hintText: 'Enter Customer Message',
-                                            hintStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .override(
-                                                      font: GoogleFonts.inter(
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                      color:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .secondaryText,
-                                                      letterSpacing: 0.0,
-                                                      fontWeight:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .fontWeight,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .fontStyle,
-                                                    ),
-                                            errorStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .override(
-                                                      font: GoogleFonts.inter(
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                      color:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .error,
-                                                      fontSize: 16.0,
-                                                      letterSpacing: 0.0,
-                                                      fontWeight:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .fontWeight,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .fontStyle,
-                                                    ),
-                                            enabledBorder: OutlineInputBorder(
-                                              borderSide: BorderSide(
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .alternate,
-                                                width: 1.0,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8.0),
-                                            ),
-                                            focusedBorder: OutlineInputBorder(
-                                              borderSide: BorderSide(
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primary,
-                                                width: 1.0,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8.0),
-                                            ),
-                                            errorBorder: OutlineInputBorder(
-                                              borderSide: BorderSide(
-                                                color: Color(0x00000000),
-                                                width: 1.0,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8.0),
-                                            ),
-                                            focusedErrorBorder:
-                                                OutlineInputBorder(
-                                              borderSide: BorderSide(
-                                                color: Color(0x00000000),
-                                                width: 1.0,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(8.0),
-                                            ),
-                                            filled: true,
-                                            fillColor:
-                                                FlutterFlowTheme.of(context)
-                                                    .secondaryBackground,
-                                            contentPadding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    16.0, 12.0, 16.0, 12.0),
-                                          ),
-                                          style: FlutterFlowTheme.of(context)
-                                              .bodyMedium
-                                              .override(
-                                                font: GoogleFonts.inter(
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontStyle,
-                                                ),
-                                                fontSize: 16.0,
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
-                                          maxLines: 2,
-                                          keyboardType:
-                                              TextInputType.streetAddress,
-                                          cursorColor:
-                                              FlutterFlowTheme.of(context)
-                                                  .primary,
-                                          validator: _model
-                                              .textController7Validator
-                                              .asValidator(context),
-                                          inputFormatters: [
-                                            if (!isAndroid && !isiOS)
-                                              TextInputFormatter.withFunction(
-                                                  (oldValue, newValue) {
-                                                return TextEditingValue(
-                                                  selection: newValue.selection,
-                                                  text: newValue.text
-                                                      .toCapitalization(
-                                                          TextCapitalization
-                                                              .words),
-                                                );
-                                              }),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                    Column(
-                                      mainAxisSize: MainAxisSize.max,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Padding(
-                                          padding:
-                                              EdgeInsetsDirectional.fromSTEB(
-                                                  0.0, 0.0, 0.0, 8.0),
-                                          child: Text(
-                                            'PickUp/Delivery',
+                                            tr(context, 'order.create.fulfillmentType'),
                                             style: FlutterFlowTheme.of(context)
                                                 .bodyMedium
                                                 .override(
@@ -2021,7 +1822,7 @@ class _CreateOrderFormWidgetState extends State<CreateOrderFormWidget> {
                                           controller: _model
                                                   .dropDownValueController ??=
                                               FormFieldController<String>(null),
-                                          options: ['PickUp', 'Delivery'],
+                                          options: _fulfillmentTypeOptions,
                                           onChanged: (val) => safeSetState(
                                               () => _model.dropDownValue = val),
                                           width: double.infinity,
@@ -2159,8 +1960,7 @@ class _CreateOrderFormWidgetState extends State<CreateOrderFormWidget> {
                                           deliveryDate: _model.datePicked!,
                                           deliveryTimeSlot:
                                               _model.textController6.text,
-                                          cardMessage:
-                                              _model.textController7.text,
+                                          cardMessage: beforeOrder.cardMessage,
                                           orderType: _model.dropDownValue!,
                                           customerPhoneNumber:
                                               _model.selectedCustomerRef !=
@@ -2206,18 +2006,17 @@ class _CreateOrderFormWidgetState extends State<CreateOrderFormWidget> {
                                           deliveryDate: _model.datePicked,
                                           deliveryTimeSlot:
                                               _model.textController6.text,
-                                          cardMessage:
-                                              _model.textController7.text,
+                                          cardMessage: beforeOrder.cardMessage,
                                         ),
                                       );
 
-                                      finishDeliveryDetailsAndShowOrderDetail(
+                                      finishDeliveryDetailsAndOpenPayment(
                                         context,
                                         widget!.orderRef!,
                                       );
                                     },
                                     ),
-                                    text: 'Submit',
+                                    text: 'Continue to payment',
                                     options: FFButtonOptions(
                                       width: double.infinity,
                                       height: 48.0,

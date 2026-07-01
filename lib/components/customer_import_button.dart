@@ -11,6 +11,7 @@ Future<void> showCustomerImportPreviewDialog(
   BuildContext context,
   CustomerImportParseResult parseResult, {
   required bool allowCreditCustomers,
+  Future<void> Function()? onImportComplete,
 }) async {
   final validRows =
       parseResult.rows.where((row) => row.isValid).toList(growable: false);
@@ -146,6 +147,7 @@ Future<void> showCustomerImportPreviewDialog(
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(summary)),
                           );
+                          await onImportComplete?.call();
                         } catch (error) {
                           if (!context.mounted) {
                             return;
@@ -184,6 +186,67 @@ Future<void> showCustomerImportPreviewDialog(
   );
 }
 
+Future<void> pickAndImportCustomers(
+  BuildContext context, {
+  required bool allowCreditCustomers,
+  Future<void> Function()? onImportComplete,
+}) async {
+  final picked = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: const ['csv', 'xlsx'],
+    withData: true,
+    allowMultiple: false,
+  );
+  if (picked == null || picked.files.isEmpty) {
+    return;
+  }
+  final file = picked.files.first;
+  final bytes = file.bytes;
+  if (bytes == null || bytes.isEmpty) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(tr(context, 'customer.import.readFailed'))),
+    );
+    return;
+  }
+
+  try {
+    final parsed = parseCustomerImportFile(
+      bytes: bytes,
+      filename: file.name,
+    );
+    if (!context.mounted) {
+      return;
+    }
+    await showCustomerImportPreviewDialog(
+      context,
+      parsed,
+      allowCreditCustomers: allowCreditCustomers,
+      onImportComplete: onImportComplete,
+    );
+  } on CustomerImportException catch (error) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error.message)),
+    );
+  } catch (error) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          tr(context, 'customer.import.failed', params: {'error': '$error'}),
+        ),
+      ),
+    );
+  }
+}
+
 class CustomerImportButton extends StatelessWidget {
   const CustomerImportButton({
     super.key,
@@ -194,66 +257,13 @@ class CustomerImportButton extends StatelessWidget {
   final bool fullWidth;
   final bool allowCreditCustomers;
 
-  Future<void> _pickAndImport(BuildContext context) async {
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['csv', 'xlsx'],
-      withData: true,
-      allowMultiple: false,
-    );
-    if (picked == null || picked.files.isEmpty) {
-      return;
-    }
-    final file = picked.files.first;
-    final bytes = file.bytes;
-    if (bytes == null || bytes.isEmpty) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(tr(context, 'customer.import.readFailed'))),
-      );
-      return;
-    }
-
-    try {
-      final parsed = parseCustomerImportFile(
-        bytes: bytes,
-        filename: file.name,
-      );
-      if (!context.mounted) {
-        return;
-      }
-      await showCustomerImportPreviewDialog(
-        context,
-        parsed,
-        allowCreditCustomers: allowCreditCustomers,
-      );
-    } on CustomerImportException catch (error) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
-    } catch (error) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            tr(context, 'customer.import.failed', params: {'error': '$error'}),
-          ),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return FFButtonWidget(
-      onPressed: () => _pickAndImport(context),
+      onPressed: () => pickAndImportCustomers(
+        context,
+        allowCreditCustomers: allowCreditCustomers,
+      ),
       text: tr(context, 'customer.import.fromFile'),
       icon: const Icon(
         Icons.upload_file,

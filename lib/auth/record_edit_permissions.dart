@@ -1,4 +1,5 @@
 import '/auth/app_permissions.dart';
+import '/auth/frozen_order_permissions.dart';
 import '/auth/permission_service.dart';
 import '/auth/role_helpers.dart';
 import '/backend/invoice_list_helpers.dart';
@@ -29,6 +30,19 @@ bool canEditOrderRecord(UserRole? role, OrdersRecord order) {
   if (!canEditOrderDetails(role)) {
     return false;
   }
+  if (isOrderInventoryFrozen(order) && !canOverrideFrozenOrder(role)) {
+    return false;
+  }
+  if (isCustomerOrderPaid(order) && !canEditPaidOrderDetails(role)) {
+    return false;
+  }
+  return true;
+}
+
+bool canEditOrderProductLines(UserRole? role, OrdersRecord order) {
+  if (!canEditFrozenOrderPricing(role, order)) {
+    return false;
+  }
   if (isCustomerOrderPaid(order) && !canEditPaidOrderDetails(role)) {
     return false;
   }
@@ -45,6 +59,22 @@ void assertCanEditInvoiceRecord(UserRole? role, InvoicesRecord invoice) {
 }
 
 void assertCanEditOrderRecord(UserRole? role, OrdersRecord order) {
+  if (isCustomerOrderPaid(order) && !canEditPaidOrderDetails(role)) {
+    throw StateError('Paid orders cannot be edited.');
+  }
+  if (isOrderInventoryFrozen(order) && !canOverrideFrozenOrder(role)) {
+    throw StateError(
+      'Completed orders are locked. Only a manager or admin can edit.',
+    );
+  }
+}
+
+void assertCanEditOrderProductLines(UserRole? role, OrdersRecord order) {
+  if (!canEditFrozenOrderPricing(role, order)) {
+    throw StateError(
+      'Completed orders are locked. Only a manager or admin can change prices.',
+    );
+  }
   if (isCustomerOrderPaid(order) && !canEditPaidOrderDetails(role)) {
     throw StateError('Paid orders cannot be edited.');
   }

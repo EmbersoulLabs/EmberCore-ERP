@@ -1,9 +1,48 @@
 import '/backend/backend.dart';
+import '/backend/invoice_list_helpers.dart';
 import '/backend/order_item_helpers.dart';
 import '/backend/order_list_filter_helpers.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/order_item_record.dart';
 import '/backend/tenant_query_helpers.dart';
+
+/// One hour bucket in the sales report (local time, 0–23).
+class HourlySalesBreakdown {
+  const HourlySalesBreakdown({
+    required this.hour,
+    required this.totalAmount,
+    required this.orderCount,
+  });
+
+  final int hour;
+  final double totalAmount;
+  final int orderCount;
+}
+
+/// Day-over-day sales comparison for a single calendar day.
+class DayOverDayComparison {
+  const DayOverDayComparison({
+    required this.currentAmount,
+    required this.previousAmount,
+  });
+
+  final double currentAmount;
+  final double previousAmount;
+
+  double get delta => currentAmount - previousAmount;
+
+  /// Percent change vs previous day; null when previous day had no sales.
+  double? get changePercent {
+    if (previousAmount <= 0) {
+      return currentAmount > 0 ? null : 0;
+    }
+    return (delta / previousAmount) * 100;
+  }
+
+  bool get isUp => delta > 0;
+  bool get isDown => delta < 0;
+  bool get isFlat => delta.abs() < 0.005;
+}
 
 /// One product row in the sales report.
 class ProductSalesBreakdown {
@@ -40,6 +79,10 @@ class DailySalesReport {
     required this.totalSalesAmount,
     required this.productBreakdown,
     required this.paymentBreakdown,
+    required this.unpaidOrdersCount,
+    required this.unpaidOrdersTotalAmount,
+    required this.hourlyBreakdown,
+    this.dayOverDayComparison,
   });
 
   final DateTime startDate;
@@ -48,9 +91,21 @@ class DailySalesReport {
   final double totalSalesAmount;
   final List<ProductSalesBreakdown> productBreakdown;
   final List<PaymentMethodBreakdown> paymentBreakdown;
+  final int unpaidOrdersCount;
+  final double unpaidOrdersTotalAmount;
+  final List<HourlySalesBreakdown> hourlyBreakdown;
+  final DayOverDayComparison? dayOverDayComparison;
 
   bool get isSingleDay =>
       calendarDay(startDate) == calendarDay(endDate);
+
+  double get averageOrderAmount =>
+      totalOrders > 0 ? totalSalesAmount / totalOrders : 0;
+
+  List<ProductSalesBreakdown> get topProducts =>
+      productBreakdown.take(3).toList(growable: false);
+
+  bool get hasUnpaidOrders => unpaidOrdersTotalAmount > 0.005;
 }
 
 /// Normalizes stored paymentType values (e.g. Paynow → PayNow).
@@ -213,10 +268,101 @@ List<ProductSalesBreakdown> aggregateProductSales(List<OrderItemRecord> items) {
   return breakdown;
 }
 
-/// Loads paid orders between [startDate] and [endDate] (inclusive).
-Future<List<OrdersRecord>> loadPaidOrdersForSalesReportRange({
+bool isSalesReportOrderCancelled(OrdersRecord order) =>
+    order.status == OrderStatus.cancelled;
+
+/// Doc IDs (`original_order_id`) of orders archived in [deleted_orders] and not
+/// restored. Used to keep deleted orders out of sales aggregates even when a
+/// stale `orders` doc or orphan `order_item` rows remain.
+Future<Set<String>> loadActiveDeletedOrderDocIds() async {
+  final archives = await queryTenantDeletedOrdersRecordOnce(
+    queryBuilder: (q) => q.where('is_restored', isEqualTo: false),
+  );
+  return archives
+      .map((archive) => archive.originalOrderId.trim())
+      .where((id) => id.isNotEmpty)
+      .toSet();
+}
+
+bool isExcludedDeletedSalesOrder(
+  OrdersRecord order,
+  Set<String> deletedOrderDocIds,
+) {
+  if (deletedOrderDocIds.isEmpty) {
+    return false;
+  }
+  return deletedOrderDocIds.contains(order.reference.id);
+}
+
+List<OrdersRecord> excludeArchivedDeletedOrders(
+  Iterable<OrdersRecord> orders,
+  Set<String> deletedOrderDocIds,
+) {
+  if (deletedOrderDocIds.isEmpty) {
+    return orders.toList(growable: false);
+  }
+  return orders
+      .where((order) => !isExcludedDeletedSalesOrder(order, deletedOrderDocIds))
+      .toList(growable: false);
+}
+
+/// Unpaid orders in the report range (excludes cancelled, zero-total).
+bool isUnpaidForSalesReport(OrdersRecord order) {
+  if (isSalesReportOrderCancelled(order)) {
+    return false;
+  }
+  if (orderSalesAmount(order) <= 0) {
+    return false;
+  }
+  return !isCustomerOrderPaid(order);
+}
+
+double unpaidOrderOutstandingAmount(OrdersRecord order) {
+  if (order.balanceDue > 0) {
+    return order.balanceDue;
+  }
+  return orderSalesAmount(order);
+}
+
+/// Buckets paid-order revenue by local hour of [dailySalesReportDate].
+List<HourlySalesBreakdown> aggregateHourlySales(List<OrdersRecord> paidOrders) {
+  final amounts = List<double>.filled(24, 0);
+  final counts = List<int>.filled(24, 0);
+
+  for (final order in paidOrders) {
+    final timestamp = dailySalesReportDate(order);
+    if (timestamp == null) {
+      continue;
+    }
+    final hour = timestamp.toLocal().hour;
+    amounts[hour] += orderSalesAmount(order);
+    counts[hour]++;
+  }
+
+  return List.generate(
+    24,
+    (hour) => HourlySalesBreakdown(
+      hour: hour,
+      totalAmount: amounts[hour],
+      orderCount: counts[hour],
+    ),
+  );
+}
+
+double sumOrderSalesAmount(Iterable<OrdersRecord> orders) {
+  var total = 0.0;
+  for (final order in orders) {
+    total += orderSalesAmount(order);
+  }
+  return total;
+}
+
+/// Loads non-cancelled orders between [startDate] and [endDate] (inclusive).
+/// Excludes orders archived in [deleted_orders] ([loadActiveDeletedOrderDocIds]).
+Future<List<OrdersRecord>> loadOrdersForSalesReportRange({
   required DateTime startDate,
   required DateTime endDate,
+  Set<String>? excludedDeletedOrderDocIds,
 }) async {
   final range = normalizeSalesReportDateRange(
     startDate: startDate,
@@ -254,6 +400,24 @@ Future<List<OrdersRecord>> loadPaidOrdersForSalesReportRange({
         .toList();
   }
 
+  final deletedDocIds =
+      excludedDeletedOrderDocIds ?? await loadActiveDeletedOrderDocIds();
+
+  return excludeArchivedDeletedOrders(
+    orders.where((order) => !isSalesReportOrderCancelled(order)),
+    deletedDocIds,
+  );
+}
+
+/// Loads paid orders between [startDate] and [endDate] (inclusive).
+Future<List<OrdersRecord>> loadPaidOrdersForSalesReportRange({
+  required DateTime startDate,
+  required DateTime endDate,
+}) async {
+  final orders = await loadOrdersForSalesReportRange(
+    startDate: startDate,
+    endDate: endDate,
+  );
   return orders.where(orderQualifiesForDailySales).toList(growable: false);
 }
 
@@ -267,10 +431,16 @@ Future<DailySalesReport> buildDailySalesReportRange({
     endDate: endDate,
   );
 
-  final paidOrders = await loadPaidOrdersForSalesReportRange(
+  final deletedDocIds = await loadActiveDeletedOrderDocIds();
+  final ordersInRange = await loadOrdersForSalesReportRange(
     startDate: range.start,
     endDate: range.end,
+    excludedDeletedOrderDocIds: deletedDocIds,
   );
+  final paidOrders =
+      ordersInRange.where(orderQualifiesForDailySales).toList(growable: false);
+  final unpaidOrders =
+      ordersInRange.where(isUnpaidForSalesReport).toList(growable: false);
 
   final totalsByPayment = <String, PaymentMethodBreakdown>{};
   var salesSum = 0.0;
@@ -319,10 +489,30 @@ Future<DailySalesReport> buildDailySalesReportRange({
       .where(
         (item) =>
             item.orderRef != null &&
-            paidOrderIds.contains(item.orderRef!.id),
+            paidOrderIds.contains(item.orderRef!.id) &&
+            !deletedDocIds.contains(item.orderRef!.id),
       )
       .toList(growable: false);
   final productBreakdown = aggregateProductSales(paidOrderItems);
+  final hourlyBreakdown = aggregateHourlySales(paidOrders);
+
+  var unpaidSum = 0.0;
+  for (final order in unpaidOrders) {
+    unpaidSum += unpaidOrderOutstandingAmount(order);
+  }
+
+  DayOverDayComparison? dayOverDay;
+  if (calendarDay(range.start) == calendarDay(range.end)) {
+    final previousDay = range.start.subtract(const Duration(days: 1));
+    final previousPaid = await loadPaidOrdersForSalesReportRange(
+      startDate: previousDay,
+      endDate: previousDay,
+    );
+    dayOverDay = DayOverDayComparison(
+      currentAmount: salesSum,
+      previousAmount: sumOrderSalesAmount(previousPaid),
+    );
+  }
 
   return DailySalesReport(
     startDate: range.start,
@@ -331,6 +521,10 @@ Future<DailySalesReport> buildDailySalesReportRange({
     totalSalesAmount: salesSum,
     productBreakdown: productBreakdown,
     paymentBreakdown: breakdown,
+    unpaidOrdersCount: unpaidOrders.length,
+    unpaidOrdersTotalAmount: unpaidSum,
+    hourlyBreakdown: hourlyBreakdown,
+    dayOverDayComparison: dayOverDay,
   );
 }
 

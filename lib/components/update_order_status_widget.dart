@@ -1,20 +1,60 @@
-import '/auth/firebase_auth/auth_util.dart';
+import '/auth/viewer_role_helpers.dart';
+import '/auth/frozen_order_permissions.dart';
 import '/backend/backend.dart';
 import '/backend/audit_log_helpers.dart';
 import '/backend/cash_payment_helpers.dart';
 import '/components/outstanding_balance_dialog.dart';
 import '/backend/order_status_helpers.dart';
 import '/backend/schema/enums/enums.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
+import '/l10n/tr.dart';
+import '/theme/ember_brand.dart';
+import '/theme/ember_status_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'update_order_status_model.dart';
 export 'update_order_status_model.dart';
+
+class _StatusOption {
+  const _StatusOption({
+    required this.status,
+    required this.labelKey,
+    required this.icon,
+  });
+
+  final OrderStatus status;
+  final String labelKey;
+  final IconData icon;
+}
+
+const _statusOptions = [
+  _StatusOption(
+    status: OrderStatus.processing,
+    labelKey: 'order.status.processing',
+    icon: Icons.autorenew_rounded,
+  ),
+  _StatusOption(
+    status: OrderStatus.ready_to_delivery,
+    labelKey: 'order.status.readyToShip',
+    icon: Icons.inventory_2_outlined,
+  ),
+  _StatusOption(
+    status: OrderStatus.out_of_delivery,
+    labelKey: 'order.status.outOfDelivery',
+    icon: Icons.local_shipping_outlined,
+  ),
+  _StatusOption(
+    status: OrderStatus.completed,
+    labelKey: 'order.status.completed',
+    icon: Icons.check_circle_outline_rounded,
+  ),
+  _StatusOption(
+    status: OrderStatus.cancelled,
+    labelKey: 'order.status.cancelled',
+    icon: Icons.block_rounded,
+  ),
+];
 
 class UpdateOrderStatusWidget extends StatefulWidget {
   const UpdateOrderStatusWidget({
@@ -31,6 +71,7 @@ class UpdateOrderStatusWidget extends StatefulWidget {
 
 class _UpdateOrderStatusWidgetState extends State<UpdateOrderStatusWidget> {
   late UpdateOrderStatusModel _model;
+  bool _applying = false;
 
   @override
   void setState(VoidCallback callback) {
@@ -54,343 +95,191 @@ class _UpdateOrderStatusWidgetState extends State<UpdateOrderStatusWidget> {
   }
 
   Future<void> _applyStatus(OrderStatus status) async {
-    if (status == OrderStatus.ready_to_delivery ||
-        status == OrderStatus.completed) {
+    if (_applying || widget.orderRef == null) {
+      return;
+    }
+    setState(() => _applying = true);
+    try {
       final order = await OrdersRecord.getDocumentOnce(widget.orderRef!);
-      final saleTotal = await loadOrderSaleTotal(widget.orderRef!);
+      if (status == OrderStatus.cancelled &&
+          !canCancelOrVoidFrozenOrder(currentViewerRole(), order)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                tr(context, 'order.inventory.frozenCancelDenied'),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (status == OrderStatus.ready_to_delivery ||
+          status == OrderStatus.completed) {
+        final saleTotal = await loadOrderSaleTotal(widget.orderRef!);
+        if (mounted) {
+          await showBalanceDueReminderDialog(
+            context,
+            order: order,
+            targetStatus: status,
+            saleTotal: saleTotal,
+          );
+        }
+      }
+
+      await updateOrderStatus(widget.orderRef!, status);
+      await auditLogOrderStatusChangeByRef(widget.orderRef!, status);
       if (mounted) {
-        await showBalanceDueReminderDialog(
-          context,
-          order: order,
-          targetStatus: status,
-          saleTotal: saleTotal,
-        );
+        Navigator.pop(context);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _applying = false);
       }
     }
+  }
 
-    await updateOrderStatus(widget.orderRef!, status);
-    await auditLogOrderStatusChangeByRef(widget.orderRef!, status);
-    if (mounted) {
-      Navigator.pop(context);
-    }
+  Widget _buildStatusTile(_StatusOption option) {
+    final accent = emberOrderStatusColor(option.status);
+    final background = emberOrderStatusBackground(option.status);
+    final isDestructive = option.status == OrderStatus.cancelled;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: background,
+        borderRadius: BorderRadius.circular(EmberBrand.radiusMd),
+        child: InkWell(
+          onTap: _applying ? null : () => _applyStatus(option.status),
+          borderRadius: BorderRadius.circular(EmberBrand.radiusMd),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(EmberBrand.radiusMd),
+              border: Border.all(
+                color: accent.withValues(alpha: isDestructive ? 0.35 : 0.25),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(option.icon, color: accent, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    tr(context, option.labelKey),
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isDestructive ? EmberBrand.error : EmberBrand.navy,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: EmberBrand.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      elevation: 5.0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(0.0),
-          bottomRight: Radius.circular(0.0),
-          topLeft: Radius.circular(16.0),
-          topRight: Radius.circular(16.0),
-        ),
-      ),
       child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(0.0),
-            bottomRight: Radius.circular(0.0),
-            topLeft: Radius.circular(16.0),
-            topRight: Radius.circular(16.0),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
+        decoration: const BoxDecoration(
+          color: EmberBrand.card,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(EmberBrand.radiusLg),
           ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 0.0),
-              child: Container(
-                width: 50.0,
-                height: 4.0,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: Color(0xFFF1F4F8),
-                  borderRadius: BorderRadius.circular(8.0),
+                  color: EmberBrand.border,
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
-            ),
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 0.0),
-              child: Row(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  Text(
-                    tr(context, 'order.statusSheet.title'),
-                    style: FlutterFlowTheme.of(context).headlineSmall.override(
-                          font: GoogleFonts.outfit(
-                            fontWeight: FontWeight.w500,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .headlineSmall
-                                .fontStyle,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 8, 16, 0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed:
+                          _applying ? null : () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      color: EmberBrand.navy,
+                      tooltip: tr(context, 'common.back'),
+                    ),
+                    Expanded(
+                      child: Text(
+                        tr(context, 'order.statusSheet.title'),
+                        style: GoogleFonts.interTight(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: EmberBrand.navy,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 48),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                  shrinkWrap: true,
+                  children: [
+                    for (final option in _statusOptions)
+                      _buildStatusTile(option),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed:
+                            _applying ? null : () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                        label: Text(tr(context, 'common.back')),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: EmberBrand.navy,
+                          side: const BorderSide(color: EmberBrand.border),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(EmberBrand.radiusMd),
                           ),
-                          color: Color(0xFF14181B),
-                          fontSize: 24.0,
-                          letterSpacing: 0.0,
-                          fontWeight: FontWeight.w500,
-                          fontStyle: FlutterFlowTheme.of(context)
-                              .headlineSmall
-                              .fontStyle,
                         ),
-                  ),
-                ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 32.0),
-              child: ListView(
-                padding: EdgeInsets.zero,
-                primary: false,
-                shrinkWrap: true,
-                scrollDirection: Axis.vertical,
-                children: [
-                  Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(16.0, 12.0, 16.0, 0.0),
-                    child: Container(
-                      width: double.infinity,
-                      height: 50.0,
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).secondary,
-                        borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(
-                          color: Color(0xFFE0E3E7),
-                          width: 2.0,
-                        ),
-                      ),
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          await _applyStatus(OrderStatus.processing);
-                        },
-                        child: Text(
-                          tr(context, 'order.status.processing'),
-                          textAlign: TextAlign.center,
-                          style:
-                              FlutterFlowTheme.of(context).bodyMedium.override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    fontSize: 30.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(16.0, 12.0, 16.0, 0.0),
-                    child: Container(
-                      width: double.infinity,
-                      height: 50.0,
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).accent1,
-                        borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(
-                          color: Color(0xFFE0E3E7),
-                          width: 2.0,
-                        ),
-                      ),
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          await _applyStatus(OrderStatus.ready_to_delivery);
-                        },
-                        child: Text(
-                          tr(context, 'order.status.readyToShip'),
-                          textAlign: TextAlign.center,
-                          style:
-                              FlutterFlowTheme.of(context).bodyMedium.override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    fontSize: 30.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(16.0, 12.0, 16.0, 0.0),
-                    child: Container(
-                      width: double.infinity,
-                      height: 50.0,
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).warning,
-                        borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(
-                          color: Color(0xFFE0E3E7),
-                          width: 2.0,
-                        ),
-                      ),
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          await _applyStatus(OrderStatus.out_of_delivery);
-                        },
-                        child: Text(
-                          tr(context, 'order.status.outOfDelivery'),
-                          textAlign: TextAlign.center,
-                          style:
-                              FlutterFlowTheme.of(context).bodyMedium.override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    fontSize: 30.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(16.0, 12.0, 16.0, 0.0),
-                    child: Container(
-                      width: double.infinity,
-                      height: 50.0,
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).success,
-                        borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(
-                          color: Color(0xFFE0E3E7),
-                          width: 2.0,
-                        ),
-                      ),
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          await _applyStatus(OrderStatus.completed);
-                        },
-                        child: Text(
-                          tr(context, 'order.status.completed'),
-                          textAlign: TextAlign.center,
-                          style:
-                              FlutterFlowTheme.of(context).bodyMedium.override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    fontSize: 30.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(16.0, 12.0, 16.0, 0.0),
-                    child: Container(
-                      width: double.infinity,
-                      height: 50.0,
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).error,
-                        borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(
-                          color: Color(0xFFE0E3E7),
-                          width: 2.0,
-                        ),
-                      ),
-                      child: InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onTap: () async {
-                          await _applyStatus(OrderStatus.cancelled);
-                        },
-                        child: Text(
-                          tr(context, 'order.status.cancelled'),
-                          textAlign: TextAlign.center,
-                          style:
-                              FlutterFlowTheme.of(context).bodyMedium.override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    fontSize: 30.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                  ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
