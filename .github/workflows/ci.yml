@@ -48,10 +48,7 @@ jobs:
 
   build-apk:
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main' &&
-      secrets.GOOGLE_SERVICES_JSON_PRODUCTION != ''
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,17 +76,20 @@ jobs:
           cp firebase/keys/web_client_config.example.json firebase/keys/web_client_config.json
 
       - name: Restore production google-services.json
+        id: gservices
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON_PRODUCTION }}
         run: |
           if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            echo "::warning::GOOGLE_SERVICES_JSON_PRODUCTION secret not set — using example file"
-            cp android/app/src/production/google-services.json.example android/app/src/production/google-services.json
+            echo "has_secret=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::APK build skipped — add GOOGLE_SERVICES_JSON_PRODUCTION repository secret to enable"
           else
+            echo "has_secret=true" >> "$GITHUB_OUTPUT"
             echo "$GOOGLE_SERVICES_JSON" > android/app/src/production/google-services.json
           fi
 
       - name: Read app version
+        if: steps.gservices.outputs.has_secret == 'true'
         id: version
         run: |
           LABEL=$(grep "kAppVersionLabel" lib/app_version.dart | sed "s/.*= '//;s/';//")
@@ -99,14 +99,17 @@ jobs:
           echo "Building v${LABEL} (${BUILD})"
 
       - name: Build release APK
+        if: steps.gservices.outputs.has_secret == 'true'
         run: flutter build apk --flavor production --release --build-name=${{ steps.version.outputs.label }} --build-number=${{ steps.version.outputs.build }}
 
       - name: Verify APK output path
+        if: steps.gservices.outputs.has_secret == 'true'
         run: |
           ls -la build/app/outputs/flutter-apk/
           test -f build/app/outputs/flutter-apk/app-production-release.apk
 
       - name: Upload APK artifact
+        if: steps.gservices.outputs.has_secret == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: tfg-vday-v${{ steps.version.outputs.label }}-build${{ steps.version.outputs.build }}-apk
