@@ -114,3 +114,22 @@ List<OrdersRecord> filterDriverDeliveryOrders(
 
   return filtered;
 }
+
+/// Active (non-completed) assigned orders in the date window — for route preview.
+List<OrdersRecord> driverActiveRouteOrders(
+  List<OrdersRecord> orders, {
+  required DocumentReference? driverRef,
+  DateTime? filterStart,
+  DateTime? filterEnd,
+}) {
+  return filterDriverDeliveryOrders(
+    orders,
+    driverRef: driverRef,
+    tabStatus: null,
+    filterStart: filterStart,
+    filterEnd: filterEnd,
+  ).where((order) {
+    final status = order.status;
+    return status != OrderStatus.completed && status != OrderStatus.cancelled;
+  }).toList();
+}

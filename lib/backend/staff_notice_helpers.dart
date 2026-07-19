@@ -4,6 +4,7 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/auth/role_helpers.dart';
 import '/backend/backend.dart';
 import '/backend/order_list_display_helpers.dart';
+import '/backend/operation_reminder_copy.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/orders_record.dart';
 import '/backend/schema/staff_notices_record.dart';
@@ -16,9 +17,8 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import 'package:flutter/material.dart';
 
-const staffNoticeNavTomorrowPrep = 'nav:tomorrow_prep';
-
-const tomorrowPrepNoticeTitle = "Tomorrow's Preparation";
+final staffNoticeNavTomorrowPrep =
+    encodeStaffNoticeNavPayload(StaffNoticeNavTarget.tomorrowPrep);
 
 abstract final class StaffNoticeType {
   static const orderCreated = 'order_created';
@@ -69,7 +69,7 @@ bool receivesOperationReminders(UserRole? role) {
 
 bool isStaffNoticeUnread(StaffNoticesRecord notice) => !notice.hasReadAt();
 
-String staffNoticeTitle(StaffNoticesRecord notice) {
+String staffNoticeTitle(StaffNoticesRecord notice, [BuildContext? context]) {
   if (notice.hasNoticeTitle()) {
     return notice.noticeTitle;
   }
@@ -79,7 +79,7 @@ String staffNoticeTitle(StaffNoticesRecord notice) {
     case StaffNoticeType.shopifyOrderImported:
       return 'New Shopify Order';
     case StaffNoticeType.tomorrowPrepReminder:
-      return tomorrowPrepNoticeTitle;
+      return tomorrowPrepNoticeTitle(context);
     case StaffNoticeType.todayOpsReminder:
       return 'Today production reminder';
     case StaffNoticeType.specialProcurementReminder:
@@ -122,7 +122,15 @@ String _monthLabel(int month) {
   return labels[month - 1];
 }
 
-String staffNoticeBody(StaffNoticesRecord notice) {
+String staffNoticeBody(StaffNoticesRecord notice, [BuildContext? context]) {
+  if (notice.type == StaffNoticeType.tomorrowPrepReminder &&
+      notice.hasPrepDeliveryCount()) {
+    return buildTomorrowPrepNoticeBody(
+      deliveryCount: notice.prepDeliveryCount,
+      pendingCount: notice.prepPendingCount,
+      context: context,
+    );
+  }
   if ((notice.type == StaffNoticeType.shopifyOrderImported ||
           notice.type == StaffNoticeType.tomorrowPrepReminder ||
           notice.type == StaffNoticeType.todayOpsReminder ||
@@ -138,8 +146,11 @@ String staffNoticeBody(StaffNoticesRecord notice) {
 }
 
 /// In-app list/dialog body with optional status icon for tomorrow prep.
-String staffNoticeDisplayBody(StaffNoticesRecord notice) {
-  final body = staffNoticeBody(notice);
+String staffNoticeDisplayBody(
+  StaffNoticesRecord notice, [
+  BuildContext? context,
+]) {
+  final body = staffNoticeBody(notice, context);
   if (notice.type != StaffNoticeType.tomorrowPrepReminder) {
     return body;
   }
@@ -183,6 +194,13 @@ bool bodyIndicatesAllOrdersReady(String message) {
 }
 
 String? staffNoticeNavigationPayload(StaffNoticesRecord notice) {
+  if (notice.hasNavTarget() && notice.navTarget.isNotEmpty) {
+    final raw = notice.navTarget.trim();
+    if (raw.startsWith(staffNoticeNavPayloadPrefix)) {
+      return raw;
+    }
+    return encodeStaffNoticeNavPayload(raw);
+  }
   if (notice.type == StaffNoticeType.tomorrowPrepReminder) {
     return staffNoticeNavTomorrowPrep;
   }
@@ -196,7 +214,8 @@ Future<void> openStaffNoticeTarget(
   BuildContext context,
   StaffNoticesRecord notice,
 ) async {
-  if (notice.type == StaffNoticeType.tomorrowPrepReminder) {
+  if (notice.type == StaffNoticeType.tomorrowPrepReminder ||
+      (notice.hasNavTarget() && isTomorrowPrepNavTarget(notice.navTarget))) {
     await openDashboardFilteredOrderList(
       context,
       DashboardOrderListFilter.tomorrowDeliveryOrders,
@@ -498,4 +517,43 @@ Future<void> markStaffNoticeRead(DocumentReference noticeRef) async {
   await noticeRef.update(
     createStaffNoticesRecordData(readAt: getCurrentTimestamp),
   );
+}
+
+Future<void> deleteStaffNotice(DocumentReference noticeRef) async {
+  await noticeRef.delete();
+}
+
+/// Marks every unread notice in [notices] as read (Firestore allows only `read_at` updates).
+Future<int> markAllStaffNoticesRead(
+  Iterable<StaffNoticesRecord> notices,
+) async {
+  final unread = notices.where(isStaffNoticeUnread).toList(growable: false);
+  if (unread.isEmpty) {
+    return 0;
+  }
+
+  final readAt = getCurrentTimestamp;
+  const maxBatchSize = 500;
+  var batch = FirebaseFirestore.instance.batch();
+  var batchCount = 0;
+  var total = 0;
+
+  for (final notice in unread) {
+    batch.update(
+      notice.reference,
+      createStaffNoticesRecordData(readAt: readAt),
+    );
+    batchCount++;
+    total++;
+    if (batchCount >= maxBatchSize) {
+      await batch.commit();
+      batch = FirebaseFirestore.instance.batch();
+      batchCount = 0;
+    }
+  }
+
+  if (batchCount > 0) {
+    await batch.commit();
+  }
+  return total;
 }

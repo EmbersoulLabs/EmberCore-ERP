@@ -5,6 +5,7 @@ import '/backend/audit_log_helpers.dart';
 import '/backend/cash_payment_helpers.dart';
 import '/components/outstanding_balance_dialog.dart';
 import '/backend/order_status_helpers.dart';
+import '/backend/order_tracking_helpers.dart';
 import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/l10n/tr.dart';
@@ -130,6 +131,13 @@ class _UpdateOrderStatusWidgetState extends State<UpdateOrderStatusWidget> {
 
       await updateOrderStatus(widget.orderRef!, status);
       await auditLogOrderStatusChangeByRef(widget.orderRef!, status);
+      if (mounted) {
+        await maybeLaunchTrackingWhatsAppAfterStatusChange(
+          context: context,
+          orderRef: widget.orderRef!,
+          status: status,
+        );
+      }
       if (mounted) {
         Navigator.pop(context);
       }

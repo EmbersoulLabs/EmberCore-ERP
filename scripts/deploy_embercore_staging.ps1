@@ -9,6 +9,8 @@ Write-Host "Building Flutter web (APP_ENV=staging -> embercore-erp-staging)..." 
 flutter build web --release --dart-define=APP_ENV=staging
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+# Flutter build web copies web/ assets (including web/track/) into build/web/.
+# The copy below therefore deploys /track/index.html for customer tracking.
 $publicDir = Join-Path $repoRoot "firebase\public"
 if (Test-Path $publicDir) {
     Remove-Item -Recurse -Force $publicDir

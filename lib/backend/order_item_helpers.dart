@@ -5,6 +5,7 @@ import '/backend/schema/order_item_record.dart';
 import '/backend/schema/orders_record.dart';
 import '/backend/product_edit_helpers.dart';
 import '/backend/price_list_helpers.dart';
+import '/backend/order_discount_helpers.dart';
 import '/backend/tenant_query_helpers.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/flutter_flow/flutter_flow_util.dart';
@@ -103,27 +104,20 @@ Future<void> decreaseOrderItemQuantityOrDelete({
   required OrderItemRecord item,
   required DocumentReference orderRef,
 }) async {
-  final unitPrice = item.price;
-
   if (item.qty <= 1) {
     await item.reference.delete();
-  } else {
-    await item.reference.update({
-      ...createOrderItemRecordData(
-        subtotal: functions.decreaseQtysubtotal(item.price, item.qty),
-      ),
-      ...mapToFirestore({
-        'qty': FieldValue.increment(-1),
-      }),
-    });
+    await recalculateOrderTotals(orderRef);
+    return;
   }
 
-  await orderRef.update({
-    ...mapToFirestore({
-      'totalAmount': FieldValue.increment(-unitPrice),
-      'totalQty': FieldValue.increment(-1),
-    }),
-  });
+  final nextQty = item.qty - 1;
+  await item.reference.update(
+    createOrderItemRecordData(
+      qty: nextQty,
+      subtotal: item.price * nextQty,
+    ),
+  );
+  await recalculateOrderTotals(orderRef);
 }
 
 /// Removes an entire line item and adjusts order totals.
@@ -137,14 +131,8 @@ Future<void> deleteOrderItemLine({
     return;
   }
 
-  final lineTotal = item.subtotal > 0 ? item.subtotal : item.price * qty;
   await item.reference.delete();
-  await orderRef.update({
-    ...mapToFirestore({
-      'totalAmount': FieldValue.increment(-lineTotal),
-      'totalQty': FieldValue.increment(-qty),
-    }),
-  });
+  await recalculateOrderTotals(orderRef);
 }
 
 /// Increments qty by 1 and updates order totals.
@@ -152,21 +140,37 @@ Future<void> increaseOrderItemQuantity({
   required OrderItemRecord item,
   required DocumentReference orderRef,
 }) async {
-  await item.reference.update({
-    ...createOrderItemRecordData(
-      subtotal: functions.increaseQtySubtotal(item.price, item.qty),
-    ),
-    ...mapToFirestore({
-      'qty': FieldValue.increment(1),
-    }),
-  });
+  await setOrderItemQuantity(
+    item: item,
+    orderRef: orderRef,
+    qty: item.qty + 1,
+  );
+}
 
-  await orderRef.update({
-    ...mapToFirestore({
-      'totalAmount': FieldValue.increment(item.price),
-      'totalQty': FieldValue.increment(1),
-    }),
-  });
+/// Sets absolute qty (checkout summary). Zeroes the line when qty <= 0.
+Future<void> setOrderItemQuantity({
+  required OrderItemRecord item,
+  required DocumentReference orderRef,
+  required int qty,
+}) async {
+  if (qty <= 0) {
+    await item.reference.update(
+      createOrderItemRecordData(
+        qty: 0,
+        subtotal: 0,
+      ),
+    );
+    await recalculateOrderTotals(orderRef);
+    return;
+  }
+
+  await item.reference.update(
+    createOrderItemRecordData(
+      qty: qty,
+      subtotal: item.price * qty,
+    ),
+  );
+  await recalculateOrderTotals(orderRef);
 }
 
 Future<DocumentReference> addCatalogProductToOrderItem({
@@ -191,31 +195,41 @@ Future<DocumentReference> addCatalogProductToOrderItem({
       image: productImageFromRecord(product),
     ),
   );
+  await recalculateOrderTotals(orderRef);
   return itemRef;
 }
 
 Future<void> recalculateOrderTotals(DocumentReference orderRef) async {
-  final items = await queryOrderItemsForOrderOnce(orderRef);
+  final items = activeOrderItems(await queryOrderItemsForOrderOnce(orderRef));
   if (items.isEmpty) {
     await orderRef.update(
       createOrdersRecordData(
         totalAmount: 0,
         total: 0,
         totalQty: 0,
+        discount: 0,
+        discountLabel: '-',
       ),
     );
     return;
   }
-  final total = functions.calculationTotal(
+  final itemSubtotal = functions.calculationTotal(
     items.map((item) => item.price).toList(),
     items.map((item) => item.qty).toList(),
+  );
+  final order = await OrdersRecord.getDocumentOnce(orderRef);
+  final payable = calculateOrderPayableTotals(
+    itemSubtotal: itemSubtotal,
+    discount: parseOrderDiscountInput(order),
   );
   final totalQty = items.fold<int>(0, (running, item) => running + item.qty);
   await orderRef.update(
     createOrdersRecordData(
-      totalAmount: total,
-      total: total,
+      totalAmount: payable.total,
+      total: payable.total,
       totalQty: totalQty,
+      discount: payable.discount,
+      discountLabel: payable.discountLabel,
       productSelection: items.first.reference,
     ),
   );

@@ -7,6 +7,7 @@ Write-Host "Building production web (tfg-sales-record)..."
 flutter build web --release
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+# Flutter build web copies web/ assets (including web/track/) into build/web/.
 $publicDir = Join-Path $repoRoot "firebase\public"
 if (-not (Test-Path $publicDir)) {
     New-Item -ItemType Directory -Path $publicDir | Out-Null

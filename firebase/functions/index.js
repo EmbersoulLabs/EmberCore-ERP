@@ -29,6 +29,7 @@ const {
   readStripeConfig,
   getStripe,
 } = require("./stripe_billing");
+const { handleGetOrderTracking } = require("./order_tracking_http");
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -531,4 +532,19 @@ exports.stripeWebhook = functions
       });
       return res.status(500).send("Webhook handler failed");
     }
+  });
+
+/**
+ * Public HTTPS: getOrderTracking
+ * Resolve customer tracking payload by token OR Order_Id + phone last 4.
+ * Returns safe fields only (no amounts).
+ */
+exports.getOrderTracking = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 30,
+    memory: "256MB",
+  })
+  .https.onRequest(async (req, res) => {
+    await handleGetOrderTracking(db, req, res);
   });

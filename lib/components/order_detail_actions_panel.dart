@@ -6,6 +6,7 @@ import '/auth/record_edit_permissions.dart';
 import '/auth/role_helpers.dart';
 import '/backend/order_navigation_helpers.dart';
 import '/backend/order_production_menu_helpers.dart';
+import '/backend/order_tracking_helpers.dart';
 import '/backend/order_whatsapp_helpers.dart';
 import '/backend/reprint_receipt_helpers.dart';
 import '/backend/schema/orders_record.dart';
@@ -45,6 +46,8 @@ class OrderDetailActionsPanel extends StatelessWidget {
   bool get _isSuperAdmin => isSuperAdminRole(AppStateNotifier.instance.userRole);
 
   bool get _showDeliveryFlow => !_isRetailOrder(order);
+
+  bool get _canSendTrackingLink => isTrackableCustomerOrder(order);
 
   Future<void> _showMoreActions(BuildContext context) async {
     await showModalBottomSheet<void>(
@@ -116,6 +119,18 @@ class OrderDetailActionsPanel extends StatelessWidget {
                   onTap: () async {
                     Navigator.pop(sheetContext);
                     await launchOrderConfirmationWhatsApp(
+                      context: context,
+                      order: order,
+                    );
+                  },
+                ),
+              if (_canSendTrackingLink)
+                ListTile(
+                  leading: const Icon(Icons.link_outlined),
+                  title: Text(tr(sheetContext, 'track.action.sendTrackingLink')),
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    await launchOrderTrackingWhatsApp(
                       context: context,
                       order: order,
                     );

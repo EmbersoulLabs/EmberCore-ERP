@@ -8,6 +8,7 @@ import '/backend/backend.dart';
 import '/backend/order_item_helpers.dart';
 import '/backend/schema/order_item_record.dart';
 import '/components/order_product_add_panel.dart';
+import '/components/order_item_qty_stepper.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -307,20 +308,10 @@ class _CreateOrderFormItemEditorState extends State<CreateOrderFormItemEditor> {
           Row(
             children: [
               Expanded(
-                child: TextField(
+                child: OrderItemQtyFieldStepper(
                   controller: _qtyController,
                   enabled: !_busy,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: InputDecoration(
-                    labelText: 'Qty',
-                    isDense: true,
-                    filled: true,
-                    fillColor: theme.primaryBackground,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
+                  onChanged: _scheduleSave,
                 ),
               ),
               const SizedBox(width: 8),

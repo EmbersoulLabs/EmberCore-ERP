@@ -8,7 +8,7 @@ import '/auth/viewer_role_helpers.dart';
 import '/backend/backend.dart';
 import '/backend/order_item_helpers.dart';
 import '/components/order_product_add_panel.dart';
-import '/flutter_flow/custom_functions.dart' as functions;
+import '/components/order_item_qty_stepper.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -114,32 +114,21 @@ class _EditOrderProductsWidgetState extends State<EditOrderProductsWidget> {
     }
     setState(() => _saving = true);
     try {
-      final prices = <double>[];
-      final qtys = <int>[];
       for (final line in lines) {
         final qty = int.tryParse(line.qtyController.text.trim()) ?? 0;
         final price = double.tryParse(line.priceController.text.trim()) ?? 0;
         if (qty <= 0) {
           throw Exception('Quantity must be at least 1');
         }
-        final subtotal = price * qty;
         await line.item.reference.update(
           createOrderItemRecordData(
             qty: qty,
             price: price,
-            subtotal: subtotal,
+            subtotal: price * qty,
           ),
         );
-        prices.add(price);
-        qtys.add(qty);
       }
-      final total = functions.calculationTotal(prices, qtys);
-      await widget.orderRef.update(
-        createOrdersRecordData(
-          totalAmount: total,
-          total: total,
-        ),
-      );
+      await recalculateOrderTotals(widget.orderRef);
       if (!mounted) {
         return;
       }
@@ -188,17 +177,7 @@ class _EditOrderProductsWidgetState extends State<EditOrderProductsWidget> {
   }
 
   Future<void> _saveTotalsAfterDelete() async {
-    final lines = _lines ?? [];
-    final prices = <double>[];
-    final qtys = <int>[];
-    for (final line in lines) {
-      prices.add(double.tryParse(line.priceController.text.trim()) ?? 0);
-      qtys.add(int.tryParse(line.qtyController.text.trim()) ?? 0);
-    }
-    final total = functions.calculationTotal(prices, qtys);
-    await widget.orderRef.update(
-      createOrdersRecordData(totalAmount: total, total: total),
-    );
+    await recalculateOrderTotals(widget.orderRef);
   }
 
   void _addProducts() {
@@ -295,17 +274,10 @@ class _EditOrderProductsWidgetState extends State<EditOrderProductsWidget> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: TextField(
+                                  child: OrderItemQtyFieldStepper(
                                     controller: line.qtyController,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                    ],
-                                    decoration: const InputDecoration(
-                                      labelText: 'Qty',
-                                      isDense: true,
-                                      border: OutlineInputBorder(),
-                                    ),
+                                    enabled: !_saving,
+                                    onChanged: () {},
                                   ),
                                 ),
                                 const SizedBox(width: 8),

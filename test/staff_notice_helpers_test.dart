@@ -87,6 +87,25 @@ void main() {
       expect(staffNoticeNavigationPayload(notice), staffNoticeNavTomorrowPrep);
     });
 
+    test('builds tomorrow prep body from prep counts when present', () {
+      final notice = StaffNoticesRecord.getDocumentFromData(
+        {
+          'type': StaffNoticeType.tomorrowPrepReminder,
+          'message': 'stale message',
+          'prep_delivery_count': 8,
+          'prep_pending_count': 3,
+          'nav_target': 'tomorrow_prep',
+        },
+        FirebaseFirestore.instance.collection('staff_notices').doc('n2b'),
+      );
+
+      expect(
+        staffNoticeBody(notice),
+        '8 deliveries scheduled\n3 orders pending preparation',
+      );
+      expect(staffNoticeNavigationPayload(notice), 'nav:tomorrow_prep');
+    });
+
     test('uses reminder message for special procurement notices', () {
       final notice = StaffNoticesRecord.getDocumentFromData(
         {

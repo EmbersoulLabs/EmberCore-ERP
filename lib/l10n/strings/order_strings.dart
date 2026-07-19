@@ -294,6 +294,11 @@ const Map<String, Map<String, String>> orderStrings = {
     'zh': '待派送',
     'ms': 'Sedia Dihantar',
   },
+  'order.status.readyForPickup': {
+    'en': 'Ready for Pickup',
+    'zh': '待自取',
+    'ms': 'Sedia Diambil',
+  },
   'order.status.outOfDelivery': {
     'en': 'Out for Delivery',
     'zh': '派送中',
@@ -303,6 +308,11 @@ const Map<String, Map<String, String>> orderStrings = {
     'en': 'Completed',
     'zh': '已完成',
     'ms': 'Selesai',
+  },
+  'order.status.pickedUp': {
+    'en': 'Picked Up',
+    'zh': '已自取',
+    'ms': 'Telah Diambil',
   },
   'order.status.cancelled': {
     'en': 'Cancelled',
@@ -368,10 +378,107 @@ const Map<String, Map<String, String>> orderStrings = {
     'zh': '分配司机',
     'ms': 'Tugaskan Pemandu',
   },
+  'order.driver.assigned': {
+    'en': 'Assigned',
+    'zh': '已指派',
+    'ms': 'Ditugaskan',
+  },
+  'order.driver.unassigned': {
+    'en': 'Unassigned',
+    'zh': '未指派',
+    'ms': 'Belum ditugaskan',
+  },
+  'order.driver.assignedDriver': {
+    'en': 'Driver',
+    'zh': '司机',
+    'ms': 'Pemandu',
+  },
   'order.assign.selectOne': {
     'en': 'Select exactly one order to assign a driver.',
     'zh': '请只选择一笔订单以分配司机。',
     'ms': 'Pilih satu pesanan untuk menugaskan pemandu.',
+  },
+
+  // Bulk list actions
+  'order.bulk.noneSelected': {
+    'en': 'Select orders below to apply bulk actions',
+    'zh': '在下方勾选订单以进行批量操作',
+    'ms': 'Pilih pesanan di bawah untuk tindakan pukal',
+  },
+  'order.bulk.selectedCount': {
+    'en': '{count} selected',
+    'zh': '已选 {count} 笔',
+    'ms': '{count} dipilih',
+  },
+  'order.bulk.selectFirst': {
+    'en': 'Select at least one order first.',
+    'zh': '请先勾选至少一笔订单。',
+    'ms': 'Pilih sekurang-kurangnya satu pesanan dahulu.',
+  },
+  'order.bulk.assignDriver': {
+    'en': 'Assign driver',
+    'zh': '指派司机',
+    'ms': 'Tugaskan pemandu',
+  },
+  'order.bulk.assignDriverTitle': {
+    'en': 'Assign driver to selected orders',
+    'zh': '为所选订单指派司机',
+    'ms': 'Tugaskan pemandu kepada pesanan terpilih',
+  },
+  'order.bulk.assignDriverConfirm': {
+    'en': 'Assign to all selected',
+    'zh': '指派给全部所选',
+    'ms': 'Tugaskan kepada semua terpilih',
+  },
+  'order.bulk.assignDriverDenied': {
+    'en': 'You do not have permission to assign drivers.',
+    'zh': '您没有指派司机的权限。',
+    'ms': 'Anda tiada kebenaran menugaskan pemandu.',
+  },
+  'order.bulk.assignDriverFailed': {
+    'en': 'Could not assign driver: {error}',
+    'zh': '指派司机失败：{error}',
+    'ms': 'Gagal menugaskan pemandu: {error}',
+  },
+  'order.bulk.driverAssigned': {
+    'en': 'Driver assigned to {count} orders',
+    'zh': '已为 {count} 笔订单指派司机',
+    'ms': 'Pemandu ditugaskan kepada {count} pesanan',
+  },
+  'order.bulk.pickDriver': {
+    'en': 'Select a driver.',
+    'zh': '请选择司机。',
+    'ms': 'Pilih pemandu.',
+  },
+  'order.bulk.noDrivers': {
+    'en': 'No drivers found for this company.',
+    'zh': '未找到本公司的司机。',
+    'ms': 'Tiada pemandu untuk syarikat ini.',
+  },
+  'order.bulk.updateStatus': {
+    'en': 'Update status',
+    'zh': '更改状态',
+    'ms': 'Kemas kini status',
+  },
+  'order.bulk.updateStatusTitle': {
+    'en': 'Update status for selected orders',
+    'zh': '更改所选订单状态',
+    'ms': 'Kemas kini status pesanan terpilih',
+  },
+  'order.bulk.updateStatusDenied': {
+    'en': 'You do not have permission to update order status.',
+    'zh': '您没有更改订单状态的权限。',
+    'ms': 'Anda tiada kebenaran mengemas kini status pesanan.',
+  },
+  'order.bulk.updateStatusFailed': {
+    'en': 'Could not update status: {error}',
+    'zh': '更改状态失败：{error}',
+    'ms': 'Gagal mengemas kini status: {error}',
+  },
+  'order.bulk.statusApplied': {
+    'en': '{count} orders set to {status}',
+    'zh': '已将 {count} 笔订单设为 {status}',
+    'ms': '{count} pesanan ditetapkan kepada {status}',
   },
   'order.action.moreActions': {
     'en': 'More actions',

@@ -5,6 +5,7 @@ import '/auth/frozen_order_permissions.dart';
 import '/auth/viewer_role_helpers.dart';
 import '/backend/order_navigation_helpers.dart';
 import '/backend/order_status_helpers.dart';
+import '/backend/order_tracking_helpers.dart';
 import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -367,6 +368,13 @@ class _OrderMoreActionSheetWidgetState
                                       widget!.orderRef!,
                                       OrderStatus.cancelled,
                                     );
+                                    if (context.mounted) {
+                                      await maybeLaunchTrackingWhatsAppAfterStatusChange(
+                                        context: context,
+                                        orderRef: widget!.orderRef!,
+                                        status: OrderStatus.cancelled,
+                                      );
+                                    }
                                     await containerOrdersRecord!.reference
                                         .delete();
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -439,6 +447,13 @@ class _OrderMoreActionSheetWidgetState
                                               widget!.orderRef!,
                                               OrderStatus.cancelled,
                                             );
+                                            if (context.mounted) {
+                                              await maybeLaunchTrackingWhatsAppAfterStatusChange(
+                                                context: context,
+                                                orderRef: widget!.orderRef!,
+                                                status: OrderStatus.cancelled,
+                                              );
+                                            }
                                             ScaffoldMessenger.of(context)
                                                 .showSnackBar(
                                               SnackBar(

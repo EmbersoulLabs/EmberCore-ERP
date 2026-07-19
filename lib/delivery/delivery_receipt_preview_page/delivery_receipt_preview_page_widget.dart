@@ -795,16 +795,28 @@ class _DeliveryReceiptPreviewPageWidgetState
                                           List<OrderItemRecord>
                                               textOrderItemRecordList =
                                               snapshot.data!;
+                                          final itemTotal =
+                                              functions.calculationTotal(
+                                            textOrderItemRecordList
+                                                .map((e) => e.price)
+                                                .toList(),
+                                            textOrderItemRecordList
+                                                .map((e) => e.qty)
+                                                .toList(),
+                                          );
+                                          final total =
+                                              columnOrdersRecord.totalAmount >
+                                                      0
+                                                  ? columnOrdersRecord
+                                                      .totalAmount
+                                                  : (columnOrdersRecord.total >
+                                                          0
+                                                      ? columnOrdersRecord.total
+                                                      : itemTotal);
 
                                           return Text(
                                             formatNumber(
-                                              functions.calculationTotal(
-                                                  textOrderItemRecordList
-                                                      .map((e) => e.price)
-                                                      .toList(),
-                                                  textOrderItemRecordList
-                                                      .map((e) => e.qty)
-                                                      .toList()),
+                                              total,
                                               formatType: FormatType.decimal,
                                               decimalType:
                                                   DecimalType.automatic,

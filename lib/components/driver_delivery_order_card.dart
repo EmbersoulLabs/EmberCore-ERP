@@ -6,6 +6,7 @@ import '/backend/order_navigation_helpers.dart';
 import '/backend/driver_delivery_action_helpers.dart';
 import '/backend/order_list_display_helpers.dart';
 import '/backend/order_status_helpers.dart';
+import '/backend/order_tracking_helpers.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/order_item_record.dart';
 import '/backend/schema/orders_record.dart';
@@ -184,6 +185,14 @@ class DriverDeliveryOrderCard extends StatelessWidget {
                         await updateOrderStatus(
                           liveOrder.reference,
                           OrderStatus.out_of_delivery,
+                        );
+                        if (!context.mounted) {
+                          return;
+                        }
+                        await maybeLaunchTrackingWhatsAppAfterStatusChange(
+                          context: context,
+                          orderRef: liveOrder.reference,
+                          status: OrderStatus.out_of_delivery,
                         );
                         if (!context.mounted) {
                           return;

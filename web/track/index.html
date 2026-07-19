@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Track Order · EmberCore</title>
+  <style>
+    :root {
+      --navy: #0A2540;
+      --teal: #14B8A6;
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --border: #E5E7EB;
+      --text: #111827;
+      --muted: #6B7280;
+      --error: #DC2626;
+      --radius: 16px;
+      --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(20, 184, 166, 0.18), transparent),
+        linear-gradient(180deg, #E8EEF4 0%, var(--bg) 45%);
+    }
+    .wrap {
+      max-width: 440px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+    .lang {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .lang button {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      font: 600 12px/1 var(--font);
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .lang button.active {
+      border-color: var(--navy);
+      color: var(--navy);
+      background: #EEF2F7;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 16px rgba(10, 37, 64, 0.06);
+      padding: 28px 22px;
+    }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+    .brand img {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      border-radius: 12px;
+      background: #F1F5F9;
+    }
+    .brand .fallback {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      background: var(--navy);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 22px;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--navy);
+    }
+    .eyebrow {
+      margin: 0 0 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--teal);
+    }
+    .status {
+      display: inline-block;
+      margin: 0 0 20px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(20, 184, 166, 0.12);
+      color: var(--navy);
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    .row .label { color: var(--muted); flex-shrink: 0; }
+    .row .value { font-weight: 600; text-align: right; word-break: break-word; }
+    .proofs {
+      margin-top: 18px;
+      display: grid;
+      gap: 10px;
+    }
+    .proofs img {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      display: block;
+    }
+    form { display: grid; gap: 12px; }
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--navy);
+    }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font: 400 1rem/1.3 var(--font);
+      color: var(--text);
+    }
+    input:focus {
+      outline: 2px solid rgba(20, 184, 166, 0.45);
+      border-color: var(--teal);
+    }
+    .hint { margin: 0; font-size: 0.8rem; color: var(--muted); font-weight: 400; }
+    button.primary {
+      margin-top: 4px;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 16px;
+      background: var(--navy);
+      color: #fff;
+      font: 600 0.95rem/1 var(--font);
+      cursor: pointer;
+    }
+    button.primary:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .state {
+      text-align: center;
+      padding: 12px 0 4px;
+    }
+    .state.error { color: var(--error); }
+    .state.muted { color: var(--muted); }
+    .spinner {
+      width: 28px;
+      height: 28px;
+      margin: 8px auto;
+      border: 3px solid #D1D5DB;
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .footer {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en">EN</button>
+      <button type="button" data-lang="zh">中文</button>
+      <button type="button" data-lang="ms">MS</button>
+    </div>
+
+    <div class="card">
+      <div id="brand" class="brand">
+        <div class="fallback" id="brandFallback">E</div>
+        <img id="brandLogo" class="hidden" alt="" />
+        <h1 id="brandName">EmberCore</h1>
+      </div>
+
+      <div id="loading" class="state muted hidden">
+        <div class="spinner" aria-hidden="true"></div>
+        <p id="loadingText"></p>
+      </div>
+
+      <div id="error" class="state error hidden">
+        <p id="errorText"></p>
+      </div>
+
+      <div id="result" class="hidden">
+        <p class="eyebrow" id="orderLabel"></p>
+        <div id="orderId" style="font-weight:700;font-size:1.25rem;color:var(--navy);margin-bottom:10px;"></div>
+        <div class="status" id="statusBadge"></div>
+        <div class="row">
+          <span class="label" id="dateLabel"></span>
+          <span class="value" id="dateValue">—</span>
+        </div>
+        <div class="row">
+          <span class="label" id="slotLabel"></span>
+          <span class="value" id="slotValue">—</span>
+        </div>
+        <div class="row">
+          <span class="label" id="recipientLabel"></span>
+          <span class="value" id="recipientValue">—</span>
+        </div>
+        <div id="proofs" class="proofs"></div>
+      </div>
+
+      <form id="lookupForm" class="hidden">
+        <p class="eyebrow" id="formTitle"></p>
+        <label>
+          <span id="orderIdLabel"></span>
+          <input id="orderIdInput" name="orderId" autocomplete="off" required />
+        </label>
+        <label>
+          <span id="phoneLabel"></span>
+          <input id="phoneInput" name="phoneLast4" inputmode="numeric" maxlength="4" pattern="\d{4}" required />
+          <span class="hint" id="phoneHint"></span>
+        </label>
+        <button class="primary" type="submit" id="submitBtn"></button>
+      </form>
+    </div>
+
+    <p class="footer" id="poweredBy"></p>
+  </div>
+
+  <script>
+(function () {
+  var STORAGE_KEY = 'embercore_track_lang';
+  var I18N = {
+    en: {
+      loading: 'Looking up your order…',
+      notFound: 'Order not found. Check the link or your details and try again.',
+      invalid: 'Enter a valid Order ID and the last 4 digits of the phone number.',
+      network: 'Could not reach the tracking service. Please try again.',
+      formTitle: 'Track your order',
+      orderId: 'Order ID',
+      phone: 'Phone (last 4 digits)',
+      phoneHint: 'Use the recipient or customer mobile number on the order.',
+      submit: 'Track order',
+      orderLabel: 'Order',
+      status: 'Status',
+      dateDelivery: 'Delivery date',
+      datePickup: 'Pickup date',
+      slot: 'Time slot',
+      recipient: 'Recipient',
+      proof: 'Delivery proof',
+      poweredBy: 'Powered by EmberCore',
+      statuses: {
+        pending: 'Pending',
+        processing: 'Processing',
+        ready_to_delivery: 'Ready to Ship',
+        ready_to_delivery_pickup: 'Ready for Pickup',
+        out_of_delivery: 'Out for Delivery',
+        completed: 'Completed',
+        completed_pickup: 'Picked Up',
+        cancelled: 'Cancelled'
+      }
+    },
+    zh: {
+      loading: '正在查询订单…',
+      notFound: '未找到订单。请检查链接或信息后重试。',
+      invalid: '请输入有效的订单号和手机号后四位。',
+      network: '无法连接追踪服务，请稍后重试。',
+      formTitle: '查询订单',
+      orderId: '订单号',
+      phone: '手机号后四位',
+      phoneHint: '请使用订单上的收件人或客户手机号。',
+      submit: '查询',
+      orderLabel: '订单',
+      status: '状态',
+      dateDelivery: '配送日期',
+      datePickup: '自取日期',
+      slot: '时段',
+      recipient: '收件人',
+      proof: '送达凭证',
+      poweredBy: '由 EmberCore 提供',
+      statuses: {
+        pending: '待处理',
+        processing: '处理中',
+        ready_to_delivery: '待派送',
+        ready_to_delivery_pickup: '待自取',
+        out_of_delivery: '派送中',
+        completed: '已完成',
+        completed_pickup: '已自取',
+        cancelled: '已取消'
+      }
+    },
+    ms: {
+      loading: 'Sedang mencari pesanan anda…',
+      notFound: 'Pesanan tidak dijumpai. Semak pautan atau butiran anda.',
+      invalid: 'Masukkan ID pesanan yang sah dan 4 digit terakhir nombor telefon.',
+      network: 'Tidak dapat menghubungi perkhidmatan penjejakan. Sila cuba lagi.',
+      formTitle: 'Jejak pesanan anda',
+      orderId: 'ID Pesanan',
+      phone: 'Telefon (4 digit terakhir)',
+      phoneHint: 'Gunakan nombor mudah alih penerima atau pelanggan pada pesanan.',
+      submit: 'Jejak pesanan',
+      orderLabel: 'Pesanan',
+      status: 'Status',
+      dateDelivery: 'Tarikh penghantaran',
+      datePickup: 'Tarikh pengambilan',
+      slot: 'Slot masa',
+      recipient: 'Penerima',
+      proof: 'Bukti penghantaran',
+      poweredBy: 'Dikuasakan oleh EmberCore',
+      statuses: {
+        pending: 'Menunggu',
+        processing: 'Memproses',
+        ready_to_delivery: 'Sedia Dihantar',
+        ready_to_delivery_pickup: 'Sedia Diambil',
+        out_of_delivery: 'Dalam Penghantaran',
+        completed: 'Selesai',
+        completed_pickup: 'Telah Diambil',
+        cancelled: 'Dibatalkan'
+      }
+    }
+  };
+
+  var lang = localStorage.getItem(STORAGE_KEY) || 'en';
+  if (!I18N[lang]) lang = 'en';
+
+  function t() { return I18N[lang]; }
+
+  function trackingEndpoint() {
+    var host = (location.hostname || '').toLowerCase();
+    var project = host.indexOf('embercore-erp-staging') >= 0
+      ? 'embercore-erp-staging'
+      : 'embercore-erp';
+    return 'https://asia-southeast1-' + project + '.cloudfunctions.net/getOrderTracking';
+  }
+
+  function setLang(next) {
+    if (!I18N[next]) return;
+    lang = next;
+    localStorage.setItem(STORAGE_KEY, lang);
+    document.documentElement.lang = lang === 'zh' ? 'zh' : lang;
+    applyStaticCopy();
+    document.querySelectorAll('.lang button').forEach(function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+    });
+    if (window.__lastTracking) {
+      renderResult(window.__lastTracking);
+    }
+  }
+
+  function applyStaticCopy() {
+    var copy = t();
+    document.getElementById('loadingText').textContent = copy.loading;
+    document.getElementById('formTitle').textContent = copy.formTitle;
+    document.getElementById('orderIdLabel').textContent = copy.orderId;
+    document.getElementById('phoneLabel').textContent = copy.phone;
+    document.getElementById('phoneHint').textContent = copy.phoneHint;
+    document.getElementById('submitBtn').textContent = copy.submit;
+    document.getElementById('orderLabel').textContent = copy.orderLabel;
+    document.getElementById('recipientLabel').textContent = copy.recipient;
+    document.getElementById('slotLabel').textContent = copy.slot;
+    document.getElementById('poweredBy').textContent = copy.poweredBy;
+  }
+
+  function show(el, on) {
+    el.classList.toggle('hidden', !on);
+  }
+
+  function setLoading(on) {
+    show(document.getElementById('loading'), on);
+    document.getElementById('submitBtn').disabled = on;
+  }
+
+  function setError(message) {
+    var err = document.getElementById('error');
+    document.getElementById('errorText').textContent = message || '';
+    show(err, !!message);
+  }
+
+  function statusLabel(status, isPickup) {
+    var key = String(status || '').trim();
+    var map = t().statuses;
+    if (isPickup && key === 'ready_to_delivery') {
+      return map.ready_to_delivery_pickup;
+    }
+    if (isPickup && key === 'completed') {
+      return map.completed_pickup;
+    }
+    return map[key] || key || '—';
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    try {
+      return new Intl.DateTimeFormat(lang === 'zh' ? 'zh-CN' : lang === 'ms' ? 'ms-MY' : 'en-GB', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }).format(d);
+    } catch (_) {
+      return d.toISOString().slice(0, 10);
+    }
+  }
+
+  function renderBrand(tracking) {
+    var name = (tracking && tracking.companyName) || 'EmberCore';
+    var logo = tracking && tracking.companyLogoUrl;
+    document.getElementById('brandName').textContent = name;
+    var img = document.getElementById('brandLogo');
+    var fallback = document.getElementById('brandFallback');
+    if (logo) {
+      img.src = logo;
+      img.alt = name;
+      show(img, true);
+      show(fallback, false);
+    } else {
+      fallback.textContent = (name.charAt(0) || 'E').toUpperCase();
+      show(img, false);
+      show(fallback, true);
+    }
+  }
+
+  function renderResult(tracking) {
+    window.__lastTracking = tracking;
+    renderBrand(tracking);
+    var isPickup = !!tracking.isPickup;
+    document.getElementById('orderId').textContent = tracking.orderId || '—';
+    document.getElementById('statusBadge').textContent = statusLabel(tracking.status, isPickup);
+    document.getElementById('dateLabel').textContent = isPickup ? t().datePickup : t().dateDelivery;
+    document.getElementById('dateValue').textContent = formatDate(tracking.deliveryDate);
+    document.getElementById('slotValue').textContent = tracking.deliveryTimeSlot || '—';
+    document.getElementById('recipientValue').textContent = tracking.recipientNameMasked || '—';
+
+    var proofsEl = document.getElementById('proofs');
+    proofsEl.innerHTML = '';
+    var urls = Array.isArray(tracking.proofUrls) ? tracking.proofUrls : [];
+    urls.forEach(function (url) {
+      if (!url) return;
+      var img = document.createElement('img');
+      img.src = url;
+      img.alt = t().proof;
+      proofsEl.appendChild(img);
+    });
+
+    show(document.getElementById('result'), true);
+    show(document.getElementById('lookupForm'), false);
+  }
+
+  function showForm() {
+    window.__lastTracking = null;
+    renderBrand(null);
+    show(document.getElementById('result'), false);
+    show(document.getElementById('lookupForm'), true);
+  }
+
+  async function lookup(body) {
+    setError('');
+    setLoading(true);
+    try {
+      var res = await fetch(trackingEndpoint(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      var data = {};
+      try { data = await res.json(); } catch (_) {}
+      if (res.status === 404) {
+        setError(t().notFound);
+        showForm();
+        return;
+      }
+      if (res.status === 400) {
+        setError(t().invalid);
+        showForm();
+        return;
+      }
+      if (!res.ok || !data.ok || !data.tracking) {
+        setError(t().network);
+        showForm();
+        return;
+      }
+      setError('');
+      renderResult(data.tracking);
+    } catch (_) {
+      setError(t().network);
+      showForm();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  document.querySelectorAll('.lang button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setLang(btn.getAttribute('data-lang'));
+    });
+  });
+
+  document.getElementById('lookupForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var orderId = document.getElementById('orderIdInput').value.trim();
+    var phoneLast4 = document.getElementById('phoneInput').value.replace(/\D/g, '');
+    if (!orderId || phoneLast4.length !== 4) {
+      setError(t().invalid);
+      return;
+    }
+    lookup({ orderId: orderId, phoneLast4: phoneLast4 });
+  });
+
+  setLang(lang);
+
+  var params = new URLSearchParams(location.search);
+  var token = (params.get('t') || params.get('token') || '').trim();
+  if (token) {
+    show(document.getElementById('lookupForm'), false);
+    lookup({ token: token });
+  } else {
+    showForm();
+    var prefill = (params.get('orderId') || '').trim();
+    if (prefill) {
+      document.getElementById('orderIdInput').value = prefill;
+    }
+  }
+})();
+  </script>
+</body>
+</html>

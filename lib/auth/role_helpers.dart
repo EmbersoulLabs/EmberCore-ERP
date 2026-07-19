@@ -111,6 +111,9 @@ bool canExportOrderCsv(UserRole? role) =>
 bool canAssignDriver(UserRole? role) =>
     hasAppPermission(role, AppPermission.assignDriver);
 
+bool canApplyOrderDiscount(UserRole? role) =>
+    hasAppPermission(role, AppPermission.applyOrderDiscount);
+
 bool canPrintCashInvoice(UserRole? role) =>
     hasAppPermission(role, AppPermission.printCashInvoice);
 

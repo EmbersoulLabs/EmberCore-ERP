@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/backend/driver_assignment_helpers.dart';
 import '/backend/driver_delivery_filter_helpers.dart';
 import '/backend/driver_delivery_tab_labels.dart';
 import '/backend/daily_sales_report_service.dart';
@@ -10,6 +11,7 @@ import '/backend/user_query_helpers.dart';
 import '/backend/order_list_display_helpers.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/driver_delivery_order_card.dart';
+import '/components/driver_suggested_route_section.dart';
 import '/components/ember_app_shell.dart';
 import '/components/home_nav_button.dart';
 import '/flutter_flow/nav/nav.dart';
@@ -18,7 +20,6 @@ import '/theme/ember_brand.dart';
 import '/flutter_flow/flutter_flow_choice_chips.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
 import '/services/google_maps_service.dart';
 import '/l10n/locale_text.dart';
@@ -271,10 +272,7 @@ class _DriverDeliveryPageWidgetState extends State<DriverDeliveryPageWidget> {
   }
 
   bool _showSuggestedRoute(List<OrdersRecord> orders) {
-    if (_tabStatus == OrderStatus.completed) {
-      return false;
-    }
-    return driverRouteAddresses(orders).length >= 2;
+    return driverRouteAddresses(orders).isNotEmpty;
   }
 
   @override
@@ -468,39 +466,26 @@ class _DriverDeliveryPageWidgetState extends State<DriverDeliveryPageWidget> {
                               filterEnd: _model.filterEndDate,
                             );
 
+                            final routeOrders = suggestedRouteOrders(
+                              driverActiveRouteOrders(
+                                snapshot.data!,
+                                driverRef: _driverRef,
+                                filterStart: _model.filterStartDate,
+                                filterEnd: _model.filterEndDate,
+                              ),
+                            );
+
                             return Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                if (_showSuggestedRoute(
-                                    listViewOrdersRecordList))
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 16.0),
-                                    child: FFButtonWidget(
-                                      onPressed: () async => _openSuggestedRoute(
-                                          listViewOrdersRecordList),
-                                      text: 'Open suggested route',
-                                      icon: const Icon(
-                                        Icons.route,
-                                        size: 20.0,
-                                      ),
-                                      options: FFButtonOptions(
-                                        width: double.infinity,
-                                        height: 44.0,
-                                        color: EmberBrand.navy,
-                                        textStyle: FlutterFlowTheme.of(context)
-                                            .titleSmall
-                                            .override(
-                                              font: GoogleFonts.interTight(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              color: FlutterFlowTheme.of(context)
-                                                  .primaryBackground,
-                                            ),
-                                        borderRadius:
-                                            BorderRadius.circular(8.0),
-                                      ),
-                                    ),
+                                if (_showSuggestedRoute(routeOrders))
+                                  DriverSuggestedRouteSection(
+                                    routeOrders: routeOrders,
+                                    locale: FFLocalizations.of(context)
+                                        .languageCode,
+                                    onOpenMaps: () =>
+                                        _openSuggestedRoute(routeOrders),
                                   ),
                                 if (listViewOrdersRecordList.isEmpty)
                                   Padding(

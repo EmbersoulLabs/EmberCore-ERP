@@ -1,5 +1,4 @@
 import '/auth/firebase_auth/auth_util.dart';
-import '/backend/audit_log_helpers.dart';
 import '/backend/backend.dart';
 import '/backend/order_navigation_helpers.dart';
 import '/auth/role_helpers.dart';
@@ -8,8 +7,6 @@ import '/backend/order_list_filter_helpers.dart';
 import '/backend/order_list_ui_labels.dart';
 import '/backend/order_status_display.dart';
 import '/backend/tenant_query_helpers.dart';
-import '/backend/order_status_helpers.dart';
-import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_choice_chips.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
@@ -23,7 +20,8 @@ import '/backend/csv_export_service.dart';
 import '/backend/order_delete_service.dart';
 import '/backend/order_list_display_helpers.dart';
 import '/backend/whatsapp_order_import_service.dart';
-import '/components/assign_driver_sheet.dart';
+import '/components/bulk_assign_driver_sheet.dart';
+import '/components/bulk_update_status_sheet.dart';
 import '/components/ember_app_shell.dart';
 import '/components/ember_bulk_action_bar.dart';
 import '/components/order_list_item_card.dart';
@@ -439,19 +437,9 @@ class _Orderlist1WidgetState extends State<Orderlist1Widget> {
 
   Future<void> _assignSelectedDriver(BuildContext context) async {
     final selected = _model.checkboxCheckedItems;
-    if (selected.length != 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(tr(context, 'order.assign.selectOne')),
-        ),
-      );
-      return;
-    }
-    final order = selected.first;
-    await showAssignDriverSheet(
+    await showBulkAssignDriverSheet(
       context,
-      orderRef: order.reference,
-      order: order,
+      orders: selected,
     );
   }
 
@@ -1023,40 +1011,40 @@ class _Orderlist1WidgetState extends State<Orderlist1Widget> {
               ),
               EmberBulkActionBar(
                 children: [
+                  Text(
+                    _model.checkboxCheckedItems.isEmpty
+                        ? tr(context, 'order.bulk.noneSelected')
+                        : tr(
+                            context,
+                            'order.bulk.selectedCount',
+                            params: {
+                              'count':
+                                  '${_model.checkboxCheckedItems.length}',
+                            },
+                          ),
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: EmberBrand.textSecondary,
+                    ),
+                  ),
                   if (canAssignDriver(AppStateNotifier.instance.userRole))
                     EmberBulkButton(
-                      label: tr(context, 'order.action.assignDriver'),
+                      label: tr(context, 'order.bulk.assignDriver'),
                       icon: Icons.local_shipping_outlined,
                       variant: EmberBulkButtonVariant.secondary,
                       onPressed: () => _assignSelectedDriver(context),
                     ),
-                  EmberBulkButton(
-                    label: tr(context, 'order.action.readyToShip'),
-                    icon: Icons.check_circle_outline,
-                    variant: EmberBulkButtonVariant.success,
-                    onPressed: _model.checkboxCheckedItems.isEmpty
-                        ? null
-                        : () async {
-                            for (final order in _model.checkboxCheckedItems) {
-                              await updateOrderStatus(
-                                order.reference,
-                                OrderStatus.ready_to_delivery,
-                              );
-                              await auditLogOrderStatusChangeByRef(
-                                order.reference,
-                                OrderStatus.ready_to_delivery,
-                              );
-                            }
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  tr(context, 'order.status.readyToShip'),
-                                ),
-                              ),
-                            );
-                          },
-                  ),
+                  if (canUpdateOrderStatus(AppStateNotifier.instance.userRole))
+                    EmberBulkButton(
+                      label: tr(context, 'order.bulk.updateStatus'),
+                      icon: Icons.check_circle_outline,
+                      variant: EmberBulkButtonVariant.success,
+                      onPressed: () => showBulkUpdateStatusSheet(
+                        context,
+                        orders: _model.checkboxCheckedItems,
+                      ),
+                    ),
                   if (canExportOrderCsv(AppStateNotifier.instance.userRole))
                     EmberBulkButton(
                       label: _exportingCsv

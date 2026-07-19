@@ -1419,5 +1419,12 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read_at']);
       allow delete: if false;
     }
+
+    // --- public order tracking tokens (Admin SDK reads; staff may create) ---
+    match /order_tracking_tokens/{tokenId} {
+      allow read: if false;
+      allow create: if isSignedIn() && isStaffUser();
+      allow update, delete: if false;
+    }
   }
 }

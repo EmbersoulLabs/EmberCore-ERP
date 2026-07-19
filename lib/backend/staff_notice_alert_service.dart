@@ -9,6 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '/backend/dashboard_order_stats_helpers.dart';
 import '/auth/firebase_auth/auth_util.dart';
+import '/backend/operation_reminder_copy.dart';
 import '/backend/schema/staff_notices_record.dart';
 import '/backend/staff_notice_helpers.dart';
 import '/backend/web_notification_helper.dart';
@@ -146,7 +147,9 @@ class StaffNoticeAlertService {
     if (payload.isEmpty || !loggedIn) {
       return;
     }
-    if (payload == staffNoticeNavTomorrowPrep) {
+    // Accepts `nav:tomorrow_prep` / `nav:tomorrow_preparation` and bare targets.
+    if (isTomorrowPrepNavTarget(payload) ||
+        isTomorrowPrepNavTarget(decodeStaffNoticeNavTarget(payload))) {
       final context = appNavigatorKey.currentContext;
       if (context == null || !context.mounted) {
         return;
