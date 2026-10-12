@@ -67,7 +67,10 @@ Block 309 Jurong East street 32
 BMW 7 series
 Red and champagne theme
 Ws-Molly''';
-      final parsed = parseWhatsAppOrderText(text);
+      final parsed = parseWhatsAppOrderText(
+        text,
+        referenceDate: DateTime(2026, 6, 1),
+      );
       expect(parsed.deliveryDate, DateTime(2026, 6, 17));
       expect(parsed.deliveryTimeSlot, '9am-10am');
       expect(parsed.address, 'Block 309 Jurong East street 32');

@@ -10,6 +10,7 @@ const {
   incrementCounter,
   nextDeliveryOrderId,
   nextRetailOrderId,
+  assignDeliveryOrderId,
   orderPeriodSuffix,
 } = require("../scripts/order_id_helpers");
 
@@ -106,5 +107,41 @@ describe("order counter + order create (emulator)", () => {
     assert.equal(july.current, 1);
     const june = (await db.doc("counter/default_delivery_JUN26").get()).data();
     assert.equal(june.current, 99);
+  });
+
+  it("reuses an existing order number and does not lower a counter", async () => {
+    const db = admin.firestore();
+    await db.recursiveDelete(db.collection("counter"));
+    await db.recursiveDelete(db.collection("orders"));
+    const period = orderPeriodSuffix();
+    await db.doc(`counter/default_delivery_${period}`).set({ current: 99 });
+    const orderRef = db.collection("orders").doc("draft-1");
+    await orderRef.set({ Order_Id: "" });
+
+    const first = await assignDeliveryOrderId(db, orderRef, "EC");
+    const second = await assignDeliveryOrderId(db, orderRef, "EC");
+    assert.equal(first, `EC-${period}-000100`);
+    assert.equal(second, first);
+    const counter = (await db.doc(`counter/default_delivery_${period}`).get()).data();
+    assert.equal(counter.current, 100);
+  });
+
+  it("concurrent order creation does not duplicate numbers", async () => {
+    const db = admin.firestore();
+    await db.recursiveDelete(db.collection("counter"));
+    await db.recursiveDelete(db.collection("orders"));
+    const left = db.collection("orders").doc("left");
+    const right = db.collection("orders").doc("right");
+    await left.set({ Order_Id: "" });
+    await right.set({ Order_Id: "" });
+
+    const [a, b] = await Promise.all([
+      assignDeliveryOrderId(db, left, "EC"),
+      assignDeliveryOrderId(db, right, "EC"),
+    ]);
+    assert.notEqual(a, b);
+    const period = orderPeriodSuffix();
+    const counter = (await db.doc(`counter/default_delivery_${period}`).get()).data();
+    assert.equal(counter.current, 2);
   });
 });

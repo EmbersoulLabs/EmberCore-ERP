@@ -82,6 +82,33 @@ async function nextRetailOrderId(db) {
   return `TFG-${period}-WI000${seq}`;
 }
 
+function isDeliveryOrderNumber(orderId) {
+  return /^[A-Za-z0-9]+-[A-Z]{3}\d{2}-\d+$/.test(String(orderId || ""));
+}
+
+/**
+ * One delivery number per order document. The counter only moves when the
+ * order does not already have a delivery number.
+ */
+async function assignDeliveryOrderId(db, orderRef, prefix = "EC") {
+  const period = orderPeriodSuffix();
+  const counterRef = db.collection("counter").doc(counterDocId("delivery", period));
+  return db.runTransaction(async (tx) => {
+    const orderSnap = await tx.get(orderRef);
+    const existing = orderSnap.exists ? orderSnap.data().Order_Id : "";
+    if (isDeliveryOrderNumber(existing)) {
+      return existing;
+    }
+    const counterSnap = await tx.get(counterRef);
+    const current = counterSnap.exists ? Number(counterSnap.data().current ?? 0) : 0;
+    const next = current + 1;
+    tx.set(counterRef, { current: next }, { merge: true });
+    const orderId = `${prefix}-${period}-000${next}`;
+    tx.set(orderRef, { ...(orderSnap.exists ? orderSnap.data() : {}), Order_Id: orderId });
+    return orderId;
+  });
+}
+
 module.exports = {
   orderPeriodSuffix,
   counterDocId,
@@ -89,4 +116,5 @@ module.exports = {
   incrementSharedCounter,
   nextDeliveryOrderId,
   nextRetailOrderId,
+  assignDeliveryOrderId,
 };

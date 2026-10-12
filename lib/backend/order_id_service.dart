@@ -82,6 +82,33 @@ class OrderIdService {
     return _deliveryLegacyPattern.hasMatch(orderId);
   }
 
+  /// Stores one delivery number on [orderRef]. A retry sees that number and
+  /// does not advance the shared `default_delivery_*` counter.
+  static Future<String> assignDeliveryOrderId(
+    DocumentReference orderRef, {
+    String? prefix,
+  }) =>
+      _assignOrderId(
+        orderRef,
+        prefix: prefix,
+        channel: 'delivery',
+        reuse: isDeliveryOrderId,
+        format: (p, period, seq) => '$p-$period-000$seq',
+      );
+
+  /// Stores one retail number on [orderRef] without a second counter increment.
+  static Future<String> assignRetailOrderId(
+    DocumentReference orderRef, {
+    String? prefix,
+  }) =>
+      _assignOrderId(
+        orderRef,
+        prefix: prefix,
+        channel: 'retail',
+        reuse: isRetailOrderId,
+        format: (p, period, seq) => '$p-$period-WI000$seq',
+      );
+
   static Future<String> nextDeliveryOrderId({String? prefix}) async {
     final p = prefix ?? activeOrderPrefix();
     final period = _orderPeriodSuffix();
@@ -278,4 +305,44 @@ class OrderIdService {
     required String period,
   }) =>
       _incrementFixedCounter(counterDocId(channel, period: period));
+
+  static Future<String> _assignOrderId(
+    DocumentReference orderRef, {
+    required String? prefix,
+    required String channel,
+    required bool Function(String?) reuse,
+    required String Function(String prefix, String period, int seq) format,
+  }) async {
+    final period = _orderPeriodSuffix();
+    final counterRef = _counterRef(counterDocId(channel, period: period));
+    final resolvedPrefix = prefix ?? activeOrderPrefix();
+    try {
+      return await FirebaseFirestore.instance.runTransaction((tx) async {
+        final orderSnap = await tx.get(orderRef);
+        final data = orderSnap.data() as Map<String, dynamic>? ?? {};
+        final existing = data['Order_Id'] as String?;
+        if (reuse(existing)) {
+          return existing!;
+        }
+        final counterSnap = await tx.get(counterRef);
+        final counterData = counterSnap.data() as Map<String, dynamic>?;
+        final current = counterSnap.exists
+            ? (counterData?['current'] as num?)?.toInt() ?? 0
+            : 0;
+        final next = current + 1;
+        tx.set(counterRef, {'current': next}, SetOptions(merge: true));
+        final orderId = format(resolvedPrefix, period, next);
+        tx.update(orderRef, {'Order_Id': orderId});
+        return orderId;
+      });
+    } on FirebaseException catch (error) {
+      if (error.code != 'permission-denied') {
+        rethrow;
+      }
+      if (channel == 'retail') {
+        return nextRetailOrderId(prefix: resolvedPrefix);
+      }
+      return nextDeliveryOrderId(prefix: resolvedPrefix);
+    }
+  }
 }

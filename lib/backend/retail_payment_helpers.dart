@@ -17,9 +17,7 @@ Future<void> completeRetailPaymentAndOpenReceipt(
   final items = activeOrderItems(await queryOrderItemsForOrderOnce(orderRef));
   final orderSnap = await orderRef.get();
   final order = OrdersRecord.fromSnapshot(orderSnap);
-  final orderId = OrderIdService.isRetailOrderId(order.orderId)
-      ? order.orderId
-      : await OrderIdService.nextRetailOrderId();
+  final orderId = await OrderIdService.assignRetailOrderId(orderRef);
 
   await orderRef.update(
     createOrdersRecordData(

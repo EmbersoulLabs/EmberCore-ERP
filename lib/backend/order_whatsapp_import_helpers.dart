@@ -270,7 +270,7 @@ DateTime? _parseDayMonthSlashDate(String text, DateTime referenceDate) {
   return candidate;
 }
 
-DateTime? _parseDayMonthAbbrevDate(String text) {
+DateTime? _parseDayMonthAbbrevDate(String text, DateTime referenceDate) {
   final match = RegExp(
     r'\b(\d{1,2})\s*([A-Za-z]{3})\b',
     caseSensitive: false,
@@ -286,10 +286,9 @@ DateTime? _parseDayMonthAbbrevDate(String text) {
   if (month == null) {
     return null;
   }
-  final now = DateTime.now();
-  var year = now.year;
+  var year = referenceDate.year;
   var candidate = DateTime(year, month, day);
-  if (candidate.isBefore(now.subtract(const Duration(days: 60)))) {
+  if (candidate.isBefore(referenceDate.subtract(const Duration(days: 60)))) {
     candidate = DateTime(year + 1, month, day);
   }
   return candidate;
@@ -765,7 +764,7 @@ void _applyFreeFormWhatsAppFallback({
 }) {
   var resolvedDate = getDeliveryDate?.call();
   resolvedDate ??= _parseDayMonthSlashDate(text, referenceDate);
-  resolvedDate ??= _parseDayMonthAbbrevDate(text);
+  resolvedDate ??= _parseDayMonthAbbrevDate(text, referenceDate);
   resolvedDate ??= _parseChineseRelativeDate(text, referenceDate);
   if (resolvedDate != null) {
     setDeliveryDate(resolvedDate);
