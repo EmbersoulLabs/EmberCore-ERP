@@ -752,13 +752,10 @@ class _RetailSummaryWidgetState extends State<RetailSummaryWidget> {
                                               await widget!.orderRef!.get();
                                           final order = OrdersRecord
                                               .fromSnapshot(orderSnap);
-                                          final orderId =
-                                              OrderIdService.isRetailOrderId(
-                                                    order.orderId,
-                                                  )
-                                                  ? order.orderId
-                                                  : await OrderIdService
-                                                      .nextRetailOrderId();
+                                          final orderId = await OrderIdService
+                                              .assignRetailOrderId(
+                                            widget!.orderRef!,
+                                          );
                                           final amountPaid =
                                               readOrderAmountPaid(order);
                                           final balanceDue =

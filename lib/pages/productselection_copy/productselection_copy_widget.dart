@@ -741,9 +741,7 @@ class _ProductselectionCopyWidgetState
                       context,
                       () async {
                         final retailOrderId =
-                            OrderIdService.isRetailOrderId(order.orderId)
-                                ? order.orderId
-                                : await OrderIdService.nextRetailOrderId();
+                            await OrderIdService.assignRetailOrderId(orderRef);
                         await stampOrderCompanyRefBeforeCheckout(orderRef);
                         final freshOrder =
                             await OrdersRecord.getDocumentOnce(orderRef);
@@ -793,9 +791,9 @@ class _ProductselectionCopyWidgetState
                       context,
                       () async {
                         final deliveryOrderId =
-                            OrderIdService.isDeliveryOrderId(order.orderId)
-                                ? order.orderId
-                                : await OrderIdService.nextDeliveryOrderId();
+                            await OrderIdService.assignDeliveryOrderId(
+                          orderRef,
+                        );
                         final deliverySaleTotal = functions.calculationTotal(
                           orderItems.map((e) => e.price).toList(),
                           orderItems.map((e) => e.qty).toList(),

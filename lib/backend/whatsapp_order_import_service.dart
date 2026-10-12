@@ -264,7 +264,7 @@ Future<void> _prepareImportedOrderForDeliveryForm({
   final postalCode = parsed.postalCode ?? '';
   final region = parsed.region ??
       (postalCode.isNotEmpty ? functions.newCustomFunction(postalCode) : null);
-  final orderId = await OrderIdService.nextDeliveryOrderId();
+  final orderId = await OrderIdService.assignDeliveryOrderId(orderRef);
   final orderType = resolveWhatsAppImportOrderType(parsed.orderType);
 
   await orderRef.update(
