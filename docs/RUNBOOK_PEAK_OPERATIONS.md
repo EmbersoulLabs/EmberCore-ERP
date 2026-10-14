@@ -32,6 +32,8 @@ App: EmberCore · Firebase `tfg-sales-record` · See [WORKFLOW.md](WORKFLOW.md) 
 
 **Prevention:** One staff member taps **Create Order** per customer; wait for product screen before second tap.
 
+**Historical duplicate, verified 2026-10-13. Do not renumber these orders.** Two existing delivery orders both display `EC-JUN26-00099`. They belong to different companies and were created before the shared counter was raised. All three production tenants use the prefix `EC`. New delivery, retail, and invoice numbers come from the shared `default_*` counters, so a repeated submit reuses the order's existing number and a new order takes the next number. `default_delivery_JUN26.current` is 99 and must not be lowered. Leave both historical orders in place. When the visible number is ambiguous, open each order and use the document on that screen.
+
 **Tech check (after peak):**
 
 ```bash
