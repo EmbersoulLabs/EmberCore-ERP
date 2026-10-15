@@ -6,7 +6,7 @@ Internal **florist POS + order + delivery** system. UI originated from FlutterFl
 
 | Item | Detail |
 |------|--------|
-| **Current version / 当前版本** | `v1.0.3 (10)` — `lib/app_version.dart` |
+| **Current version / 当前版本** | `v1.0.3 (13)` — `lib/app_version.dart` |
 | **Production Web / 生产 Web** | https://tfg-sales-record.web.app |
 | **Staging Web / 测试 Web** | https://tfg-vday-record-staging.web.app |
 | **Repository / 代码库** | https://github.com/kahliantoo-rgb/tfg_vday |
@@ -123,7 +123,7 @@ flutter run --flavor staging --dart-define=APP_ENV=staging -d android
 ```bash
 flutter build web --release
 flutter build web --release --dart-define=APP_ENV=staging
-flutter build apk --release --flavor production --build-name=1.0.3 --build-number=10
+flutter build apk --release --flavor production --build-name=1.0.3 --build-number=13
 flutter build apk --release --flavor staging --dart-define=APP_ENV=staging --build-name=1.0.3 --build-number=10
 ```
 
@@ -332,6 +332,6 @@ test/                     # Dart unit tests (~60+ files)
 
 ---
 
-*Reflects `tfg_vday` at app version **v1.0.3 (10)**.*
+*Reflects `tfg_vday` at app version **v1.0.3 (13)**.*
 
-*对应应用版本 **v1.0.3 (10)**。*
+*对应应用版本 **v1.0.3 (13)**。*
