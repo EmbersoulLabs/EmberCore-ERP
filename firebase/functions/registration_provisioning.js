@@ -12,12 +12,14 @@
 const admin = require("firebase-admin");
 const functions = require("firebase-functions");
 const {
-  defaultSubscriptionFields,
-  maybeCreateStripeCustomerForCompany,
-} = require("./stripe_billing");
+  trialContractForCountry,
+  normalizeCountry,
+} = require("./saas_pricing_v1");
 
 const REGISTRATION_COLLECTION = "user_registration_requests";
+const AUDIT_COLLECTION = "audit_logs";
 const SUPERADMIN_ROLE = "superadmin";
+const PROVISIONING_LEASE_MS = 2 * 60 * 1000;
 const DIRECTOR_ROLE = "director";
 const DEFAULT_STAFF_ROLES = ["admin", "senior_florist", "florist", "driver"];
 const DEFAULT_CATEGORIES = ["AdHoc"];
@@ -128,20 +130,115 @@ async function rollbackProvisioning(db, created) {
   }
   if (created.authUserCreated && created.authUid) {
     try {
-      await admin.auth().deleteUser(created.authUid);
+      const auth = created.auth || admin.auth();
+      await auth.deleteUser(created.authUid);
     } catch (_) {
       // ignore — best effort
     }
   }
 }
 
+function timestampMillis(value) {
+  if (!value) {
+    return 0;
+  }
+  if (typeof value.toMillis === "function") {
+    return value.toMillis();
+  }
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  if (typeof value === "number") {
+    return value;
+  }
+  return 0;
+}
+
+function serverTimestamp() {
+  return admin.firestore.FieldValue.serverTimestamp();
+}
+
+async function writeAudit(db, entry) {
+  await db.collection(AUDIT_COLLECTION).add({
+    ...entry,
+    created_at: serverTimestamp(),
+  });
+}
+
+/**
+ * Claims a pending request so two approvals cannot provision two tenants.
+ * A completed approval returns the existing tenant. A fresh in-progress claim
+ * is rejected. A stale claim can be recovered with the same company id.
+ */
+async function claimRegistration(db, requestId, reviewerUid, nowMs) {
+  const reqRef = db.collection(REGISTRATION_COLLECTION).doc(requestId);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(reqRef);
+    if (!snap.exists) {
+      throw httpsError("not-found", "Registration request not found.");
+    }
+    const req = snap.data() || {};
+    if (req.status === "approved" && trimmed(req.provisioned_company_id)) {
+      return {
+        action: "reuse",
+        req,
+        companyId: trimmed(req.provisioned_company_id),
+        authUid: trimmed(req.provisioned_user_uid),
+      };
+    }
+    if (req.status === "rejected") {
+      throw httpsError("failed-precondition", "This request was rejected.");
+    }
+    if (req.status === "provisioning") {
+      const stale =
+        nowMs - timestampMillis(req.provisioning_started_at) >
+        PROVISIONING_LEASE_MS;
+      if (!stale) {
+        throw httpsError("aborted", "Approval is already in progress.");
+      }
+    } else if (req.status !== "pending") {
+      throw httpsError(
+        "failed-precondition",
+        "This request is no longer pending.",
+      );
+    }
+
+    const country = normalizeCountry(req.country);
+    if (!trialContractForCountry(country)) {
+      throw httpsError(
+        "failed-precondition",
+        "Registration country must be Malaysia (MY) or Singapore (SG).",
+      );
+    }
+    const companyId =
+      trimmed(req.provisioned_company_id) || db.collection("Companies").doc().id;
+    await tx.update(reqRef, {
+      status: "provisioning",
+      provisioning_started_at: serverTimestamp(),
+      reviewed_by_uid: reviewerUid,
+      provisioned_company_id: companyId,
+      country,
+    });
+    return { action: "provision", req: { ...req, country }, companyId };
+  });
+}
+
+async function releaseClaim(db, requestId) {
+  await db.collection(REGISTRATION_COLLECTION).doc(requestId).update({
+    status: "pending",
+    provisioning_started_at: admin.firestore.FieldValue.delete(),
+  });
+}
+
 /**
  * Approves a pending registration request and provisions a tenant.
+ * Repeated calls return the tenant already created for this request.
  * @param {FirebaseFirestore.Firestore} db
  * @param {object} data { requestId, initialPassword? }
  * @param {string} reviewerUid superadmin uid
+ * @param {object} [options] test seams: auth, nowMs
  */
-async function approveRegistrationRequestImpl(db, data, reviewerUid) {
+async function approveRegistrationRequestImpl(db, data, reviewerUid, options) {
   const requestId = trimmed(data && data.requestId);
   if (!requestId) {
     throw httpsError("invalid-argument", "requestId is required.");
@@ -155,19 +252,24 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid) {
     );
   }
 
-  const reqRef = db.collection(REGISTRATION_COLLECTION).doc(requestId);
-  const reqSnap = await reqRef.get();
-  if (!reqSnap.exists) {
-    throw httpsError("not-found", "Registration request not found.");
-  }
-  const req = reqSnap.data() || {};
-  if (req.status !== "pending") {
-    throw httpsError(
-      "failed-precondition",
-      "This request is no longer pending.",
-    );
+  const opts = options || {};
+  const auth = opts.auth || admin.auth();
+  const nowMs = typeof opts.nowMs === "number" ? opts.nowMs : Date.now();
+  const claim = await claimRegistration(db, requestId, reviewerUid, nowMs);
+  if (claim.action === "reuse") {
+    return {
+      ok: true,
+      reused: true,
+      companyId: claim.companyId,
+      companyPath: `Companies/${claim.companyId}`,
+      userUid: claim.authUid,
+      passwordSet: false,
+      passwordResetLink: null,
+    };
   }
 
+  const reqRef = db.collection(REGISTRATION_COLLECTION).doc(requestId);
+  const req = claim.req;
   const email = trimmed(req.email).toLowerCase();
   if (!email) {
     throw httpsError("failed-precondition", "Request has no email.");
@@ -185,12 +287,17 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid) {
     );
   }
 
-  const created = { companyId: null, authUserCreated: false, authUid: null };
+  const created = {
+    companyId: claim.companyId,
+    authUserCreated: false,
+    authUid: null,
+    auth,
+  };
   try {
-    const companyRef = db.collection("Companies").doc();
-    const companyId = companyRef.id;
-    created.companyId = companyId;
-    const serverTime = admin.firestore.FieldValue.serverTimestamp();
+    const companyRef = db.collection("Companies").doc(claim.companyId);
+    const companyId = claim.companyId;
+    const serverTime = serverTimestamp();
+    const trial = trialContractForCountry(req.country);
 
     // 1. Atomic tenant document creation.
     const batch = db.batch();
@@ -202,7 +309,10 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid) {
       company_uen: trimmed(req.company_uen),
       is_active: true,
       created_at: serverTime,
-      ...defaultSubscriptionFields("starter"),
+      ...trial,
+      trial_ends_at: admin.firestore.Timestamp.fromDate(
+        new Date(nowMs + trial.trial_days * 24 * 60 * 60 * 1000),
+      ),
     };
     const logoUrl = trimmed(req.company_logo_url);
     if (logoUrl) {
@@ -236,21 +346,15 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid) {
     }
     await batch.commit();
 
-    await maybeCreateStripeCustomerForCompany(
-      db,
-      companyId,
-      companyName,
-      email,
-    );
-
     // 2. Director Auth user (reuse if the email already exists).
+    // Trial does not create a payment-provider customer.
     let authUid;
     let passwordSet = false;
     try {
-      const existing = await admin.auth().getUserByEmail(email);
+      const existing = await auth.getUserByEmail(email);
       authUid = existing.uid;
       if (initialPassword) {
-        await admin.auth().updateUser(authUid, {
+        await auth.updateUser(authUid, {
           password: initialPassword,
           displayName: name || existing.displayName || undefined,
           disabled: false,
@@ -268,7 +372,7 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid) {
       if (initialPassword) {
         createParams.password = initialPassword;
       }
-      const userRecord = await admin.auth().createUser(createParams);
+      const userRecord = await auth.createUser(createParams);
       authUid = userRecord.uid;
       created.authUserCreated = true;
       created.authUid = authUid;
@@ -279,7 +383,7 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid) {
     let passwordResetLink = null;
     if (!passwordSet) {
       try {
-        passwordResetLink = await admin.auth().generatePasswordResetLink(email);
+        passwordResetLink = await auth.generatePasswordResetLink(email);
       } catch (_) {
         passwordResetLink = null;
       }
@@ -295,6 +399,7 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid) {
         display_name: name,
         role: DIRECTOR_ROLE,
         is_active: true,
+        activation_status: "pending_first_login",
         companyRef,
         phone_number: phone,
         created_time: serverTime,
@@ -302,7 +407,7 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid) {
       { merge: true },
     );
     try {
-      await admin.auth().setCustomUserClaims(authUid, {
+      await auth.setCustomUserClaims(authUid, {
         role: DIRECTOR_ROLE,
         companyId,
       });
@@ -319,6 +424,13 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid) {
       provisioned_user_uid: authUid,
       initial_password_set: passwordSet,
     });
+    await writeAudit(db, {
+      action: "registration.approved",
+      actor_uid: reviewerUid,
+      request_id: requestId,
+      companyRef,
+      target_uid: authUid,
+    });
 
     return {
       ok: true,
@@ -330,6 +442,11 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid) {
     };
   } catch (error) {
     await rollbackProvisioning(db, created);
+    try {
+      await releaseClaim(db, requestId);
+    } catch (_) {
+      // The request stays claimable once the lease expires.
+    }
     if (error instanceof functions.https.HttpsError) {
       throw error;
     }
@@ -345,8 +462,89 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid) {
   }
 }
 
+async function rejectRegistrationRequestImpl(db, data, reviewerUid, options) {
+  const requestId = trimmed(data && data.requestId);
+  const note = trimmed(data && (data.note || data.rejectionNote));
+  if (!requestId) {
+    throw httpsError("invalid-argument", "requestId is required.");
+  }
+  if (!note) {
+    throw httpsError("invalid-argument", "A rejection note is required.");
+  }
+  const nowMs =
+    options && typeof options.nowMs === "number" ? options.nowMs : Date.now();
+  const reqRef = db.collection(REGISTRATION_COLLECTION).doc(requestId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(reqRef);
+    if (!snap.exists) {
+      throw httpsError("not-found", "Registration request not found.");
+    }
+    const req = snap.data() || {};
+    if (req.status === "approved") {
+      throw httpsError("failed-precondition", "This request is already approved.");
+    }
+    if (req.status === "rejected") {
+      return;
+    }
+    if (req.status === "provisioning") {
+      const stale =
+        nowMs - timestampMillis(req.provisioning_started_at) >
+        PROVISIONING_LEASE_MS;
+      if (!stale) {
+        throw httpsError("aborted", "Approval is already in progress.");
+      }
+    } else if (req.status !== "pending") {
+      throw httpsError(
+        "failed-precondition",
+        "This request is no longer pending.",
+      );
+    }
+    await tx.update(reqRef, {
+      status: "rejected",
+      rejection_note: note,
+      reviewed_at: serverTimestamp(),
+      reviewed_by_uid: reviewerUid,
+    });
+  });
+  await writeAudit(db, {
+    action: "registration.rejected",
+    actor_uid: reviewerUid,
+    request_id: requestId,
+  });
+  return { ok: true };
+}
+
+/** Marks a provisioned director active on their first successful sign-in. */
+async function recordDirectorFirstLoginImpl(db, uid) {
+  if (!uid) {
+    throw httpsError("unauthenticated", "Sign in required.");
+  }
+  const ref = db.collection("users").doc(uid);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    return { ok: true, recorded: false };
+  }
+  const data = snap.data() || {};
+  if (data.activation_status !== "pending_first_login") {
+    return { ok: true, recorded: false };
+  }
+  await ref.update({
+    activation_status: "active",
+    first_login_at: serverTimestamp(),
+  });
+  await writeAudit(db, {
+    action: "director.first_login",
+    actor_uid: uid,
+    target_uid: uid,
+    companyRef: data.companyRef || null,
+  });
+  return { ok: true, recorded: true };
+}
+
 module.exports = {
   assertCallerIsSuperadmin,
   approveRegistrationRequestImpl,
+  rejectRegistrationRequestImpl,
+  recordDirectorFirstLoginImpl,
   GENERIC_PLATFORM_CONFIG,
 };

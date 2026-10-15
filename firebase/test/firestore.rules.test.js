@@ -1383,6 +1383,7 @@ describe("SaaS onboarding rules", () => {
     phone: "+60123456789",
     account_type: "company",
     company_name: "Demo Florist",
+    country: "MY",
     status: "pending",
   });
 
@@ -1408,6 +1409,21 @@ describe("SaaS onboarding rules", () => {
     );
   });
 
+  it("a second create for the same applicant does not overwrite a pending request", async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertSucceeds(
+      db.doc("user_registration_requests/shop@example.com").set(
+        signupPayload("shop@example.com"),
+      ),
+    );
+    await assertFails(
+      db.doc("user_registration_requests/shop@example.com").set({
+        ...signupPayload("shop@example.com"),
+        company_name: "Other Shop",
+      }),
+    );
+  });
+
   it("staff cannot read another applicant registration request", async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore();
@@ -1421,7 +1437,7 @@ describe("SaaS onboarding rules", () => {
     );
   });
 
-  it("superadmin approves registration request", async () => {
+  it("clients cannot approve a registration request", async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore();
       await db.doc("user_registration_requests/shop@example.com").set(
@@ -1429,10 +1445,54 @@ describe("SaaS onboarding rules", () => {
       );
     });
     const db = authed("superA").firestore();
-    await assertSucceeds(
+    await assertFails(
       db.doc("user_registration_requests/shop@example.com").update({
         status: "approved",
         reviewed_at: new Date(),
+      }),
+    );
+  });
+
+  it("registration without a supported country is rejected", async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(
+      db.doc("user_registration_requests/nocountry@example.com").set({
+        ...signupPayload("nocountry@example.com"),
+        country: "US",
+      }),
+    );
+  });
+
+  it("platform admin cannot change subscription pricing fields", async () => {
+    const db = authed("superA").firestore();
+    await assertSucceeds(
+      db.doc("Companies/companyA").update({ Company_name: "A renamed" }),
+    );
+    await assertFails(
+      db.doc("Companies/companyA").update({
+        subscription_status: "active",
+        plan_tier: "business",
+        list_price_minor: 1,
+      }),
+    );
+  });
+
+  it("superadmin can create a company without subscription fields", async () => {
+    const db = authed("superA").firestore();
+    await assertSucceeds(
+      db.doc("Companies/manualShop").set({
+        Company_name: "Manual",
+        is_active: true,
+      }),
+    );
+  });
+
+  it("staff cannot create an active company", async () => {
+    const db = authed("floristA").firestore();
+    await assertFails(
+      db.doc("Companies/newShop").set({
+        Company_name: "New",
+        is_active: true,
       }),
     );
   });

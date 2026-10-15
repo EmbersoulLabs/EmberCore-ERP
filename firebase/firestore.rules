@@ -1089,6 +1089,7 @@ service cloud.firestore {
         && request.resource.data.phone is string
         && request.resource.data.phone.size() > 0
         && request.resource.data.account_type in ['private', 'company']
+        && request.resource.data.country in ['MY', 'SG']
         && request.resource.data.status == 'pending'
         && (
           request.resource.data.account_type == 'private'
@@ -1100,16 +1101,15 @@ service cloud.firestore {
     }
 
     match /user_registration_requests/{emailKey} {
-      allow read: if canManageStaffProfiles()
+      allow read: if isSuperAdminUser()
         || (isSignedIn() && request.auth.token.email == emailKey);
       allow create: if isValidUserRegistrationRequest(emailKey);
-      allow update: if canManageStaffProfiles()
-        || (
-          !isSignedIn()
-          && resource.data.status == 'rejected'
-          && isValidUserRegistrationRequest(emailKey)
-        );
-      allow delete: if canManageStaffProfiles();
+      // Approval and rejection are Cloud Functions (Admin SDK). Clients may
+      // only resubmit a rejected application as a new pending request.
+      allow update: if !isSignedIn()
+        && resource.data.status == 'rejected'
+        && isValidUserRegistrationRequest(emailKey);
+      allow delete: if isSuperAdminUser();
     }
 
     // --- staff registration intents (Add Staff gate) ---
@@ -1320,11 +1320,27 @@ service cloud.firestore {
     }
 
     // --- company ---
+    function subscriptionAuthorityKeys() {
+      return [
+        'plan_tier', 'subscription_status', 'trial_ends_at', 'trial_limits',
+        'trial_days', 'pricing_version', 'billing_country', 'currency',
+        'list_price_minor', 'capability_tier', 'max_staff_seats',
+        'max_orders_per_month', 'max_companies', 'paid_provider_activation',
+        'stripe_customer_id', 'stripe_subscription_id', 'current_period_end'
+      ];
+    }
+
     match /Companies/{document} {
       allow read: if isSignedIn()
         || resource.data.is_active == true;
-      allow create, delete: if isSignedIn() && isSuperAdminUser();
-      allow update: if isSignedIn() && isPlatformAdminUser();
+      allow create: if isSignedIn()
+        && isSuperAdminUser()
+        && !request.resource.data.keys().hasAny(subscriptionAuthorityKeys());
+      allow update: if isSignedIn()
+        && isPlatformAdminUser()
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(subscriptionAuthorityKeys());
+      allow delete: if isSignedIn() && isSuperAdminUser();
     }
 
     // --- counters ---

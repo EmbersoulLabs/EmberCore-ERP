@@ -20,6 +20,8 @@ const { parseOrderMessageWithGemini } = require("./order_import_parser");
 const {
   assertCallerIsSuperadmin,
   approveRegistrationRequestImpl,
+  rejectRegistrationRequestImpl,
+  recordDirectorFirstLoginImpl,
 } = require("./registration_provisioning");
 const { createBranchImpl } = require("./branch_provisioning");
 const {
@@ -428,6 +430,42 @@ exports.approveRegistrationRequest = functions
       passwordSet: result.passwordSet,
     });
     return result;
+  });
+
+/**
+ * Callable: rejectRegistrationRequest
+ * Superadmin-only. Marks a pending application rejected. Does not provision.
+ */
+exports.rejectRegistrationRequest = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 60,
+    memory: "256MB",
+  })
+  .https.onCall(async (data, context) => {
+    const reviewerUid = await assertCallerIsSuperadmin(db, context);
+    const result = await rejectRegistrationRequestImpl(db, data, reviewerUid);
+    functions.logger.info("registration request rejected", {
+      reviewerUid,
+      requestId: data && data.requestId,
+    });
+    return result;
+  });
+
+/**
+ * Callable: recordDirectorFirstLogin
+ * The signed-in director stamps first-login activation. Idempotent.
+ */
+exports.recordDirectorFirstLogin = functions
+  .region(FUNCTION_REGION)
+  .https.onCall(async (data, context) => {
+    if (!context.auth || !context.auth.uid) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Sign in required.",
+      );
+    }
+    return recordDirectorFirstLoginImpl(db, context.auth.uid);
   });
 
 /**
