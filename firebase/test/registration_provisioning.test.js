@@ -60,6 +60,13 @@ function createFakeDb(seed) {
       async delete() {
         docs.delete(path);
       },
+      collection(name) {
+        return {
+          doc(id) {
+            return ref(`${path}/${name}/${id}`);
+          },
+        };
+      },
     };
   }
 

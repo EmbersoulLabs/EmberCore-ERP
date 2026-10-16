@@ -691,6 +691,118 @@ service cloud.firestore {
         );
     }
 
+    /// SaaS trial (pricing v1). Legacy companies have no subscription status.
+    function trialCompanyData(companyId) {
+      return get(/databases/$(database)/documents/Companies/$(companyId)).data;
+    }
+
+    function isTrialTenantCompany(companyId) {
+      return companyId != null
+        && exists(/databases/$(database)/documents/Companies/$(companyId))
+        && 'subscription_status' in trialCompanyData(companyId)
+        && trialCompanyData(companyId).subscription_status == 'trialing'
+        && 'pricing_version' in trialCompanyData(companyId)
+        && trialCompanyData(companyId).pricing_version == 'v1';
+    }
+
+    /// Set on the staff profile by provisioning. Clients cannot change it.
+    function callerTrialEnforced() {
+      return authUserExists()
+        && 'trial_enforced' in userDoc(authUserDocId()).data
+        && userDoc(authUserDocId()).data.trial_enforced == true;
+    }
+
+    function trialEnforcedFlagUnchanged() {
+      return !('trial_enforced' in resource.data)
+        ? true
+        : 'trial_enforced' in request.resource.data
+          && request.resource.data.trial_enforced == resource.data.trial_enforced;
+    }
+
+    function trialQuotaDataAfter(companyId) {
+      return getAfter(/databases/$(database)/documents/trial_quota/$(companyId)).data;
+    }
+
+    /// Existing staff, or the new user whose profile is created in this request.
+    function callerMaySpendTrialQuota(companyId) {
+      return isSignedIn() && (
+        (
+          authUserExists()
+          && authUserCanonicalCompanyId() == companyId
+        )
+        || (
+          !authUserExists()
+          && existsAfter(/databases/$(database)/documents/users/$(request.auth.uid))
+          && companyRefCanonicalId(
+            getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyRef
+          ) == companyId
+        )
+      );
+    }
+
+    function trialOrderCreateOk(orderId) {
+      let companyId = authUserCanonicalCompanyId();
+      return !callerTrialEnforced()
+        ? true
+        : request.resource.data.companyRef != null
+          && companyRefCanonicalId(request.resource.data.companyRef) == companyId
+          && request.resource.data.trial_slot is string
+          && request.resource.data.trial_slot
+              == string(int(request.resource.data.trial_slot))
+          && int(request.resource.data.trial_slot)
+              == trialQuotaDataAfter(companyId).orders_consumed
+          && getAfter(
+              /databases/$(database)/documents/trial_order_slots/$(companyId)/slots/$(request.resource.data.trial_slot)
+            ).data.order_id == orderId;
+    }
+
+    function trialStaffCreateOk(userId) {
+      let companyId = request.resource.data.companyRef == null
+        ? null
+        : companyRefCanonicalId(request.resource.data.companyRef);
+      return companyId == null || !isTrialTenantCompany(companyId)
+        ? true
+        : request.resource.data.trial_enforced == true
+          && request.resource.data.trial_slot is string
+          && request.resource.data.trial_slot
+              == string(int(request.resource.data.trial_slot))
+          && int(request.resource.data.trial_slot)
+              == trialQuotaDataAfter(companyId).staff_consumed
+          && getAfter(
+              /databases/$(database)/documents/trial_staff_slots/$(companyId)/slots/$(request.resource.data.trial_slot)
+            ).data.user_id == userId;
+    }
+
+    function trialQuotaOrdersPlusOne(companyId) {
+      let next = request.resource.data.orders_consumed;
+      let slot = string(next);
+      let orderId = getAfter(
+        /databases/$(database)/documents/trial_order_slots/$(companyId)/slots/$(slot)
+      ).data.order_id;
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['orders_consumed'])
+        && next == resource.data.orders_consumed + 1
+        && next <= trialCompanyData(companyId).max_orders_per_month
+        && orderId is string
+        && getAfter(/databases/$(database)/documents/orders/$(orderId)).data.trial_slot
+            == slot;
+    }
+
+    function trialQuotaStaffPlusOne(companyId) {
+      let next = request.resource.data.staff_consumed;
+      let slot = string(next);
+      let userId = getAfter(
+        /databases/$(database)/documents/trial_staff_slots/$(companyId)/slots/$(slot)
+      ).data.user_id;
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['staff_consumed'])
+        && next == resource.data.staff_consumed + 1
+        && next <= trialCompanyData(companyId).max_staff_seats
+        && userId is string
+        && getAfter(/databases/$(database)/documents/users/$(userId)).data.trial_slot
+            == slot;
+    }
+
     /// Updates must not re-assign a document to another tenant.
     function tenantUnchangedOnUpdate() {
       return canCrossTenantAccess()
@@ -1135,8 +1247,10 @@ service cloud.firestore {
         && request.resource.data.role in [
           'senior_florist', 'florist', 'driver', 'admin', 'director',
           'manager', 'account', 'hr', 'payroll'
-        ];
+        ]
+        && trialStaffCreateOk(userId);
       allow update: if isSignedIn()
+        && trialEnforcedFlagUnchanged()
         && (
           (isSuperAdminUser() && (isSelfUser(userId) || canManageStaffProfiles()))
           || (
@@ -1151,6 +1265,51 @@ service cloud.firestore {
       }
     }
 
+    // Trial counters are created by provisioning (Admin SDK). Clients may
+    // only advance one slot, and only together with the new order or staff
+    // profile. Deletes never return a slot.
+    match /trial_quota/{companyId} {
+      allow read: if isSignedIn()
+        && (isSuperAdminUser() || authUserCanonicalCompanyId() == companyId);
+      allow create, delete: if false;
+      allow update: if isTrialTenantCompany(companyId)
+        && callerMaySpendTrialQuota(companyId)
+        && (
+          trialQuotaOrdersPlusOne(companyId)
+          || trialQuotaStaffPlusOne(companyId)
+        );
+    }
+
+    match /trial_order_slots/{companyId}/slots/{slotId} {
+      allow read: if isSignedIn()
+        && (isSuperAdminUser() || authUserCanonicalCompanyId() == companyId);
+      allow create: if callerMaySpendTrialQuota(companyId)
+        && isTrialTenantCompany(companyId)
+        && slotId == string(int(slotId))
+        && int(slotId) == trialQuotaDataAfter(companyId).orders_consumed
+        && int(slotId) >= 1
+        && int(slotId) <= trialCompanyData(companyId).max_orders_per_month
+        && request.resource.data.keys().hasOnly(['order_id'])
+        && request.resource.data.order_id is string
+        && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.order_id)).data.trial_slot == slotId;
+      allow update, delete: if false;
+    }
+
+    match /trial_staff_slots/{companyId}/slots/{slotId} {
+      allow read: if isSignedIn()
+        && (isSuperAdminUser() || authUserCanonicalCompanyId() == companyId);
+      allow create: if callerMaySpendTrialQuota(companyId)
+        && isTrialTenantCompany(companyId)
+        && slotId == string(int(slotId))
+        && int(slotId) == trialQuotaDataAfter(companyId).staff_consumed
+        && int(slotId) >= 1
+        && int(slotId) <= trialCompanyData(companyId).max_staff_seats
+        && request.resource.data.keys().hasOnly(['user_id'])
+        && request.resource.data.user_id is string
+        && getAfter(/databases/$(database)/documents/users/$(request.resource.data.user_id)).data.trial_slot == slotId;
+      allow update, delete: if false;
+    }
+
     // --- orders (core) ---
     match /orders/{orderId} {
       allow read: if canReadOrders()
@@ -1158,7 +1317,8 @@ service cloud.firestore {
           docBelongsToAuthTenant(resource.data)
           || (isDriverUser() && isOrderAssignedToAuthDriver(resource.data))
         );
-      allow create: if isStaffUser() && incomingBelongsToAuthTenant();
+      allow create: if isStaffUser() && incomingBelongsToAuthTenant()
+        && trialOrderCreateOk(orderId);
       allow update: if canUpdateOrderDoc();
       allow delete: if isPlatformAdminUser() || canDeleteOrdersByPermission();
     }

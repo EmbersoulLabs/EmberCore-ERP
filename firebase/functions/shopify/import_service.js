@@ -1,5 +1,6 @@
 const { FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { nextDeliveryOrderId } = require("./order_id_helpers");
+const { isTrialTenant, placeTrialOrder } = require("../trial_quota");
 
 const {
   pickCustomerName,
@@ -79,12 +80,15 @@ async function importShopifyOrder(db, shopifyOrder, companyId) {
     (sum, item) => sum + Number(item.quantity || 0),
     0,
   );
-  const erpOrderId = await nextDeliveryOrderId(db);
+  const trial = isTrialTenant(companySnap.data());
+  const orderRef = db.collection("orders").doc();
+  // Trial imports assign the delivery number inside the quota transaction.
+  // A rejected import does not consume a number or a slot.
+  const erpOrderId = trial ? "" : await nextDeliveryOrderId(db);
   const now = FieldValue.serverTimestamp();
   const paymentType =
     shopifyOrder.financial_status === "paid" ? "Shopify" : "";
 
-  const orderRef = db.collection("orders").doc();
   const orderData = {
     client_name: customerName,
     recipient_name: recipientName,
@@ -153,6 +157,93 @@ async function importShopifyOrder(db, shopifyOrder, companyId) {
     );
   }
 
+  const recipients = await loadNoticeRecipients(db, companyRef);
+
+  if (trial) {
+    const placed = await placeTrialOrder(db, {
+      companyId,
+      company: companySnap.data(),
+      orderRef,
+      orderData,
+      externalOrderId,
+      extraWrites: (orderIdLabel) => {
+        const writes = [];
+        for (const item of mapShopifyLineItems(
+          lineItems,
+          orderRef,
+          companyRef,
+          orderIdLabel,
+        )) {
+          writes.push({ ref: db.collection("Order_item").doc(), data: item });
+        }
+        const itemSummary = lineItemSummary(lineItems);
+        const noticeMessage = buildShopifyNoticeMessage({
+          externalOrderName,
+          customerName,
+          totalAmount: totalAmount.toFixed(2),
+        });
+        for (const recipient of recipients) {
+          writes.push({
+            ref: db.collection("staff_notices").doc(),
+            data: {
+              type: NOTICE_TYPE,
+              recipient_user_ref: staffNoticeRecipientRef(db, recipient),
+              order_ref: orderRef,
+              order_id: orderIdLabel,
+              delivery_date: Timestamp.now(),
+              item_summary: itemSummary,
+              message: noticeMessage,
+              created_time: now,
+              companyRef,
+            },
+          });
+        }
+        writes.push({
+          ref: db.collection("audit_logs").doc(),
+          data: {
+            userId: "shopify_webhook",
+            userName: "Shopify Webhook",
+            userRole: "system",
+            action: AUDIT_ACTION,
+            entityType: "order",
+            entityId: orderRef.id,
+            entityLabel: orderIdLabel,
+            description: "Shopify Order Imported",
+            companyId,
+            companyRef,
+            newValue: {
+              shopifyOrderId: externalOrderId,
+              shopifyOrderName: externalOrderName,
+              customerName,
+              erpOrderId: orderIdLabel,
+            },
+            createdAt: now,
+            created_at: now,
+          },
+        });
+        return writes;
+      },
+    });
+    if (placed.duplicate) {
+      return {
+        duplicate: true,
+        orderRef: db.doc(placed.orderPath),
+        orderId: placed.orderId,
+        externalOrderId,
+        externalOrderName,
+        noticesCreated: 0,
+      };
+    }
+    return {
+      duplicate: false,
+      orderRef,
+      orderId: placed.orderId,
+      externalOrderId,
+      externalOrderName,
+      noticesCreated: recipients.length,
+    };
+  }
+
   const batch = db.batch();
   batch.set(orderRef, orderData);
 
@@ -174,7 +265,6 @@ async function importShopifyOrder(db, shopifyOrder, companyId) {
     totalAmount: totalAmount.toFixed(2),
   });
 
-  const recipients = await loadNoticeRecipients(db, companyRef);
   for (const recipient of recipients) {
     const noticeRef = db.collection("staff_notices").doc();
     batch.set(noticeRef, {

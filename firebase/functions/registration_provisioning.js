@@ -119,6 +119,12 @@ async function rollbackProvisioning(db, created) {
       db.collection("counter").doc(`${id}_retail`),
       db.collection("counter").doc(`${id}_invoice`),
       db.collection("counter").doc(`${id}_customer`),
+      db.collection("trial_quota").doc(id),
+      db
+        .collection("trial_staff_slots")
+        .doc(id)
+        .collection("slots")
+        .doc("1"),
     ];
     for (const ref of refs) {
       try {
@@ -344,6 +350,10 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid, options) {
         comR: companyRef,
       });
     }
+    batch.set(db.collection("trial_quota").doc(companyId), {
+      orders_consumed: 0,
+      staff_consumed: 1,
+    });
     await batch.commit();
 
     // 2. Director Auth user (reuse if the email already exists).
@@ -403,9 +413,17 @@ async function approveRegistrationRequestImpl(db, data, reviewerUid, options) {
         companyRef,
         phone_number: phone,
         created_time: serverTime,
+        trial_slot: "1",
+        trial_enforced: true,
       },
       { merge: true },
     );
+    await db
+      .collection("trial_staff_slots")
+      .doc(companyId)
+      .collection("slots")
+      .doc("1")
+      .set({ user_id: authUid });
     try {
       await auth.setCustomUserClaims(authUid, {
         role: DIRECTOR_ROLE,

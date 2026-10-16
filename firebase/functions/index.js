@@ -2,6 +2,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { verifyShopifyWebhookHmac } = require("./shopify/verify_hmac");
 const { importShopifyOrder } = require("./shopify/import_service");
+const { TrialLimitError } = require("./trial_quota");
 const { sendStaffNoticePush } = require("./staff_notice_push");
 const {
   syncStaffAuthClaims,
@@ -129,6 +130,14 @@ exports.shopifyOrderCreated = functions
         noticesCreated: result.noticesCreated ?? 0,
       });
     } catch (error) {
+      if (error instanceof TrialLimitError || error.code === "trial-limit") {
+        functions.logger.warn("Shopify import blocked by trial limit");
+        return res.status(200).json({
+          ok: false,
+          limited: true,
+          error: error.message,
+        });
+      }
       functions.logger.error("Shopify import failed", error);
       return res.status(500).json({ error: "Import failed" });
     }

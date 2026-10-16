@@ -4,6 +4,7 @@
  */
 const fs = require("fs");
 const path = require("path");
+const assert = require("node:assert/strict");
 const { describe, it, before, after, beforeEach } = require("node:test");
 const {
   initializeTestEnvironment,
@@ -1540,5 +1541,212 @@ describe("SaaS onboarding rules", () => {
         industry_key: "florist",
       }),
     );
+  });
+});
+
+describe("trial quota enforcement", () => {
+  async function seedTrialCompany() {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc("Companies/companyT").set({
+        Company_name: "Trial",
+        is_active: true,
+        subscription_status: "trialing",
+        pricing_version: "v1",
+        max_orders_per_month: 2,
+        max_staff_seats: 3,
+        max_companies: 1,
+      });
+      await db.doc("trial_quota/companyT").set({
+        orders_consumed: 0,
+        staff_consumed: 1,
+      });
+      await db.doc("users/directorT").set({
+        role: "director",
+        email: "directorT@test.com",
+        uid: "directorT",
+        companyRef: db.doc("Companies/companyT"),
+        trial_slot: "1",
+        trial_enforced: true,
+        is_active: true,
+      });
+      await db.doc("trial_staff_slots/companyT/slots/1").set({
+        user_id: "directorT",
+      });
+      await db.doc("users/floristT").set({
+        role: "senior_florist",
+        email: "floristT@test.com",
+        companyRef: db.doc("Companies/companyT"),
+        is_active: true,
+      });
+      await db.doc("orders/trialExisting").set({
+        status: "pending",
+        orderstatus: "pending",
+        companyRef: db.doc("Companies/companyT"),
+      });
+    });
+  }
+
+  async function claimOrder(slot, orderId) {
+    const db = authed("directorT").firestore();
+    await db.runTransaction(async (tx) => {
+      tx.set(db.doc(`orders/${orderId}`), {
+        status: "pending",
+        orderstatus: "pending",
+        companyRef: db.doc("Companies/companyT"),
+        trial_slot: String(slot),
+      });
+      tx.set(db.doc(`trial_order_slots/companyT/slots/${slot}`), {
+        order_id: orderId,
+      });
+      tx.update(db.doc("trial_quota/companyT"), { orders_consumed: slot });
+    });
+  }
+
+  async function claimStaff(slot, uid) {
+    const email = `${uid}@test.com`;
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc(`staff_registration_intents/${email}`).set({
+        email,
+        role: "florist",
+        companyRef: db.doc("Companies/companyT"),
+      });
+    });
+    const db = authedWithEmail(uid, email).firestore();
+    await db.runTransaction(async (tx) => {
+      tx.set(db.doc(`users/${uid}`), {
+        uid,
+        email,
+        role: "florist",
+        companyRef: db.doc("Companies/companyT"),
+        trial_slot: String(slot),
+        trial_enforced: true,
+        is_active: true,
+      });
+      tx.set(db.doc(`trial_staff_slots/companyT/slots/${slot}`), {
+        user_id: uid,
+      });
+      tx.update(db.doc("trial_quota/companyT"), { staff_consumed: slot });
+    });
+  }
+
+  it("accepts two trial orders and rejects the third", async () => {
+    await seedTrialCompany();
+    await assertSucceeds(claimOrder(1, "trialOrder1"));
+    await assertSucceeds(claimOrder(2, "trialOrder2"));
+    await assertFails(claimOrder(3, "trialOrder3"));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const quota = await context.firestore().doc("trial_quota/companyT").get();
+      assert.equal(quota.data().orders_consumed, 2);
+    });
+  });
+
+  it("rejects a trial order written without a slot", async () => {
+    await seedTrialCompany();
+    const db = authed("directorT").firestore();
+    await assertFails(
+      db.collection("orders").add({
+        status: "pending",
+        orderstatus: "pending",
+        companyRef: db.doc("Companies/companyT"),
+      }),
+    );
+  });
+
+  it("rejects a trial order that omits companyRef", async () => {
+    await seedTrialCompany();
+    const db = authed("directorT").firestore();
+    await assertFails(
+      db.collection("orders").add({
+        status: "pending",
+        orderstatus: "pending",
+        trial_slot: "1",
+      }),
+    );
+  });
+
+  it("rejects a jumped or decreased order counter", async () => {
+    await seedTrialCompany();
+    const db = authed("directorT").firestore();
+    await assertFails(
+      db.doc("trial_quota/companyT").update({ orders_consumed: 2 }),
+    );
+    await assertFails(
+      db.doc("trial_quota/companyT").update({ orders_consumed: 0 }),
+    );
+  });
+
+  it("rejects a cross-tenant quota write", async () => {
+    await seedTrialCompany();
+    const db = authed("floristB").firestore();
+    await assertFails(
+      db.doc("trial_quota/companyT").update({ orders_consumed: 1 }),
+    );
+    await assertFails(
+      db.collection("orders").add({
+        status: "pending",
+        orderstatus: "pending",
+        companyRef: db.doc("Companies/companyT"),
+        trial_slot: "1",
+      }),
+    );
+  });
+
+  it("still lets a legacy company create an order", async () => {
+    const db = authed("floristA").firestore();
+    await assertSucceeds(
+      db.collection("orders").add({
+        status: "pending",
+        orderstatus: "pending",
+        companyRef: db.doc("Companies/companyA"),
+      }),
+    );
+  });
+
+  it("still lets a trial company update an existing order", async () => {
+    await seedTrialCompany();
+    const db = authed("floristT").firestore();
+    await assertSucceeds(
+      db.doc("orders/trialExisting").update({
+        status: "processing",
+        orderstatus: "processing",
+      }),
+    );
+  });
+
+  it("does not return a slot when an order is deleted", async () => {
+    await seedTrialCompany();
+    await claimOrder(1, "trialOrder1");
+    const admin = authed("superA").firestore();
+    await assertSucceeds(admin.doc("orders/trialOrder1").delete());
+    await assertFails(
+      authed("directorT").firestore().doc("trial_quota/companyT").update({
+        orders_consumed: 0,
+      }),
+    );
+    await assertFails(
+      authed("directorT")
+        .firestore()
+        .doc("trial_order_slots/companyT/slots/1")
+        .delete(),
+    );
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const quota = await context.firestore().doc("trial_quota/companyT").get();
+      assert.equal(quota.data().orders_consumed, 1);
+    });
+  });
+
+  it("accepts staff through seat 3 and rejects seat 4", async () => {
+    await seedTrialCompany();
+    await assertSucceeds(claimStaff(2, "staffT2"));
+    await assertSucceeds(claimStaff(3, "staffT3"));
+    await assertFails(claimStaff(4, "staffT4"));
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const quota = await context.firestore().doc("trial_quota/companyT").get();
+      assert.equal(quota.data().staff_consumed, 3);
+      const fourth = await context.firestore().doc("users/staffT4").get();
+      assert.equal(fourth.exists, false);
+    });
   });
 });
