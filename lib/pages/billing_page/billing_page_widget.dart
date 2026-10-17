@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '/auth/role_helpers.dart';
 import '/auth/viewer_role_helpers.dart';
+import '/backend/billing_catalog.dart';
 import '/backend/schema/companies_record.dart';
 import '/backend/stripe_billing_service.dart';
 import '/backend/subscription_helpers.dart';
@@ -30,6 +31,7 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
   bool _loading = true;
   String? _loadError;
   bool _checkoutBusy = false;
+  String _interval = 'month';
   String? _bannerMessage;
 
   @override
@@ -98,6 +100,7 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
       final result = await createStripeCheckoutSession(
         companyId: company.reference.id,
         planTier: planTier,
+        interval: _interval,
       );
       final uri = Uri.parse(result.url);
       final launched = await launchUrl(uri, webOnlyWindowName: '_self');
@@ -261,66 +264,63 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          EmberSectionCard(
-                            title: tr(context, 'billing.plan.starter'),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  tr(context, 'billing.starterBlurb'),
-                                  style: theme.bodyMedium,
-                                ),
-                                const SizedBox(height: 12),
-                                FFButtonWidget(
-                                  onPressed: _checkoutBusy
-                                      ? null
-                                      : () => _openCheckout('starter'),
-                                  text: tr(context, 'billing.subscribeStarter'),
-                                  options: FFButtonOptions(
-                                    height: 44,
-                                    color: theme.primary,
-                                    textStyle: theme.titleSmall.override(
-                                      font: GoogleFonts.interTight(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      color: Colors.white,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ],
+                          SegmentedButton<String>(
+                            segments: [
+                              ButtonSegment(
+                                value: 'month',
+                                label: Text(tr(context, 'billing.interval.month')),
+                              ),
+                              ButtonSegment(
+                                value: 'year',
+                                label: Text(tr(context, 'billing.interval.year')),
+                              ),
+                            ],
+                            selected: {_interval},
+                            onSelectionChanged: (selection) {
+                              setState(() => _interval = selection.first);
+                            },
+                          ),
+                          if (normalizeBillingCountry(_company?.billingCountry)
+                                  .isEmpty ||
+                              billingListPriceMinor(
+                                    country: _company?.billingCountry,
+                                    plan: 'starter',
+                                    interval: _interval,
+                                  ) ==
+                                  null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: Text(
+                                tr(context, 'billing.countryMissing'),
+                                style: theme.bodyMedium,
+                              ),
                             ),
+                          const SizedBox(height: 16),
+                          _planCard(
+                            context,
+                            theme,
+                            plan: 'starter',
+                            titleKey: 'billing.plan.starter',
+                            blurbKey: 'billing.starterBlurb',
+                            buttonKey: 'billing.subscribeStarter',
                           ),
                           const SizedBox(height: 16),
-                          EmberSectionCard(
-                            title: tr(context, 'billing.plan.pro'),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  tr(context, 'billing.proBlurb'),
-                                  style: theme.bodyMedium,
-                                ),
-                                const SizedBox(height: 12),
-                                FFButtonWidget(
-                                  onPressed: _checkoutBusy
-                                      ? null
-                                      : () => _openCheckout('pro'),
-                                  text: tr(context, 'billing.subscribePro'),
-                                  options: FFButtonOptions(
-                                    height: 44,
-                                    color: theme.primary,
-                                    textStyle: theme.titleSmall.override(
-                                      font: GoogleFonts.interTight(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      color: Colors.white,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ],
-                            ),
+                          _planCard(
+                            context,
+                            theme,
+                            plan: 'pro',
+                            titleKey: 'billing.plan.pro',
+                            blurbKey: 'billing.proBlurb',
+                            buttonKey: 'billing.subscribePro',
+                          ),
+                          const SizedBox(height: 16),
+                          _planCard(
+                            context,
+                            theme,
+                            plan: 'business',
+                            titleKey: 'billing.plan.business',
+                            blurbKey: 'billing.businessBlurb',
+                            buttonKey: 'billing.subscribeBusiness',
                           ),
                           const SizedBox(height: 16),
                           FFButtonWidget(
@@ -347,6 +347,54 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
                         ],
                       ),
                     ),
+    );
+  }
+
+  Widget _planCard(
+    BuildContext context,
+    FlutterFlowTheme theme, {
+    required String plan,
+    required String titleKey,
+    required String blurbKey,
+    required String buttonKey,
+  }) {
+    final priced = billingListPriceMinor(
+          country: _company?.billingCountry,
+          plan: plan,
+          interval: _interval,
+        ) !=
+        null;
+    return EmberSectionCard(
+      title: tr(context, titleKey),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            formatBillingPrice(
+              country: _company?.billingCountry,
+              plan: plan,
+              interval: _interval,
+            ),
+            style: theme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(tr(context, blurbKey), style: theme.bodyMedium),
+          const SizedBox(height: 12),
+          FFButtonWidget(
+            onPressed: _checkoutBusy || !priced ? null : () => _openCheckout(plan),
+            text: tr(context, buttonKey),
+            options: FFButtonOptions(
+              height: 44,
+              color: theme.primary,
+              textStyle: theme.titleSmall.override(
+                font: GoogleFonts.interTight(fontWeight: FontWeight.w600),
+                color: Colors.white,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

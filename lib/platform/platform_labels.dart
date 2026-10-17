@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '/auth/role_helpers.dart';
+import '/auth/viewer_role_helpers.dart';
+import '/backend/tenant_context.dart';
 import '/flutter_flow/internationalization.dart';
+import '/platform/plan_entitlements.dart';
 import '/platform/platform_config_service.dart';
 import '/platform/platform_module.dart';
 import '/platform/tenant_platform_config.dart';
@@ -34,17 +38,49 @@ String platformDriverRoleLabelForLocale({String locale = 'en'}) {
       : config.driverRoleLabelEn;
 }
 
-/// Whether the active tenant has a platform module enabled.
-bool platformModuleEnabled(PlatformModule module) =>
-    PlatformConfigService.instance.isModuleEnabled(module);
+/// Industry config, subscription plan, and Super Admin access.
+/// Appointments stay off until the module is implemented.
+bool platformModuleEnabled(PlatformModule module) {
+  if (module == PlatformModule.appointments) {
+    return false;
+  }
+  if (isSuperAdminRole(currentViewerRole())) {
+    return true;
+  }
+  if (!PlatformConfigService.instance.isModuleEnabled(module)) {
+    return false;
+  }
+  final company = TenantContext.instance.activeCompany;
+  return planAllowsModule(
+    subscriptionStatus: company?.subscriptionStatus,
+    planTier: company?.planTier,
+    module: module,
+  );
+}
+
+String? _planDeniedMessage(PlatformModule module) {
+  if (isSuperAdminRole(currentViewerRole())) {
+    return null;
+  }
+  final company = TenantContext.instance.activeCompany;
+  if (planAllowsModule(
+    subscriptionStatus: company?.subscriptionStatus,
+    planTier: company?.planTier,
+    module: module,
+  )) {
+    return null;
+  }
+  return planUpgradeMessage(module);
+}
 
 /// Blocks order writes when the orders module is disabled for the tenant.
 String? platformModuleOrderWriteBlockMessage() {
   if (platformModuleEnabled(PlatformModule.orders)) {
     return null;
   }
-  return 'Order management is not enabled for this company. '
-      'Contact your administrator or EmberSoulLabs support.';
+  return _planDeniedMessage(PlatformModule.orders) ??
+      'Order management is not enabled for this company. '
+          'Contact your administrator or EmberSoulLabs support.';
 }
 
 /// Blocks WhatsApp import when the module is disabled.
@@ -52,5 +88,6 @@ String? platformModuleWhatsAppImportBlockMessage() {
   if (platformModuleEnabled(PlatformModule.whatsappImport)) {
     return null;
   }
-  return 'WhatsApp order import is not available on your current plan.';
+  return _planDeniedMessage(PlatformModule.whatsappImport) ??
+      'WhatsApp order import is not enabled for this company.';
 }

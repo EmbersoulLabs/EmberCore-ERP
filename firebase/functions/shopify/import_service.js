@@ -1,6 +1,7 @@
 const { FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { nextDeliveryOrderId } = require("./order_id_helpers");
 const { isTrialTenant, placeTrialOrder } = require("../trial_quota");
+const { assertCompanyModule } = require("../plan_entitlements");
 
 const {
   pickCustomerName,
@@ -68,6 +69,8 @@ async function importShopifyOrder(db, shopifyOrder, companyId) {
       externalOrderName,
     };
   }
+
+  assertCompanyModule(companySnap.data(), "shopifyImport");
 
   const customerName = pickCustomerName(shopifyOrder);
   const recipientName = pickRecipientName(shopifyOrder);

@@ -100,8 +100,8 @@ Map<String, dynamic> defaultSubscriptionRecordData({
     planTier: planTier,
     subscriptionStatus: 'trialing',
     trialEndsAt: trialEnds,
-    maxStaffSeats: planTier == 'pro' ? 20 : 5,
-    maxOrdersPerMonth: planTier == 'pro' ? null : 500,
+    maxStaffSeats: 3,
+    maxOrdersPerMonth: 100,
   );
 }
 

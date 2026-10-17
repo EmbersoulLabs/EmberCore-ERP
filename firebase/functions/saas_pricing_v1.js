@@ -5,6 +5,8 @@
 const PRICING_VERSION = "v1";
 const TRIAL_DAYS = 14;
 
+const PLAN_TIERS = ["starter", "pro", "business"];
+
 const COUNTRY_PRICES = {
   MY: {
     currency: "MYR",
@@ -19,6 +21,24 @@ const COUNTRY_PRICES = {
     business: 15900,
   },
 };
+
+/** Annual amounts are minor units. Ten times the monthly price. */
+const ANNUAL_COUNTRY_PRICES = {
+  MY: {
+    currency: "MYR",
+    starter: 69000,
+    pro: 199000,
+    business: 399000,
+  },
+  SG: {
+    currency: "SGD",
+    starter: 29000,
+    pro: 79000,
+    business: 159000,
+  },
+};
+
+const { trialEntitlementFields } = require("./plan_entitlements");
 
 const TRIAL_LIMITS = {
   max_staff: 3,
@@ -37,6 +57,38 @@ function normalizeCountry(value) {
     return "SG";
   }
   return raw;
+}
+
+function normalizeInterval(value) {
+  const raw = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return raw === "year" || raw === "yearly" || raw === "annual" ? "year" : "month";
+}
+
+function normalizePlanTier(value) {
+  const raw = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return PLAN_TIERS.includes(raw) ? raw : "";
+}
+
+/** Server price quote. Client amounts, currencies and Price IDs are ignored. */
+function listPriceMinor(country, planTier, interval) {
+  const code = normalizeCountry(country);
+  const plan = normalizePlanTier(planTier);
+  if (!plan) {
+    return null;
+  }
+  const period = normalizeInterval(interval);
+  const table = period === "year" ? ANNUAL_COUNTRY_PRICES : COUNTRY_PRICES;
+  const row = table[code];
+  if (!row || typeof row[plan] !== "number") {
+    return null;
+  }
+  return {
+    country: code,
+    currency: row.currency,
+    planTier: plan,
+    interval: period,
+    amountMinor: row[plan],
+  };
 }
 
 function pricingForCountry(country) {
@@ -87,6 +139,7 @@ function trialContractForCountry(country) {
     stripe_customer_id: null,
     stripe_subscription_id: null,
     current_period_end: null,
+    ...trialEntitlementFields(),
   };
 }
 
@@ -118,8 +171,13 @@ module.exports = {
   PRICING_VERSION,
   TRIAL_DAYS,
   TRIAL_LIMITS,
+  PLAN_TIERS,
   COUNTRY_PRICES,
+  ANNUAL_COUNTRY_PRICES,
   normalizeCountry,
+  normalizeInterval,
+  normalizePlanTier,
+  listPriceMinor,
   pricingForCountry,
   trialContractForCountry,
   evaluateTrialLimits,

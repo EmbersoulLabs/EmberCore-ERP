@@ -712,6 +712,18 @@ service cloud.firestore {
         && userDoc(authUserDocId()).data.trial_enforced == true;
     }
 
+    /// Tenant administrators cannot assign or edit a Super Admin profile.
+    function protectsSuperAdminAssignment() {
+      return isSuperAdminUser()
+        || (
+          request.resource.data.role != 'superadmin'
+          && (
+            !('role' in resource.data)
+            || resource.data.role != 'superadmin'
+          )
+        );
+    }
+
     function trialEnforcedFlagUnchanged() {
       return !('trial_enforced' in resource.data)
         ? true
@@ -740,11 +752,22 @@ service cloud.firestore {
       );
     }
 
+    /// Client writes cannot set source shopify. Plan allow/deny for Shopify
+    /// imports is enforced in the import Cloud Function. A company read here
+    /// pushes order creation over the 1000-expression rules limit.
+    function shopifyImportCreateOk() {
+      return !('source' in request.resource.data)
+        || request.resource.data.source != 'shopify'
+        || isSuperAdminUser();
+    }
+
     function trialOrderCreateOk(orderId) {
       let companyId = authUserCanonicalCompanyId();
       return !callerTrialEnforced()
         ? true
-        : request.resource.data.companyRef != null
+        : !isTrialTenantCompany(companyId)
+          ? true
+          : request.resource.data.companyRef != null
           && companyRefCanonicalId(request.resource.data.companyRef) == companyId
           && request.resource.data.trial_slot is string
           && request.resource.data.trial_slot
@@ -756,11 +779,24 @@ service cloud.firestore {
             ).data.order_id == orderId;
     }
 
+    /// Trial and active paid v1 companies share the lifetime staff-seat counter.
+    function isSeatLimitedCompany(companyId) {
+      return companyId != null
+        && exists(/databases/$(database)/documents/Companies/$(companyId))
+        && 'pricing_version' in trialCompanyData(companyId)
+        && trialCompanyData(companyId).pricing_version == 'v1'
+        && 'subscription_status' in trialCompanyData(companyId)
+        && (
+          trialCompanyData(companyId).subscription_status == 'trialing'
+          || trialCompanyData(companyId).subscription_status == 'active'
+        );
+    }
+
     function trialStaffCreateOk(userId) {
       let companyId = request.resource.data.companyRef == null
         ? null
         : companyRefCanonicalId(request.resource.data.companyRef);
-      return companyId == null || !isTrialTenantCompany(companyId)
+      return companyId == null || !isSeatLimitedCompany(companyId)
         ? true
         : request.resource.data.trial_enforced == true
           && request.resource.data.trial_slot is string
@@ -1251,6 +1287,7 @@ service cloud.firestore {
         && trialStaffCreateOk(userId);
       allow update: if isSignedIn()
         && trialEnforcedFlagUnchanged()
+        && protectsSuperAdminAssignment()
         && (
           (isSuperAdminUser() && (isSelfUser(userId) || canManageStaffProfiles()))
           || (
@@ -1272,11 +1309,10 @@ service cloud.firestore {
       allow read: if isSignedIn()
         && (isSuperAdminUser() || authUserCanonicalCompanyId() == companyId);
       allow create, delete: if false;
-      allow update: if isTrialTenantCompany(companyId)
-        && callerMaySpendTrialQuota(companyId)
+      allow update: if callerMaySpendTrialQuota(companyId)
         && (
-          trialQuotaOrdersPlusOne(companyId)
-          || trialQuotaStaffPlusOne(companyId)
+          (isTrialTenantCompany(companyId) && trialQuotaOrdersPlusOne(companyId))
+          || (isSeatLimitedCompany(companyId) && trialQuotaStaffPlusOne(companyId))
         );
     }
 
@@ -1299,7 +1335,7 @@ service cloud.firestore {
       allow read: if isSignedIn()
         && (isSuperAdminUser() || authUserCanonicalCompanyId() == companyId);
       allow create: if callerMaySpendTrialQuota(companyId)
-        && isTrialTenantCompany(companyId)
+        && isSeatLimitedCompany(companyId)
         && slotId == string(int(slotId))
         && int(slotId) == trialQuotaDataAfter(companyId).staff_consumed
         && int(slotId) >= 1
@@ -1318,7 +1354,8 @@ service cloud.firestore {
           || (isDriverUser() && isOrderAssignedToAuthDriver(resource.data))
         );
       allow create: if isStaffUser() && incomingBelongsToAuthTenant()
-        && trialOrderCreateOk(orderId);
+        && trialOrderCreateOk(orderId)
+        && shopifyImportCreateOk();
       allow update: if canUpdateOrderDoc();
       allow delete: if isPlatformAdminUser() || canDeleteOrdersByPermission();
     }
@@ -1486,7 +1523,9 @@ service cloud.firestore {
         'trial_days', 'pricing_version', 'billing_country', 'currency',
         'list_price_minor', 'capability_tier', 'max_staff_seats',
         'max_orders_per_month', 'max_companies', 'paid_provider_activation',
-        'stripe_customer_id', 'stripe_subscription_id', 'current_period_end'
+        'stripe_customer_id', 'stripe_subscription_id', 'current_period_end',
+        'stripe_event_created', 'billing_interval', 'plan_modules',
+        'broadcast_quota_monthly', 'priority_support'
       ];
     }
 

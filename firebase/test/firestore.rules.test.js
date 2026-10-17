@@ -1749,4 +1749,178 @@ describe("trial quota enforcement", () => {
       assert.equal(fourth.exists, false);
     });
   });
+
+  it("lets a paid company create an order without a trial slot", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc("Companies/companyPaid").set({
+        Company_name: "Paid",
+        is_active: true,
+        subscription_status: "active",
+        pricing_version: "v1",
+        plan_tier: "pro",
+        max_orders_per_month: 10000,
+      });
+      await db.doc("users/directorPaid").set({
+        role: "director",
+        email: "directorPaid@test.com",
+        companyRef: db.doc("Companies/companyPaid"),
+        trial_enforced: true,
+        is_active: true,
+      });
+    });
+    const db = authed("directorPaid").firestore();
+    await assertSucceeds(
+      db.collection("orders").add({
+        status: "pending",
+        orderstatus: "pending",
+        companyRef: db.doc("Companies/companyPaid"),
+      }),
+    );
+  });
+
+  it("denies a direct client Shopify write", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc("Companies/companyStarter").set({
+        Company_name: "Starter",
+        is_active: true,
+        subscription_status: "active",
+        pricing_version: "v1",
+        plan_tier: "starter",
+      });
+      await db.doc("Companies/companyBiz").set({
+        Company_name: "Business",
+        is_active: true,
+        subscription_status: "active",
+        pricing_version: "v1",
+        plan_tier: "business",
+      });
+      await db.doc("Companies/companyLegacy").set({
+        Company_name: "Legacy",
+        is_active: true,
+      });
+      await db.doc("users/directorStarter").set({
+        role: "director",
+        email: "directorStarter@test.com",
+        companyRef: db.doc("Companies/companyStarter"),
+        trial_enforced: true,
+        is_active: true,
+      });
+      await db.doc("users/directorBiz").set({
+        role: "director",
+        email: "directorBiz@test.com",
+        companyRef: db.doc("Companies/companyBiz"),
+        trial_enforced: true,
+        is_active: true,
+      });
+      await db.doc("users/directorLegacy").set({
+        role: "director",
+        email: "directorLegacy@test.com",
+        companyRef: db.doc("Companies/companyLegacy"),
+        is_active: true,
+      });
+    });
+    const order = {
+      status: "pending",
+      orderstatus: "pending",
+      source: "shopify",
+    };
+    const starterDb = authed("directorStarter").firestore();
+    await assertFails(
+      starterDb.collection("orders").add({
+        ...order,
+        companyRef: starterDb.doc("Companies/companyStarter"),
+      }),
+    );
+    const bizDb = authed("directorBiz").firestore();
+    await assertFails(
+      bizDb.collection("orders").add({
+        ...order,
+        companyRef: bizDb.doc("Companies/companyBiz"),
+      }),
+    );
+    const adminDb = authed("superA").firestore();
+    await assertSucceeds(
+      adminDb.collection("orders").add({
+        ...order,
+        companyRef: adminDb.doc("Companies/companyLegacy"),
+      }),
+    );
+  });
+
+  it("enforces paid staff seats and blocks plan field edits", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc("Companies/companySeats").set({
+        Company_name: "Seats",
+        is_active: true,
+        subscription_status: "active",
+        pricing_version: "v1",
+        plan_tier: "starter",
+        plan_modules: ["orders"],
+        max_staff_seats: 2,
+      });
+      await db.doc("trial_quota/companySeats").set({
+        orders_consumed: 0,
+        staff_consumed: 1,
+      });
+      await db.doc("users/directorSeats").set({
+        role: "director",
+        email: "directorSeats@test.com",
+        uid: "directorSeats",
+        companyRef: db.doc("Companies/companySeats"),
+        trial_slot: "1",
+        trial_enforced: true,
+        is_active: true,
+      });
+      await db.doc("trial_staff_slots/companySeats/slots/1").set({
+        user_id: "directorSeats",
+      });
+      await db.doc("users/adminSeats").set({
+        role: "admin",
+        email: "adminSeats@test.com",
+        companyRef: db.doc("Companies/companySeats"),
+        is_active: true,
+      });
+    });
+    async function claimSeat(slot, uid) {
+      const email = `${uid}@test.com`;
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc(`staff_registration_intents/${email}`).set({
+          email,
+          role: "florist",
+          companyRef: context.firestore().doc("Companies/companySeats"),
+        });
+      });
+      const db = authedWithEmail(uid, email).firestore();
+      await db.runTransaction(async (tx) => {
+        tx.set(db.doc(`users/${uid}`), {
+          uid,
+          email,
+          role: "florist",
+          companyRef: db.doc("Companies/companySeats"),
+          trial_slot: String(slot),
+          trial_enforced: true,
+          is_active: true,
+        });
+        tx.set(db.doc(`trial_staff_slots/companySeats/slots/${slot}`), {
+          user_id: uid,
+        });
+        tx.update(db.doc("trial_quota/companySeats"), { staff_consumed: slot });
+      });
+    }
+    await assertSucceeds(claimSeat(2, "seat2"));
+    await assertFails(claimSeat(3, "seat3"));
+    await assertFails(
+      authed("adminSeats").firestore().doc("Companies/companySeats").update({
+        plan_modules: ["orders", "shopifyImport"],
+      }),
+    );
+    await assertFails(
+      authed("directorSeats").firestore().doc("users/directorSeats").update({
+        role: "superadmin",
+      }),
+    );
+  });
 });

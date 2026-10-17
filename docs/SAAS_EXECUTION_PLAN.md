@@ -273,12 +273,12 @@ cd firebase && npm run test:firebase
 
 | 档位 | 月费（MYR） | 人数上限 | 月订单量 | 升级卖点 |
 |------|-------------|----------|----------|----------|
-| **Starter** | **RM 59–89**（标价 RM 69） | ≤ **2** | ≤ **2,000** | 核心 ERP + CSV 导入/导出 |
-| **Pro** | **RM 179–249**（标价 RM 199） | 不限 | 不限 | WhatsApp 建单 · Shopify · BOM/利润 · 审计 |
-| **Business** | **RM 449–599**（标价 RM 499） | 不限 | 不限 | 多门店 · 总部看板 · Open API |
+| **Starter** | **RM 69** / S$ 29 | **2** | **500** | 核心 ERP + CSV 导入/导出 |
+| **Pro** | **RM 199** / S$ 79 | **10** | **3,000** | WhatsApp 建单 · Shopify · BOM · 审计 |
+| **Business** | **RM 399** / S$ 159 | **30** | **10,000** | 更高额度 · 优先支持标记 |
 
 - 免费试用：**14 天**（App 内 trialing，Stripe 不设 trial period）
-- **客户群发额度：** Starter 无 · Pro 2,000/月 · Business 无限
+- **客户群发额度：** Starter 无 · Pro 2,000/月 · Business 10,000/月。试用为 Pro 模块 + 3 员工 + 100 订单。多门店、Open API、AI 未实现。
 
 ### E2 数据模型
 

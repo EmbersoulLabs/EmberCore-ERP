@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '/auth/role_helpers.dart';
+import '/auth/viewer_role_helpers.dart';
 import '/backend/broadcast_clipboard_helper.dart';
 import '/backend/customer_broadcast_image_helpers.dart';
 import '/backend/customer_helpers.dart';
 import '/backend/order_whatsapp_helpers.dart';
 import '/backend/schema/customers_record.dart';
+import '/backend/tenant_context.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/l10n/tr.dart';
+import '/platform/plan_entitlements.dart';
+import '/platform/platform_module.dart';
 
 enum CustomerBroadcastChannel {
   whatsapp,
@@ -311,6 +316,38 @@ Future<bool> _copyEmailBroadcastAddresses(
 
 enum CustomerBroadcastStepAction { send, skip, cancel }
 
+/// Client cap for the clipboard/WhatsApp broadcast flow.
+/// There is no server send record, so this cannot accumulate a monthly total.
+String? customerBroadcastPlanBlock(int recipientCount) {
+  if (isSuperAdminRole(currentViewerRole())) {
+    return null;
+  }
+  final company = TenantContext.instance.activeCompany;
+  if (!planAllowsModule(
+    subscriptionStatus: company?.subscriptionStatus,
+    planTier: company?.planTier,
+    module: PlatformModule.customerBroadcast,
+  )) {
+    return planUpgradeMessage(PlatformModule.customerBroadcast);
+  }
+  final limit = broadcastMonthlyRecipientLimit(
+    subscriptionStatus: company?.subscriptionStatus,
+    planTier: company?.planTier,
+    superAdmin: false,
+  );
+  if (limit != null && recipientCount > limit) {
+    return 'This plan allows $limit broadcast recipients. '
+        'Reduce the list or upgrade.';
+  }
+  return null;
+}
+
+void _showBroadcastPlanBlock(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message), duration: const Duration(seconds: 8)),
+  );
+}
+
 Future<void> runCustomerWhatsAppBroadcast({
   required BuildContext context,
   required List<CustomersRecord> customers,
@@ -318,6 +355,13 @@ Future<void> runCustomerWhatsAppBroadcast({
   String? imageUrl,
 }) async {
   final recipients = filterCustomersForBroadcast(customers);
+  final blocked = customerBroadcastPlanBlock(recipients.length);
+  if (blocked != null) {
+    if (context.mounted) {
+      _showBroadcastPlanBlock(context, blocked);
+    }
+    return;
+  }
   if (recipients.isEmpty) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -440,6 +484,13 @@ Future<void> runCustomerEmailBroadcast({
   String? imageUrl,
 }) async {
   final recipients = filterCustomersForEmailBroadcast(customers);
+  final blocked = customerBroadcastPlanBlock(recipients.length);
+  if (blocked != null) {
+    if (context.mounted) {
+      _showBroadcastPlanBlock(context, blocked);
+    }
+    return;
+  }
   if (recipients.isEmpty) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -9,6 +9,16 @@ bool trialQuotaApplies(Map<String, dynamic>? company) {
       company['pricing_version'] == 'v1';
 }
 
+/// Trial and active paid v1 companies share the lifetime staff-seat counter.
+/// Paid monthly order caps are not applied through this counter.
+bool staffSeatQuotaApplies(Map<String, dynamic>? company) {
+  if (company == null || company['pricing_version'] != 'v1') {
+    return false;
+  }
+  final status = company['subscription_status'];
+  return status == 'trialing' || status == 'active';
+}
+
 /// Next slot, or null when the configured maximum is already used.
 int? nextTrialSlot({required int consumed, required int max}) {
   final next = consumed + 1;
@@ -34,12 +44,17 @@ String trialOrderLimitMessage(int max) =>
 String trialStaffLimitMessage(int max) =>
     'Trial limit reached: this trial allows $max staff accounts.';
 
+String staffSeatLimitMessage(int max, {required bool trial}) => trial
+    ? trialStaffLimitMessage(max)
+    : 'Staff limit reached: this plan allows $max staff accounts. '
+        'Upgrade to add more.';
+
 /// Null when another staff profile is allowed. Does not consume a slot.
 Future<String?> trialStaffLimitMessageIfFull(String companyId) async {
   final db = FirebaseFirestore.instance;
   final companySnap = await db.collection('Companies').doc(companyId).get();
   final company = companySnap.data();
-  if (!trialQuotaApplies(company)) {
+  if (!staffSeatQuotaApplies(company)) {
     return null;
   }
   final quotaSnap = await db.collection('trial_quota').doc(companyId).get();
@@ -47,7 +62,10 @@ Future<String?> trialStaffLimitMessageIfFull(String companyId) async {
       (quotaSnap.data()?['staff_consumed'] as num?)?.toInt() ?? 0;
   final max = (company?['max_staff_seats'] as num?)?.toInt() ?? 3;
   if (nextTrialSlot(consumed: consumed, max: max) == null) {
-    return trialStaffLimitMessage(max);
+    return staffSeatLimitMessage(
+      max,
+      trial: company?['subscription_status'] == 'trialing',
+    );
   }
   return null;
 }
@@ -94,7 +112,10 @@ Future<void> _commitCreate({
   await db.runTransaction((transaction) async {
     final companySnap = await transaction.get(companyRef);
     final company = companySnap.data();
-    if (!trialQuotaApplies(company)) {
+    final enforced = orders
+        ? trialQuotaApplies(company)
+        : staffSeatQuotaApplies(company);
+    if (!enforced) {
       transaction.set(recordRef, recordData);
       return;
     }
@@ -115,7 +136,12 @@ Future<void> _commitCreate({
     final slot = nextTrialSlot(consumed: consumed, max: max);
     if (slot == null) {
       throw TrialQuotaException(
-        orders ? trialOrderLimitMessage(max) : trialStaffLimitMessage(max),
+        orders
+            ? trialOrderLimitMessage(max)
+            : staffSeatLimitMessage(
+                max,
+                trial: company?['subscription_status'] == 'trialing',
+              ),
       );
     }
 
