@@ -338,6 +338,9 @@ async function syncSubscriptionToCompany(db, subscription, eventCreated) {
       ? admin.firestore.Timestamp.fromMillis(subscription.current_period_end * 1000)
       : null,
   };
+  if (subscription.current_period_start) {
+    patch.usage_period_id = String(subscription.current_period_start);
+  }
   if (quote) {
     patch.currency = quote.currency;
     patch.list_price_minor = quote.amountMinor;

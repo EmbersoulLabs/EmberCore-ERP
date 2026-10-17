@@ -761,13 +761,51 @@ service cloud.firestore {
         || isSuperAdminUser();
     }
 
+    /// Billing period when one is still open; otherwise the UTC month.
+    /// usage_period_id and current_period_end are server-owned.
+    function expectedUsagePeriod(company) {
+      return 'usage_period_id' in company
+        && company.usage_period_id is string
+        && company.usage_period_id.size() > 0
+        && 'current_period_end' in company
+        && company.current_period_end is timestamp
+        && request.time < company.current_period_end
+          ? company.usage_period_id
+          : string(request.time.year())
+              + (request.time.month() < 10 ? '-0' : '-')
+              + string(request.time.month());
+    }
+
+    function paidCompanyActive(company) {
+      return 'subscription_status' in company
+        && company.subscription_status == 'active'
+        && 'pricing_version' in company
+        && company.pricing_version == 'v1';
+    }
+
+    function planUsageAfter(companyId) {
+      return getAfter(/databases/$(database)/documents/plan_usage/$(companyId)).data;
+    }
+
+    /// Kept small. The order-create rule is already near the 1000-expression
+    /// limit, so the cap and period checks live on plan_usage and the slot.
+    function paidOrderCreateOk(orderId) {
+      let companyId = authUserCanonicalCompanyId();
+      let period = request.resource.data.plan_period;
+      let slot = request.resource.data.plan_slot;
+      return period is string
+        && slot is string
+        && getAfter(
+            /databases/$(database)/documents/plan_order_slots/$(companyId)/periods/$(period)/slots/$(slot)
+          ).data.order_id == orderId;
+    }
+
     function trialOrderCreateOk(orderId) {
       let companyId = authUserCanonicalCompanyId();
       return !callerTrialEnforced()
         ? true
-        : !isTrialTenantCompany(companyId)
-          ? true
-          : request.resource.data.companyRef != null
+        : isTrialTenantCompany(companyId)
+          ? request.resource.data.companyRef != null
           && companyRefCanonicalId(request.resource.data.companyRef) == companyId
           && request.resource.data.trial_slot is string
           && request.resource.data.trial_slot
@@ -776,7 +814,8 @@ service cloud.firestore {
               == trialQuotaDataAfter(companyId).orders_consumed
           && getAfter(
               /databases/$(database)/documents/trial_order_slots/$(companyId)/slots/$(request.resource.data.trial_slot)
-            ).data.order_id == orderId;
+            ).data.order_id == orderId
+          : paidOrderCreateOk(orderId);
     }
 
     /// Trial and active paid v1 companies share the lifetime staff-seat counter.
@@ -1346,6 +1385,206 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    function paidUsageShape(companyId) {
+      let company = trialCompanyData(companyId);
+      let period = expectedUsagePeriod(company);
+      return paidCompanyActive(company)
+        && request.resource.data.period_id == period
+        && request.resource.data.orders_consumed is int
+        && request.resource.data.broadcast_consumed is int;
+    }
+
+    function paidOrderSlotLinked(companyId, period, slot) {
+      let orderId = getAfter(
+        /databases/$(database)/documents/plan_order_slots/$(companyId)/periods/$(period)/slots/$(slot)
+      ).data.order_id;
+      return orderId is string
+        && getAfter(/databases/$(database)/documents/orders/$(orderId)).data.plan_slot == slot
+        && getAfter(/databases/$(database)/documents/orders/$(orderId)).data.plan_period == period;
+    }
+
+    function broadcastReservationAfter(attemptId) {
+      return getAfter(/databases/$(database)/documents/broadcast_reservations/$(attemptId)).data;
+    }
+
+    function paidBroadcastLinked(companyId, period, count, status) {
+      let attempt = request.resource.data.broadcast_attempt;
+      let reservation = broadcastReservationAfter(attempt);
+      return attempt is string
+        && reservation.company_id == companyId
+        && reservation.period_id == period
+        && reservation.count == count
+        && reservation.status == status;
+    }
+
+    function paidUsageCreateOk(companyId) {
+      let company = trialCompanyData(companyId);
+      let period = expectedUsagePeriod(company);
+      let orders = request.resource.data.orders_consumed;
+      let broadcast = request.resource.data.broadcast_consumed;
+      return paidUsageShape(companyId)
+        && (
+          (
+            orders == 1
+            && broadcast == 0
+            && request.resource.data.keys().hasOnly([
+              'period_id', 'orders_consumed', 'broadcast_consumed'
+            ])
+            && paidOrderSlotLinked(companyId, period, '1')
+            && 1 <= company.max_orders_per_month
+          )
+          || (
+            orders == 0
+            && broadcast >= 1
+            && 'broadcast_quota_monthly' in company
+            && broadcast <= company.broadcast_quota_monthly
+            && request.resource.data.keys().hasOnly([
+              'period_id', 'orders_consumed', 'broadcast_consumed', 'broadcast_attempt'
+            ])
+            && paidBroadcastLinked(companyId, period, broadcast, 'reserved')
+          )
+        );
+    }
+
+    function paidUsageUpdateOk(companyId) {
+      let company = trialCompanyData(companyId);
+      let period = expectedUsagePeriod(company);
+      let nextOrders = request.resource.data.orders_consumed;
+      let nextBroadcast = request.resource.data.broadcast_consumed;
+      let samePeriod = resource.data.period_id == period;
+      return paidUsageShape(companyId)
+        && (
+          (
+            samePeriod
+            && nextOrders == resource.data.orders_consumed + 1
+            && nextBroadcast == resource.data.broadcast_consumed
+            && nextOrders <= company.max_orders_per_month
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['orders_consumed'])
+            && paidOrderSlotLinked(companyId, period, string(nextOrders))
+          )
+          || (
+            samePeriod
+            && nextOrders == resource.data.orders_consumed
+            && nextBroadcast > resource.data.broadcast_consumed
+            && 'broadcast_quota_monthly' in company
+            && nextBroadcast <= company.broadcast_quota_monthly
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['broadcast_consumed', 'broadcast_attempt'])
+            && paidBroadcastLinked(
+              companyId,
+              period,
+              nextBroadcast - resource.data.broadcast_consumed,
+              'reserved'
+            )
+          )
+          || (
+            samePeriod
+            && nextOrders == resource.data.orders_consumed
+            && nextBroadcast < resource.data.broadcast_consumed
+            && nextBroadcast >= 0
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['broadcast_consumed', 'broadcast_attempt'])
+            && paidBroadcastLinked(
+              companyId,
+              period,
+              resource.data.broadcast_consumed - nextBroadcast,
+              'released'
+            )
+          )
+          || (
+            !samePeriod
+            && nextOrders == 1
+            && nextBroadcast == 0
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['period_id', 'orders_consumed', 'broadcast_consumed'])
+            && 1 <= company.max_orders_per_month
+            && paidOrderSlotLinked(companyId, period, '1')
+          )
+          || (
+            !samePeriod
+            && nextOrders == 0
+            && nextBroadcast >= 1
+            && 'broadcast_quota_monthly' in company
+            && nextBroadcast <= company.broadcast_quota_monthly
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'period_id', 'orders_consumed', 'broadcast_consumed', 'broadcast_attempt'
+            ])
+            && paidBroadcastLinked(companyId, period, nextBroadcast, 'reserved')
+          )
+        );
+    }
+
+    match /plan_usage/{companyId} {
+      allow read: if isSignedIn()
+        && (isSuperAdminUser() || authUserCanonicalCompanyId() == companyId);
+      allow create: if callerMaySpendTrialQuota(companyId)
+        && paidUsageCreateOk(companyId);
+      allow update: if callerMaySpendTrialQuota(companyId)
+        && paidUsageUpdateOk(companyId);
+      allow delete: if false;
+    }
+
+    match /plan_order_slots/{companyId}/periods/{periodId}/slots/{slotId} {
+      allow read: if isSignedIn()
+        && (isSuperAdminUser() || authUserCanonicalCompanyId() == companyId);
+      allow create: if callerMaySpendTrialQuota(companyId)
+        && periodId == expectedUsagePeriod(trialCompanyData(companyId))
+        && paidCompanyActive(trialCompanyData(companyId))
+        && slotId == string(int(slotId))
+        && int(slotId) == planUsageAfter(companyId).orders_consumed
+        && planUsageAfter(companyId).period_id == periodId
+        && int(slotId) >= 1
+        && int(slotId) <= trialCompanyData(companyId).max_orders_per_month
+        && request.resource.data.keys().hasOnly(['order_id'])
+        && request.resource.data.order_id is string
+        && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.order_id)).data.plan_slot == slotId
+        && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.order_id)).data.plan_period == periodId;
+      allow update, delete: if false;
+    }
+
+    match /broadcast_reservations/{attemptId} {
+      allow read: if isSignedIn()
+        && (
+          isSuperAdminUser()
+          || resource.data.company_id == authUserCanonicalCompanyId()
+        );
+      allow create: if isSignedIn()
+        && authUserCanonicalCompanyId() != null
+        && attemptId[0:authUserCanonicalCompanyId().size()] == authUserCanonicalCompanyId()
+        && attemptId[authUserCanonicalCompanyId().size():authUserCanonicalCompanyId().size() + 1] == '_'
+        && request.resource.data.company_id == authUserCanonicalCompanyId()
+        && request.resource.data.status == 'reserved'
+        && request.resource.data.count is int
+        && request.resource.data.count >= 1
+        && request.resource.data.period_id == planUsageAfter(request.resource.data.company_id).period_id
+        && request.resource.data.keys().hasOnly([
+          'company_id', 'period_id', 'count', 'status'
+        ])
+        && planUsageAfter(request.resource.data.company_id).broadcast_attempt == attemptId;
+      allow update: if isSignedIn()
+        && resource.data.company_id == authUserCanonicalCompanyId()
+        && request.resource.data.company_id == resource.data.company_id
+        && request.resource.data.count == resource.data.count
+        && request.resource.data.period_id == resource.data.period_id
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && (
+          (
+            resource.data.status == 'reserved'
+            && request.resource.data.status == 'opened'
+          )
+          || (
+            resource.data.status == 'reserved'
+            && request.resource.data.status == 'released'
+            && planUsageAfter(resource.data.company_id).period_id == resource.data.period_id
+            && planUsageAfter(resource.data.company_id).broadcast_consumed
+                == get(/databases/$(database)/documents/plan_usage/$(resource.data.company_id)).data.broadcast_consumed
+                    - resource.data.count
+          )
+        );
+      allow delete: if false;
+    }
+
     // --- orders (core) ---
     match /orders/{orderId} {
       allow read: if canReadOrders()
@@ -1525,7 +1764,7 @@ service cloud.firestore {
         'max_orders_per_month', 'max_companies', 'paid_provider_activation',
         'stripe_customer_id', 'stripe_subscription_id', 'current_period_end',
         'stripe_event_created', 'billing_interval', 'plan_modules',
-        'broadcast_quota_monthly', 'priority_support'
+        'broadcast_quota_monthly', 'priority_support', 'usage_period_id'
       ];
     }
 

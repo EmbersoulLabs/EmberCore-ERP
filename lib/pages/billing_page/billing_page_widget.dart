@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -5,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '/auth/role_helpers.dart';
 import '/auth/viewer_role_helpers.dart';
 import '/backend/billing_catalog.dart';
+import '/backend/monthly_usage.dart';
 import '/backend/schema/companies_record.dart';
 import '/backend/stripe_billing_service.dart';
 import '/backend/subscription_helpers.dart';
@@ -33,6 +35,9 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
   bool _checkoutBusy = false;
   String _interval = 'month';
   String? _bannerMessage;
+  String? _ordersUsage;
+  String? _broadcastUsage;
+  bool _trialOrders = false;
 
   @override
   void initState() {
@@ -66,12 +71,17 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
         });
         return;
       }
-      final company = await CompaniesRecord.getDocumentOnce(companyRef);
+      final snap = await companyRef.get();
+      final company = CompaniesRecord.fromSnapshot(snap);
+      final usage = await _usageLines(company, snap.data() ?? {});
       if (!mounted) {
         return;
       }
       setState(() {
         _company = company;
+        _ordersUsage = usage.orders;
+        _broadcastUsage = usage.broadcast;
+        _trialOrders = usage.trial;
         _loading = false;
       });
     } catch (error) {
@@ -83,6 +93,51 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
         _loading = false;
       });
     }
+  }
+
+  Future<({String? orders, String? broadcast, bool trial})> _usageLines(
+    CompaniesRecord company,
+    Map<String, dynamic> raw,
+  ) async {
+    final status = company.subscriptionStatus;
+    if (status == 'trialing') {
+      final quota = await FirebaseFirestore.instance
+          .collection('trial_quota')
+          .doc(company.reference.id)
+          .get();
+      final used = (quota.data()?['orders_consumed'] as num?)?.toInt() ?? 0;
+      return (
+        orders: '$used / ${company.maxOrdersPerMonth}',
+        broadcast: null,
+        trial: true,
+      );
+    }
+    if (status != 'active') {
+      return (orders: null, broadcast: null, trial: false);
+    }
+    final end = raw['current_period_end'];
+    final period = usagePeriodId(
+      nowUtc: DateTime.now().toUtc(),
+      storedPeriodId: raw['usage_period_id'] as String?,
+      periodEnd: end is Timestamp ? end.toDate() : null,
+    );
+    final usage = await FirebaseFirestore.instance
+        .collection('plan_usage')
+        .doc(company.reference.id)
+        .get();
+    final data = usage.data() ?? {};
+    final same = data['period_id'] == period;
+    final ordersUsed =
+        same ? (data['orders_consumed'] as num?)?.toInt() ?? 0 : 0;
+    final broadcastUsed =
+        same ? (data['broadcast_consumed'] as num?)?.toInt() ?? 0 : 0;
+    final broadcastMax =
+        (raw['broadcast_quota_monthly'] as num?)?.toInt() ?? 0;
+    return (
+      orders: '$ordersUsed / ${company.maxOrdersPerMonth}',
+      broadcast: broadcastMax > 0 ? '$broadcastUsed / $broadcastMax' : null,
+      trial: false,
+    );
   }
 
   Future<void> _openCheckout(String planTier) async {
@@ -250,6 +305,23 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
                                     context,
                                     tr(context, 'billing.trialEnds'),
                                     _formatDate(context, _company!.trialEndsAt),
+                                  ),
+                                if (_ordersUsage != null)
+                                  _infoRow(
+                                    context,
+                                    tr(
+                                      context,
+                                      _trialOrders
+                                          ? 'billing.trialOrders'
+                                          : 'billing.ordersUsage',
+                                    ),
+                                    _ordersUsage!,
+                                  ),
+                                if (_broadcastUsage != null)
+                                  _infoRow(
+                                    context,
+                                    tr(context, 'billing.broadcastUsage'),
+                                    _broadcastUsage!,
                                   ),
                                 if (_company?.currentPeriodEnd != null)
                                   _infoRow(

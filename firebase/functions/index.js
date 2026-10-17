@@ -4,6 +4,7 @@ const { verifyShopifyWebhookHmac } = require("./shopify/verify_hmac");
 const { importShopifyOrder } = require("./shopify/import_service");
 const { TrialLimitError } = require("./trial_quota");
 const { PlanModuleError } = require("./plan_entitlements");
+const { PlanQuotaError } = require("./monthly_usage");
 const { sendStaffNoticePush } = require("./staff_notice_push");
 const {
   syncStaffAuthClaims,
@@ -136,7 +137,9 @@ exports.shopifyOrderCreated = functions
         error instanceof PlanModuleError ||
         error.code === "trial-limit" ||
         error.code === "plan-module" ||
-        error.code === "subscription-inactive"
+        error.code === "plan-quota" ||
+        error.code === "subscription-inactive" ||
+        error instanceof PlanQuotaError
       ) {
         functions.logger.warn("Shopify import blocked by plan or trial limit");
         return res.status(200).json({

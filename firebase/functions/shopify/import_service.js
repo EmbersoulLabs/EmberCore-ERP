@@ -1,6 +1,7 @@
 const { FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { nextDeliveryOrderId } = require("./order_id_helpers");
 const { isTrialTenant, placeTrialOrder } = require("../trial_quota");
+const { isPaidMeteredCompany, placePaidOrder } = require("../monthly_usage");
 const { assertCompanyModule } = require("../plan_entitlements");
 
 const {
@@ -83,11 +84,13 @@ async function importShopifyOrder(db, shopifyOrder, companyId) {
     (sum, item) => sum + Number(item.quantity || 0),
     0,
   );
-  const trial = isTrialTenant(companySnap.data());
+  const company = companySnap.data();
+  const trial = isTrialTenant(company);
+  const paid = isPaidMeteredCompany(company);
   const orderRef = db.collection("orders").doc();
-  // Trial imports assign the delivery number inside the quota transaction.
+  // Metered imports assign the delivery number inside the quota transaction.
   // A rejected import does not consume a number or a slot.
-  const erpOrderId = trial ? "" : await nextDeliveryOrderId(db);
+  const erpOrderId = trial || paid ? "" : await nextDeliveryOrderId(db);
   const now = FieldValue.serverTimestamp();
   const paymentType =
     shopifyOrder.financial_status === "paid" ? "Shopify" : "";
@@ -162,10 +165,11 @@ async function importShopifyOrder(db, shopifyOrder, companyId) {
 
   const recipients = await loadNoticeRecipients(db, companyRef);
 
-  if (trial) {
-    const placed = await placeTrialOrder(db, {
+  if (trial || paid) {
+    const place = trial ? placeTrialOrder : placePaidOrder;
+    const placed = await place(db, {
       companyId,
-      company: companySnap.data(),
+      company,
       orderRef,
       orderData,
       externalOrderId,

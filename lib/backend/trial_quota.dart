@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '/backend/monthly_usage.dart';
+
 /// True only for a provisioned SaaS trial. Legacy companies have no status.
 bool trialQuotaApplies(Map<String, dynamic>? company) {
   if (company == null) {
@@ -75,12 +77,14 @@ Future<void> commitOrderCreate({
   required DocumentReference orderRef,
   required Map<String, dynamic> orderData,
   required String companyId,
+  bool exemptFromQuota = false,
 }) {
   return _commitCreate(
     companyId: companyId,
     kind: 'orders',
     recordRef: orderRef,
     recordData: orderData,
+    exemptFromQuota: exemptFromQuota,
   );
 }
 
@@ -103,6 +107,7 @@ Future<void> _commitCreate({
   required String kind,
   required DocumentReference recordRef,
   required Map<String, dynamic> recordData,
+  bool exemptFromQuota = false,
 }) async {
   final db = FirebaseFirestore.instance;
   final companyRef = db.collection('Companies').doc(companyId);
@@ -112,6 +117,25 @@ Future<void> _commitCreate({
   await db.runTransaction((transaction) async {
     final companySnap = await transaction.get(companyRef);
     final company = companySnap.data();
+    if (exemptFromQuota) {
+      transaction.set(recordRef, recordData);
+      return;
+    }
+    if (orders && paidOrderQuotaApplies(company)) {
+      try {
+        await applyPaidOrderCreate(
+          transaction: transaction,
+          db: db,
+          companyRef: companyRef,
+          company: company ?? {},
+          orderRef: recordRef,
+          orderData: recordData,
+        );
+      } on MonthlyUsageException catch (error) {
+        throw TrialQuotaException(error.message);
+      }
+      return;
+    }
     final enforced = orders
         ? trialQuotaApplies(company)
         : staffSeatQuotaApplies(company);

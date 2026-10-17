@@ -95,6 +95,7 @@ function subscription(priceId, overrides) {
     status: "active",
     customer: "cus_owner",
     metadata: { companyId: "coA" },
+    current_period_start: 1700000000,
     current_period_end: 1800000000,
     items: { data: [{ price: { id: priceId } }] },
     ...overrides,
@@ -359,6 +360,7 @@ describe("stripe billing contract", () => {
     assert.equal(activated.applied, true);
     assert.equal(db.docs.get("Companies/coA").subscription_status, "active");
     assert.equal(db.docs.get("Companies/coA").plan_tier, "pro");
+    assert.equal(db.docs.get("Companies/coA").usage_period_id, "1700000000");
     assert.equal(db.docs.get("Companies/coA").max_orders_per_month, 3000);
     assert.equal(db.docs.get("Companies/coA").max_staff_seats, 10);
     assert.equal(db.docs.get("Companies/coA").broadcast_quota_monthly, 2000);

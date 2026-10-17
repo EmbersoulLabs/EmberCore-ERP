@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '/auth/firebase_auth/auth_util.dart';
+import '/auth/role_helpers.dart';
+import '/auth/viewer_role_helpers.dart';
 import '/backend/observability/app_logger.dart';
 import '/backend/observability/observability_service.dart';
 import '/backend/observability/performance_baselines.dart';
@@ -205,6 +207,7 @@ Future<DocumentReference> _createDraftOrderDocument() async {
       orderRef: orderRef,
       orderData: orderData,
       companyId: companyId,
+      exemptFromQuota: isSuperAdminRole(currentViewerRole()),
     );
   } on TrialQuotaException catch (error) {
     throw CreateOrderException(error.message);

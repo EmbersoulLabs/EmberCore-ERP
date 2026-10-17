@@ -1769,12 +1769,213 @@ describe("trial quota enforcement", () => {
         is_active: true,
       });
     });
+    const periodEnd = new Date("2099-01-01T00:00:00.000Z");
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().doc("Companies/companyPaid").set({
+        Company_name: "Paid",
+        is_active: true,
+        subscription_status: "active",
+        pricing_version: "v1",
+        plan_tier: "pro",
+        max_orders_per_month: 10000,
+        usage_period_id: "period-paid",
+        current_period_end: periodEnd,
+      });
+    });
     const db = authed("directorPaid").firestore();
     await assertSucceeds(
-      db.collection("orders").add({
+      db.runTransaction(async (tx) => {
+        tx.set(db.collection("orders").doc("paidOrder1"), {
+          status: "pending",
+          orderstatus: "pending",
+          companyRef: db.doc("Companies/companyPaid"),
+          plan_period: "period-paid",
+          plan_slot: "1",
+        });
+        tx.set(db.doc("plan_order_slots/companyPaid/periods/period-paid/slots/1"), {
+          order_id: "paidOrder1",
+        });
+        tx.set(db.doc("plan_usage/companyPaid"), {
+          period_id: "period-paid",
+          orders_consumed: 1,
+          broadcast_consumed: 0,
+        });
+      }),
+    );
+  });
+
+  it("meters paid monthly orders, rollover, and broadcast recipients", async () => {
+    const periodEnd = new Date("2099-01-01T00:00:00.000Z");
+    async function seedMetered(id, ordersMax, broadcastMax, orders, broadcast) {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.doc(`Companies/${id}`).set({
+          Company_name: id,
+          is_active: true,
+          subscription_status: "active",
+          pricing_version: "v1",
+          usage_period_id: "p1",
+          current_period_end: periodEnd,
+          max_orders_per_month: ordersMax,
+          broadcast_quota_monthly: broadcastMax,
+        });
+        await db.doc(`plan_usage/${id}`).set({
+          period_id: "p1",
+          orders_consumed: orders,
+          broadcast_consumed: broadcast,
+        });
+        await db.doc(`users/director_${id}`).set({
+          role: "director",
+          email: `director_${id}@test.com`,
+          companyRef: db.doc(`Companies/${id}`),
+          trial_enforced: true,
+          is_active: true,
+        });
+      });
+    }
+    async function claimOrder(id, slot) {
+      const db = authed(`director_${id}`).firestore();
+      const orderId = `${id}-o-${slot}`;
+      await db.runTransaction(async (tx) => {
+        tx.set(db.doc(`orders/${orderId}`), {
+          status: "pending",
+          orderstatus: "pending",
+          companyRef: db.doc(`Companies/${id}`),
+          plan_period: "p1",
+          plan_slot: String(slot),
+        });
+        tx.set(db.doc(`plan_order_slots/${id}/periods/p1/slots/${slot}`), {
+          order_id: orderId,
+        });
+        tx.update(db.doc(`plan_usage/${id}`), { orders_consumed: slot });
+      });
+    }
+    async function claimBroadcast(id, suffix, added, next) {
+      const db = authed(`director_${id}`).firestore();
+      const attempt = `${id}_${suffix}`;
+      await db.runTransaction(async (tx) => {
+        tx.set(db.doc(`broadcast_reservations/${attempt}`), {
+          company_id: id,
+          period_id: "p1",
+          count: added,
+          status: "reserved",
+        });
+        tx.update(db.doc(`plan_usage/${id}`), {
+          broadcast_consumed: next,
+          broadcast_attempt: attempt,
+        });
+      });
+    }
+
+    await seedMetered("cap500", 500, 0, 499, 0);
+    await assertSucceeds(claimOrder("cap500", 500));
+    await assertFails(claimOrder("cap500", 501));
+
+    await seedMetered("cap3000", 3000, 2000, 2999, 1999);
+    await assertSucceeds(claimOrder("cap3000", 3000));
+    await assertFails(claimOrder("cap3000", 3001));
+    await assertSucceeds(claimBroadcast("cap3000", "ok", 1, 2000));
+    await assertFails(claimBroadcast("cap3000", "over", 1, 2001));
+    await assertFails(claimBroadcast("cap3000", "ok", 1, 2001));
+
+    await seedMetered("cap10000", 10000, 10000, 9999, 9999);
+    await assertSucceeds(claimOrder("cap10000", 10000));
+    await assertFails(claimOrder("cap10000", 10001));
+    await assertSucceeds(claimBroadcast("cap10000", "ok", 1, 10000));
+    await assertFails(claimBroadcast("cap10000", "over", 1, 10001));
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc("Companies/roll").set({
+        is_active: true,
+        subscription_status: "active",
+        pricing_version: "v1",
+        usage_period_id: "p2",
+        current_period_end: periodEnd,
+        max_orders_per_month: 500,
+        broadcast_quota_monthly: 0,
+      });
+      await db.doc("plan_usage/roll").set({
+        period_id: "p1",
+        orders_consumed: 500,
+        broadcast_consumed: 4,
+      });
+      await db.doc("users/director_roll").set({
+        role: "director",
+        email: "director_roll@test.com",
+        companyRef: db.doc("Companies/roll"),
+        trial_enforced: true,
+        is_active: true,
+      });
+      await db.doc("trial_quota/roll").set({ orders_consumed: 100 });
+    });
+    const roll = authed("director_roll").firestore();
+    await assertSucceeds(
+      roll.runTransaction(async (tx) => {
+        tx.set(roll.doc("orders/roll-1"), {
+          status: "pending",
+          orderstatus: "pending",
+          companyRef: roll.doc("Companies/roll"),
+          plan_period: "p2",
+          plan_slot: "1",
+        });
+        tx.set(roll.doc("plan_order_slots/roll/periods/p2/slots/1"), {
+          order_id: "roll-1",
+        });
+        tx.update(roll.doc("plan_usage/roll"), {
+          period_id: "p2",
+          orders_consumed: 1,
+          broadcast_consumed: 0,
+        });
+      }),
+    );
+    await assertFails(
+      roll.runTransaction(async (tx) => {
+        tx.set(roll.doc("orders/hack"), {
+          status: "pending",
+          orderstatus: "pending",
+          companyRef: roll.doc("Companies/roll"),
+          plan_period: "hacked-period",
+          plan_slot: "1",
+        });
+        tx.set(roll.doc("plan_order_slots/roll/periods/hacked-period/slots/1"), {
+          order_id: "hack",
+        });
+        tx.update(roll.doc("plan_usage/roll"), {
+          period_id: "hacked-period",
+          orders_consumed: 1,
+          broadcast_consumed: 0,
+        });
+      }),
+    );
+    await assertFails(
+      roll.doc("Companies/roll").update({ usage_period_id: "hacked-period" }),
+    );
+
+    const releaseDb = authed("director_cap3000").firestore();
+    await assertSucceeds(
+      releaseDb.runTransaction(async (tx) => {
+        tx.update(releaseDb.doc("broadcast_reservations/cap3000_ok"), {
+          status: "released",
+        });
+        tx.update(releaseDb.doc("plan_usage/cap3000"), {
+          broadcast_consumed: 1999,
+          broadcast_attempt: "cap3000_ok",
+        });
+      }),
+    );
+
+    await assertFails(
+      authed("director_cap500").firestore().doc("plan_usage/cap3000").update({
+        orders_consumed: 1,
+      }),
+    );
+    const admin = authed("superA").firestore();
+    await assertSucceeds(
+      admin.collection("orders").add({
         status: "pending",
         orderstatus: "pending",
-        companyRef: db.doc("Companies/companyPaid"),
+        companyRef: admin.doc("Companies/cap500"),
       }),
     );
   });

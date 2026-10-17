@@ -30,6 +30,21 @@ const Map<String, Map<String, String>> billingStrings = {
     'zh': '试用结束',
     'ms': 'Percubaan tamat',
   },
+  'billing.trialOrders': {
+    'en': 'Trial orders',
+    'zh': '试用订单',
+    'ms': 'Pesanan percubaan',
+  },
+  'billing.ordersUsage': {
+    'en': 'Orders this period',
+    'zh': '本周期订单',
+    'ms': 'Pesanan tempoh ini',
+  },
+  'billing.broadcastUsage': {
+    'en': 'Broadcast recipients',
+    'zh': '群发收件人',
+    'ms': 'Penerima siaran',
+  },
   'billing.renews': {
     'en': 'Renews',
     'zh': '续费日',
