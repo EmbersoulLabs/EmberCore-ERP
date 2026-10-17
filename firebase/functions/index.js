@@ -2,6 +2,9 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { verifyShopifyWebhookHmac } = require("./shopify/verify_hmac");
 const { importShopifyOrder } = require("./shopify/import_service");
+const { TrialLimitError } = require("./trial_quota");
+const { PlanModuleError } = require("./plan_entitlements");
+const { PlanQuotaError } = require("./monthly_usage");
 const { sendStaffNoticePush } = require("./staff_notice_push");
 const {
   syncStaffAuthClaims,
@@ -20,6 +23,8 @@ const { parseOrderMessageWithGemini } = require("./order_import_parser");
 const {
   assertCallerIsSuperadmin,
   approveRegistrationRequestImpl,
+  rejectRegistrationRequestImpl,
+  recordDirectorFirstLoginImpl,
 } = require("./registration_provisioning");
 const { createBranchImpl } = require("./branch_provisioning");
 const {
@@ -127,6 +132,22 @@ exports.shopifyOrderCreated = functions
         noticesCreated: result.noticesCreated ?? 0,
       });
     } catch (error) {
+      if (
+        error instanceof TrialLimitError ||
+        error instanceof PlanModuleError ||
+        error.code === "trial-limit" ||
+        error.code === "plan-module" ||
+        error.code === "plan-quota" ||
+        error.code === "subscription-inactive" ||
+        error instanceof PlanQuotaError
+      ) {
+        functions.logger.warn("Shopify import blocked by plan or trial limit");
+        return res.status(200).json({
+          ok: false,
+          limited: true,
+          error: error.message,
+        });
+      }
       functions.logger.error("Shopify import failed", error);
       return res.status(500).json({ error: "Import failed" });
     }
@@ -428,6 +449,42 @@ exports.approveRegistrationRequest = functions
       passwordSet: result.passwordSet,
     });
     return result;
+  });
+
+/**
+ * Callable: rejectRegistrationRequest
+ * Superadmin-only. Marks a pending application rejected. Does not provision.
+ */
+exports.rejectRegistrationRequest = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 60,
+    memory: "256MB",
+  })
+  .https.onCall(async (data, context) => {
+    const reviewerUid = await assertCallerIsSuperadmin(db, context);
+    const result = await rejectRegistrationRequestImpl(db, data, reviewerUid);
+    functions.logger.info("registration request rejected", {
+      reviewerUid,
+      requestId: data && data.requestId,
+    });
+    return result;
+  });
+
+/**
+ * Callable: recordDirectorFirstLogin
+ * The signed-in director stamps first-login activation. Idempotent.
+ */
+exports.recordDirectorFirstLogin = functions
+  .region(FUNCTION_REGION)
+  .https.onCall(async (data, context) => {
+    if (!context.auth || !context.auth.uid) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Sign in required.",
+      );
+    }
+    return recordDirectorFirstLoginImpl(db, context.auth.uid);
   });
 
 /**

@@ -8,6 +8,36 @@ import '/flutter_flow/flutter_flow_util.dart';
 
 const userRegistrationRequestsCollection = 'user_registration_requests';
 
+const supportedRegistrationCountries = {'MY', 'SG'};
+
+String? validateUserRegistrationInput({
+  required String name,
+  required String phone,
+  required String email,
+  required UserSignupAccountType accountType,
+  String? companyName,
+  required String country,
+}) {
+  if (name.trim().isEmpty) {
+    return 'Please enter your name.';
+  }
+  final trimmedEmail = email.trim().toLowerCase();
+  if (trimmedEmail.isEmpty || !trimmedEmail.contains('@')) {
+    return 'Please enter a valid email address.';
+  }
+  if (phone.trim().isEmpty) {
+    return 'Please enter your phone number.';
+  }
+  if (!supportedRegistrationCountries.contains(country.trim().toUpperCase())) {
+    return 'Choose Malaysia or Singapore.';
+  }
+  if (accountType == UserSignupAccountType.company &&
+      (companyName ?? '').trim().isEmpty) {
+    return 'Please enter the company name.';
+  }
+  return null;
+}
+
 /// Document id = normalized email.
 String userRegistrationRequestDocId(String email) =>
     email.trim().toLowerCase();
@@ -66,38 +96,25 @@ Future<UserRegistrationSubmitResult> submitUserRegistrationRequest({
   String? companyPhone,
   String? companyEmail,
   String? companyLogoUrl,
+  String country = 'MY',
 }) async {
   final trimmedName = name.trim();
   final trimmedEmail = email.trim().toLowerCase();
   final trimmedPhone = phone.trim();
-
-  if (trimmedName.isEmpty) {
-    return const UserRegistrationSubmitResult(
+  final countryCode = country.trim().toUpperCase();
+  final validationError = validateUserRegistrationInput(
+    name: trimmedName,
+    phone: trimmedPhone,
+    email: trimmedEmail,
+    accountType: accountType,
+    companyName: companyName,
+    country: countryCode,
+  );
+  if (validationError != null) {
+    return UserRegistrationSubmitResult(
       success: false,
-      errorMessage: 'Please enter your name.',
+      errorMessage: validationError,
     );
-  }
-  if (trimmedEmail.isEmpty || !trimmedEmail.contains('@')) {
-    return const UserRegistrationSubmitResult(
-      success: false,
-      errorMessage: 'Please enter a valid email address.',
-    );
-  }
-  if (trimmedPhone.isEmpty) {
-    return const UserRegistrationSubmitResult(
-      success: false,
-      errorMessage: 'Please enter your phone number.',
-    );
-  }
-
-  if (accountType == UserSignupAccountType.company) {
-    final trimmedCompanyName = (companyName ?? '').trim();
-    if (trimmedCompanyName.isEmpty) {
-      return const UserRegistrationSubmitResult(
-        success: false,
-        errorMessage: 'Please enter the company name.',
-      );
-    }
   }
 
   final requestId = userRegistrationRequestDocId(trimmedEmail);
@@ -129,6 +146,7 @@ Future<UserRegistrationSubmitResult> submitUserRegistrationRequest({
     'name': trimmedName,
     'phone': trimmedPhone,
     'account_type': userSignupAccountTypeKey(accountType),
+    'country': countryCode,
     'status': 'pending',
     'created_time': FieldValue.serverTimestamp(),
   };

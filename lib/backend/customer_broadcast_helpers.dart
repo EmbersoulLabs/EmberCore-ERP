@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '/auth/role_helpers.dart';
+import '/auth/viewer_role_helpers.dart';
+import '/backend/monthly_usage.dart';
+import '/backend/tenant_context.dart';
 import '/backend/broadcast_clipboard_helper.dart';
 import '/backend/customer_broadcast_image_helpers.dart';
 import '/backend/customer_helpers.dart';
@@ -9,6 +13,8 @@ import '/backend/order_whatsapp_helpers.dart';
 import '/backend/schema/customers_record.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/l10n/tr.dart';
+import '/platform/plan_entitlements.dart';
+import '/platform/platform_module.dart';
 
 enum CustomerBroadcastChannel {
   whatsapp,
@@ -311,6 +317,103 @@ Future<bool> _copyEmailBroadcastAddresses(
 
 enum CustomerBroadcastStepAction { send, skip, cancel }
 
+/// Client cap for the clipboard/WhatsApp broadcast flow.
+/// There is no server send record, so this cannot accumulate a monthly total.
+String? customerBroadcastPlanBlock(int recipientCount) {
+  if (isSuperAdminRole(currentViewerRole())) {
+    return null;
+  }
+  final company = TenantContext.instance.activeCompany;
+  if (!planAllowsModule(
+    subscriptionStatus: company?.subscriptionStatus,
+    planTier: company?.planTier,
+    module: PlatformModule.customerBroadcast,
+  )) {
+    return planUpgradeMessage(PlatformModule.customerBroadcast);
+  }
+  final limit = broadcastMonthlyRecipientLimit(
+    subscriptionStatus: company?.subscriptionStatus,
+    planTier: company?.planTier,
+    superAdmin: false,
+  );
+  if (limit != null && recipientCount > limit) {
+    return 'This plan allows $limit broadcast recipients. '
+        'Reduce the list or upgrade.';
+  }
+  return null;
+}
+
+void _showBroadcastPlanBlock(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message), duration: const Duration(seconds: 8)),
+  );
+}
+
+/// Quota is consumed at reservation. A failed launcher releases it.
+/// A successful launch is marked opened; that is not a delivery receipt.
+Future<bool> _reserveAndOpenWhatsApp({
+  required BuildContext context,
+  required String? companyId,
+  required String attemptId,
+  required CustomerBroadcastRecipient recipient,
+  required String message,
+  String? imageUrl,
+}) async {
+  if (companyId == null || attemptId.isEmpty) {
+    return false;
+  }
+  var activeAttempt = attemptId;
+  if (!isSuperAdminRole(currentViewerRole())) {
+    try {
+      BroadcastReservation? reservation;
+      for (var nonce = 0; nonce < 3; nonce++) {
+        activeAttempt = nonce == 0 ? attemptId : '${attemptId}_$nonce';
+        reservation = await reserveBroadcastRecipients(
+          companyId: companyId,
+          attemptId: activeAttempt,
+          count: 1,
+        );
+        if (!(reservation.duplicate && reservation.status == 'released')) {
+          break;
+        }
+        reservation = null;
+      }
+      if (reservation == null) {
+        return false;
+      }
+      if (reservation.duplicate && reservation.status == 'opened') {
+        return true;
+      }
+    } on MonthlyUsageException catch (error) {
+      if (context.mounted) {
+        _showBroadcastPlanBlock(context, error.message);
+      }
+      return false;
+    }
+  }
+  final opened = await launchCustomerBroadcastWhatsApp(
+    context: context,
+    recipient: recipient,
+    message: message,
+    imageUrl: imageUrl,
+  );
+  if (isSuperAdminRole(currentViewerRole())) {
+    return opened;
+  }
+  if (!opened) {
+    await releaseBroadcastReservation(
+      companyId: companyId,
+      attemptId: activeAttempt,
+    );
+    return false;
+  }
+  await markBroadcastReservationOpened(
+    companyId: companyId,
+    attemptId: activeAttempt,
+  );
+  return true;
+}
+
 Future<void> runCustomerWhatsAppBroadcast({
   required BuildContext context,
   required List<CustomersRecord> customers,
@@ -318,6 +421,13 @@ Future<void> runCustomerWhatsAppBroadcast({
   String? imageUrl,
 }) async {
   final recipients = filterCustomersForBroadcast(customers);
+  final blocked = customerBroadcastPlanBlock(recipients.length);
+  if (blocked != null) {
+    if (context.mounted) {
+      _showBroadcastPlanBlock(context, blocked);
+    }
+    return;
+  }
   if (recipients.isEmpty) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -333,6 +443,9 @@ Future<void> runCustomerWhatsAppBroadcast({
     message: message,
     imageUrl: imageUrl,
   );
+  final companyId = TenantContext.instance.writeCompanyRef?.id ??
+      TenantContext.instance.activeCompanyRef?.id;
+  final session = DateTime.now().microsecondsSinceEpoch.toString();
 
   var index = 0;
   while (context.mounted && index < recipients.length) {
@@ -395,12 +508,19 @@ Future<void> runCustomerWhatsAppBroadcast({
             ),
             FilledButton(
               onPressed: () async {
-                await launchCustomerBroadcastWhatsApp(
+                final opened = await _reserveAndOpenWhatsApp(
                   context: dialogContext,
+                  companyId: companyId,
+                  attemptId: companyId == null
+                      ? ''
+                      : '${companyId}_${session}_$index',
                   recipient: recipient,
                   message: message,
                   imageUrl: imageUrl,
                 );
+                if (!opened) {
+                  return;
+                }
                 if (dialogContext.mounted) {
                   Navigator.of(dialogContext).pop(
                     CustomerBroadcastStepAction.send,
@@ -440,6 +560,13 @@ Future<void> runCustomerEmailBroadcast({
   String? imageUrl,
 }) async {
   final recipients = filterCustomersForEmailBroadcast(customers);
+  final blocked = customerBroadcastPlanBlock(recipients.length);
+  if (blocked != null) {
+    if (context.mounted) {
+      _showBroadcastPlanBlock(context, blocked);
+    }
+    return;
+  }
   if (recipients.isEmpty) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -475,6 +602,30 @@ Future<void> runCustomerEmailBroadcast({
           imageUrl: hasImage ? trimmedImageUrl : null,
         );
 
+  final companyId = TenantContext.instance.writeCompanyRef?.id ??
+      TenantContext.instance.activeCompanyRef?.id;
+  final attemptId = companyId == null
+      ? ''
+      : '${companyId}_email_${DateTime.now().microsecondsSinceEpoch}';
+  BroadcastReservation? reservation;
+  if (companyId != null && !isSuperAdminRole(currentViewerRole())) {
+    try {
+      reservation = await reserveBroadcastRecipients(
+        companyId: companyId,
+        attemptId: attemptId,
+        count: recipients.length,
+      );
+      if (reservation.duplicate && reservation.status == 'opened') {
+        return;
+      }
+    } on MonthlyUsageException catch (error) {
+      if (context.mounted) {
+        _showBroadcastPlanBlock(context, error.message);
+      }
+      return;
+    }
+  }
+
   final launched = await launchCustomerBroadcastEmail(
     context: context,
     recipients: recipients,
@@ -482,7 +633,24 @@ Future<void> runCustomerEmailBroadcast({
     message: mailtoMessage,
   );
 
-  if (!context.mounted || !launched) {
+  if (!launched) {
+    if (reservation != null &&
+        !reservation.duplicate &&
+        companyId != null) {
+      await releaseBroadcastReservation(
+        companyId: companyId,
+        attemptId: attemptId,
+      );
+    }
+    return;
+  }
+  if (reservation != null && companyId != null) {
+    await markBroadcastReservationOpened(
+      companyId: companyId,
+      attemptId: attemptId,
+    );
+  }
+  if (!context.mounted) {
     return;
   }
 

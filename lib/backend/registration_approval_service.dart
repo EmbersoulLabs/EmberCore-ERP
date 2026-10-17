@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
-import '/auth/firebase_auth/auth_util.dart';
 import '/auth/role_helpers.dart';
 import '/auth/viewer_role_helpers.dart';
 import '/backend/create_order_service.dart';
@@ -274,37 +273,37 @@ Future<RegistrationRejectionResult> rejectRegistrationRequest({
     );
   }
 
-  final docRef = registrationRequestDocRef(requestId);
   try {
-    final snapshot = await docRef.get();
-    if (!snapshot.exists) {
-      return const RegistrationRejectionResult(
-        success: false,
-        errorMessage: 'Registration request not found.',
-      );
-    }
-    final request = UserRegistrationRequest.fromSnapshot(snapshot);
-    if (!request.isPending) {
-      return const RegistrationRejectionResult(
-        success: false,
-        errorMessage: 'This request is no longer pending.',
-      );
-    }
-
-    await docRef.update({
-      'status': registrationRequestStatusKey(
-        RegistrationRequestStatus.rejected,
-      ),
-      'rejection_note': trimmedNote,
-      'reviewed_at': FieldValue.serverTimestamp(),
-      'reviewed_by_uid': currentUserUid,
+    final callable = FirebaseFunctions.instanceFor(region: _functionsRegion)
+        .httpsCallable('rejectRegistrationRequest');
+    await callable.call<Map<String, dynamic>>({
+      'requestId': requestId,
+      'note': trimmedNote,
     });
     return const RegistrationRejectionResult(success: true);
+  } on FirebaseFunctionsException catch (error) {
+    return RegistrationRejectionResult(
+      success: false,
+      errorMessage:
+          error.message ?? 'Could not reject this registration request.',
+    );
   } catch (error) {
     return RegistrationRejectionResult(
       success: false,
       errorMessage: describeFirestoreError(error),
     );
+  }
+}
+
+/// Records first-login activation for a director provisioned by approval.
+/// Existing accounts without the pending flag are left unchanged.
+Future<void> recordDirectorFirstLogin() async {
+  try {
+    final callable = FirebaseFunctions.instanceFor(region: _functionsRegion)
+        .httpsCallable('recordDirectorFirstLogin');
+    await callable.call();
+  } catch (_) {
+    // Login must succeed even if this stamp is delayed.
   }
 }
 

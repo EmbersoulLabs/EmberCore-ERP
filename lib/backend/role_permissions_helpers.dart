@@ -5,6 +5,7 @@ import '/backend/schema/enums/enums.dart';
 import '/backend/tenant_company_helpers.dart';
 import '/backend/tenant_context.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/platform/plan_entitlements.dart';
 
 DocumentReference? tenantRolePermissionsDocRef() {
   final ref = TenantContext.instance.writeCompanyRef ??
@@ -127,6 +128,14 @@ bool effectivePermission({
   }
   if (role == UserRole.superadmin) {
     return true;
+  }
+  if (permission == AppPermission.viewAuditLog &&
+      !planAllowsAuditLog(
+        subscriptionStatus:
+            TenantContext.instance.activeCompany?.subscriptionStatus,
+        planTier: TenantContext.instance.activeCompany?.planTier,
+      )) {
+    return false;
   }
   final override = resolvePermissionOverride(overrides, role, permission);
   if (override != null) {
