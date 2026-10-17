@@ -73,7 +73,11 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
       }
       final snap = await companyRef.get();
       final company = CompaniesRecord.fromSnapshot(snap);
-      final usage = await _usageLines(company, snap.data() ?? {});
+      final raw = snap.data();
+      final usage = await _usageLines(
+        company,
+        raw is Map<String, dynamic> ? raw : <String, dynamic>{},
+      );
       if (!mounted) {
         return;
       }
