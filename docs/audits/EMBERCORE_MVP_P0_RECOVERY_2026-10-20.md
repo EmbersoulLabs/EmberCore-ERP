@@ -2,7 +2,7 @@
 
 ## Executive decision
 
-**PARTIAL.** The candidate fixes the verified code-level tenant-isolation and authorization P0s and adds required SaaS lifecycle CI coverage. Local targeted gates pass. Launch remains blocked by operational backup/restore certification, tenant-media migration, exact-head GitHub CI completion, staging/deployment parity, and live Stripe configuration verification. No production system was changed.
+**PARTIAL.** The candidate fixes the verified code-level tenant-isolation and authorization P0s and adds required SaaS lifecycle CI coverage. Local targeted gates and exact-head GitHub CI pass. Launch remains blocked by operational backup/restore certification, tenant-media migration, staging/deployment parity, and live Stripe configuration verification. No production system was changed.
 
 ## Identity
 
@@ -40,6 +40,8 @@
 | SaaS/Stripe targeted Node suites | **54/54 PASS** |
 | Changed Flutter upload-path suites | **15/15 PASS** |
 | Flutter analyzer | Exit 0 with 1,784 existing generated-code warnings/infos; no fatal analyzer error |
+| GitHub push CI `39415637634` at `1efafd5c...` | **PASS**: Flutter, Firestore/Storage, SaaS lifecycle |
+| GitHub PR CI `39415644198` at `1efafd5c...` | **PASS**: Flutter, Firestore/Storage, SaaS lifecycle |
 
 The emulator matrix includes cross-tenant read/write/delete denials, self-role and tenant elevation denials, subscription tampering denial, trial/paid quota caps, monthly rollover, concurrent last-slot enforcement, and concurrent order-number uniqueness. The Stripe tests include invalid/valid signature handling, tenant mapping, stale-role denial, event idempotency and stale-event ordering. No real payment was attempted.
 
@@ -62,7 +64,7 @@ Tenant security is not 1.0 because legacy Storage objects still need migration a
 
 ## Remaining blockers and minimum release path
 
-1. Pass exact-head GitHub CI and review the security diff.
+1. Review the security diff; exact-head GitHub CI has passed.
 2. Inventory legacy sensitive Storage objects, copy them to tenant-scoped paths with an audited non-destructive job, update references, then verify before removing old objects.
 3. Configure managed Firestore backup retention and Auth export under approved production operations; restore both into an isolated recovery project and retain the evidence required by the runbook.
 4. Deploy this exact candidate to staging only and run a two-tenant registration-to-order, POS/receipt, delivery, Shopify duplicate, WhatsApp, quota and cancellation smoke matrix.
