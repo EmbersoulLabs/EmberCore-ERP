@@ -12,9 +12,13 @@ import '/backend/user_query_helpers.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/upload_data.dart';
 
-String deliveryProofStoragePath(String orderId, String filename) {
+String deliveryProofStoragePath(
+  String companyId,
+  String orderId,
+  String filename,
+) {
   final safeName = filename.replaceAll(RegExp(r'[^\w.\-]'), '_');
-  return 'delivery_proof_images/$orderId/$safeName';
+  return 'tenant_media/$companyId/delivery_proof_images/$orderId/$safeName';
 }
 
 const int maxDeliveryProofPhotos = 5;
@@ -140,8 +144,11 @@ Future<bool> uploadOrderDeliveryProof({
   final uploadedUrls = <String>[];
   for (final media in uploads) {
     final filename = media.storagePath.split('/').last;
-    final storagePath =
-        deliveryProofStoragePath(order.reference.id, filename);
+    final storagePath = deliveryProofStoragePath(
+      order.companyRef!.id,
+      order.reference.id,
+      filename,
+    );
     final uploadResult = await uploadDataWithResult(storagePath, media.bytes);
     if (!uploadResult.isSuccess) {
       if (context.mounted) {

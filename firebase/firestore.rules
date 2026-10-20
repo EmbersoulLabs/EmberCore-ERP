@@ -184,6 +184,30 @@ service cloud.firestore {
           .hasAny(['permission_overrides']);
     }
 
+    function userAuthorityFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'uid', 'email', 'role', 'companyRef', 'permission_overrides',
+        'trial_enforced', 'trial_slot'
+      ]);
+    }
+
+    function userUpdateAllowed(userId) {
+      return isSuperAdminUser()
+        || (
+          isSelfUser(userId)
+          && !userAuthorityFieldsChanged()
+        )
+        || (
+          canManageStaffProfiles()
+          && docBelongsToAuthTenant(resource.data)
+          && incomingBelongsToAuthTenant()
+          && tenantUnchangedOnUpdate()
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.email == resource.data.email
+          && !permissionOverridesChangedOnUserUpdate()
+        );
+    }
+
     function isPaidInvoiceDoc() {
       return resource.data.get('status', '') == 'paid';
     }
@@ -1313,7 +1337,12 @@ service cloud.firestore {
 
     // --- users ---
     match /users/{userId} {
-      allow read: if isSignedIn() && (isSelfUser(userId) || isStaffUser());
+      allow read: if isSignedIn()
+        && (
+          isSelfUser(userId)
+          || isSuperAdminUser()
+          || (isStaffUser() && docBelongsToAuthTenant(resource.data))
+        );
       allow create: if isSignedIn()
         && request.auth.uid == userId
         && request.resource.data.uid == request.auth.uid
@@ -1327,13 +1356,7 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && trialEnforcedFlagUnchanged()
         && protectsSuperAdminAssignment()
-        && (
-          (isSuperAdminUser() && (isSelfUser(userId) || canManageStaffProfiles()))
-          || (
-            (isSelfUser(userId) || canManageStaffProfiles())
-            && !permissionOverridesChangedOnUserUpdate()
-          )
-        );
+        && userUpdateAllowed(userId);
       allow delete: if canDeleteStaffProfile(userId);
 
       match /fcm_tokens/{tokenId} {
@@ -1596,7 +1619,9 @@ service cloud.firestore {
         && trialOrderCreateOk(orderId)
         && shopifyImportCreateOk();
       allow update: if canUpdateOrderDoc();
-      allow delete: if isPlatformAdminUser() || canDeleteOrdersByPermission();
+      allow delete: if isSuperAdminUser()
+        || ((isAdminUser() || canDeleteOrdersByPermission())
+          && docBelongsToAuthTenant(resource.data));
     }
 
     match /orders/{parent}/internal_messages/{document} {
@@ -1605,11 +1630,13 @@ service cloud.firestore {
       allow create, update: if isOperationsStaffUser()
         && docBelongsToAuthTenant(orderDocData(parent))
         && incomingBelongsToAuthTenant();
-      allow delete: if isPlatformAdminUser();
+      allow delete: if isSuperAdminUser()
+        || (isAdminUser() && docBelongsToAuthTenant(orderDocData(parent)));
     }
 
     match /{path=**}/internal_messages/{document} {
-      allow read: if canReadOrders();
+      allow read: if canReadOrders()
+        && docBelongsToAuthTenant(resource.data);
     }
 
     // --- order line items ---
@@ -1624,7 +1651,9 @@ service cloud.firestore {
             || !isPaidOrderItemParent()
             || effectiveAppPermission('editPaidOrderDetails'))
         || isOrderLineItemUpdateByPermission());
-      allow delete: if isPlatformAdminUser() || canDeleteOrdersByPermission();
+      allow delete: if isSuperAdminUser()
+        || ((isAdminUser() || canDeleteOrdersByPermission())
+          && orderItemBelongsToAuthTenant());
     }
 
     // --- catalog ---
@@ -1770,12 +1799,18 @@ service cloud.firestore {
 
     match /Companies/{document} {
       allow read: if isSignedIn()
-        || resource.data.is_active == true;
+        && (
+          isSuperAdminUser()
+          || document == authUserCanonicalCompanyId()
+        );
       allow create: if isSignedIn()
         && isSuperAdminUser()
         && !request.resource.data.keys().hasAny(subscriptionAuthorityKeys());
       allow update: if isSignedIn()
-        && isPlatformAdminUser()
+        && (
+          isSuperAdminUser()
+          || (isAdminUser() && document == authUserCanonicalCompanyId())
+        )
         && !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(subscriptionAuthorityKeys());
       allow delete: if isSignedIn() && isSuperAdminUser();
@@ -1804,7 +1839,8 @@ service cloud.firestore {
           isPlatformAdminUser()
           || effectiveAppPermission('viewAuditLog')
         );
-      allow create: if isSignedIn();
+      allow create: if isSignedIn()
+        && auditLogBelongsToAuthTenant(request.resource.data);
       allow update, delete: if false;
     }
 

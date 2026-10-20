@@ -717,7 +717,7 @@ describe("audit_logs", () => {
     await assertSucceeds(db.collection("audit_logs").doc("log1").get());
   });
 
-  it("authenticated user creates audit log", async () => {
+  it("authenticated user creates an own-tenant audit log", async () => {
     const db = authed("driverA").firestore();
     await assertSucceeds(
       db.collection("audit_logs").add({
@@ -725,6 +725,20 @@ describe("audit_logs", () => {
         entityType: "receipt",
         entityId: "orderA",
         userId: "driverA",
+        companyId: "companyA",
+      }),
+    );
+  });
+
+  it("authenticated user cannot create a cross-tenant audit log", async () => {
+    const db = authed("driverA").firestore();
+    await assertFails(
+      db.collection("audit_logs").add({
+        action: "print_receipt",
+        entityType: "receipt",
+        entityId: "orderB",
+        userId: "driverA",
+        companyId: "companyB",
       }),
     );
   });
@@ -881,6 +895,32 @@ describe("product catalog", () => {
 });
 
 describe("users staff profiles", () => {
+  it("tenant staff cannot read another tenant user profile", async () => {
+    const db = authed("floristA").firestore();
+    await assertSucceeds(db.doc("users/floristA").get());
+    await assertFails(db.doc("users/staffB").get());
+  });
+
+  it("ordinary user cannot elevate their own role or move tenant", async () => {
+    const db = authed("floristA").firestore();
+    await assertFails(db.doc("users/floristA").update({ role: "admin" }));
+    await assertFails(
+      db.doc("users/floristA").update({
+        companyRef: db.doc("Companies/companyB"),
+      }),
+    );
+    await assertSucceeds(
+      db.doc("users/floristA").update({ display_name: "Florist A" }),
+    );
+  });
+
+  it("tenant admin cannot update another tenant user", async () => {
+    const db = authed("admin").firestore();
+    await assertFails(
+      db.doc("users/staffB").update({ role: "florist" }),
+    );
+  });
+
   it("admin deletes florist in own company", async () => {
     const db = authed("admin").firestore();
     await assertSucceeds(db.doc("users/floristA").delete());
@@ -920,6 +960,35 @@ describe("users staff profiles", () => {
     });
     const db = authed("managerB").firestore();
     await assertFails(db.doc("users/managerB2").delete());
+  });
+});
+
+describe("company and destructive operation isolation", () => {
+  it("denies unauthenticated and cross-tenant company reads", async () => {
+    await assertFails(
+      testEnv.unauthenticatedContext().firestore().doc("Companies/companyA").get(),
+    );
+    const db = authed("floristA").firestore();
+    await assertSucceeds(db.doc("Companies/companyA").get());
+    await assertFails(db.doc("Companies/companyB").get());
+  });
+
+  it("tenant admin cannot delete another tenant order or line item", async () => {
+    const db = authed("admin").firestore();
+    await assertFails(db.doc("orders/orderB").delete());
+    await assertFails(db.doc("Order_item/itemB").delete());
+    await assertSucceeds(db.doc("orders/orderA").delete());
+  });
+
+  it("tenant admin cannot alter subscription authority fields", async () => {
+    const db = authed("admin").firestore();
+    await assertFails(
+      db.doc("Companies/companyA").update({
+        plan_tier: "business",
+        subscription_status: "active",
+        max_staff_seats: 30,
+      }),
+    );
   });
 });
 

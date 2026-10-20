@@ -164,3 +164,37 @@ jobs:
         working-directory: firebase
         run: npm run test:firebase
 
+  saas-lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            firebase/package-lock.json
+            firebase/functions/package-lock.json
+
+      - name: Install Firebase test dependencies
+        working-directory: firebase
+        run: npm ci
+
+      - name: Install Functions dependencies
+        working-directory: firebase/functions
+        run: npm ci
+
+      - name: SaaS registration, quota, entitlement and Stripe lifecycle tests
+        working-directory: firebase
+        run: >-
+          node --test --test-concurrency=1
+          test/stripe_billing.test.js
+          test/registration_provisioning.test.js
+          test/plan_entitlements.test.js
+          test/trial_quota.test.js
+          test/monthly_usage.test.js
+          test/shopify_webhook.test.js
+

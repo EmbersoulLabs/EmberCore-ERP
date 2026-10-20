@@ -298,6 +298,32 @@ describe("stripe billing contract", () => {
     );
   });
 
+  it("denies a stale privileged claim after the profile is demoted", async () => {
+    const db = createFakeDb({
+      "Companies/coA": { billing_country: "MY" },
+      "users/director-1": {
+        role: "florist",
+        email: "user@example.com",
+        companyRef: { id: "coA" },
+      },
+    });
+    const stripe = {
+      customers: { create: async () => ({ id: "cus_new" }) },
+      checkout: {
+        sessions: { create: async () => ({ id: "cs_1", url: "https://x" }) },
+      },
+    };
+    await assert.rejects(
+      createCheckoutSessionImpl(
+        db,
+        { companyId: "coA", planTier: "starter" },
+        { auth: { uid: "director-1", token: { role: "director" } } },
+        { stripe },
+      ),
+      (error) => error.code === "permission-denied",
+    );
+  });
+
   it("opens the portal only for the company's customer", async () => {
     const db = createFakeDb({
       "users/director-1": { role: "director", companyRef: { id: "coA" } },

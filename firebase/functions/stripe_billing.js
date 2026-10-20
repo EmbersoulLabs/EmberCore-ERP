@@ -230,8 +230,13 @@ async function assertCallerCanManageBilling(db, context, companyId) {
       ? context.auth.token.role
       : null;
   const userSnap = await db.collection("users").doc(uid).get();
-  const profile = userSnap.exists ? userSnap.data() : {};
-  const role = tokenRole || profile.role || "";
+  if (!userSnap.exists) {
+    throw httpsError("permission-denied", "Billing profile not found.");
+  }
+  const profile = userSnap.data() || {};
+  // Firestore is the revocation authority. A stale custom claim must never
+  // preserve billing access after a role is removed from the user profile.
+  const role = profile.role || tokenRole || "";
   if (!BILLING_ROLES.has(role)) {
     throw httpsError(
       "permission-denied",
