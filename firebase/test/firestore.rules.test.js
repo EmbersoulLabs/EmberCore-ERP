@@ -18,6 +18,25 @@ const RULES = fs.readFileSync(
   "utf8",
 );
 
+async function assertDeniedWithoutRulesOverflow(promise) {
+  try {
+    await promise;
+  } catch (error) {
+    const message = String(error && (error.message || error));
+    assert.equal(message.includes("maximum of 1000"), false, message);
+    const code = String((error && error.code) || "");
+    assert.ok(
+      code === "permission-denied" ||
+        code === "PERMISSION_DENIED" ||
+        message.includes("PERMISSION_DENIED") ||
+        message.includes("permission-denied"),
+      message,
+    );
+    return;
+  }
+  assert.fail("expected rules to deny the write");
+}
+
 let testEnv;
 
 before(async () => {
@@ -2023,13 +2042,98 @@ describe("trial quota enforcement", () => {
 
     const releaseDb = authed("director_cap3000").firestore();
     await assertSucceeds(
+      releaseDb.doc("broadcast_reservations/cap3000_ok").update({
+        status: "handed_off",
+      }),
+    );
+    await assertFails(
       releaseDb.runTransaction(async (tx) => {
         tx.update(releaseDb.doc("broadcast_reservations/cap3000_ok"), {
-          status: "released",
+          status: "failed",
         });
         tx.update(releaseDb.doc("plan_usage/cap3000"), {
           broadcast_consumed: 1999,
           broadcast_attempt: "cap3000_ok",
+        });
+      }),
+    );
+    await assertSucceeds(
+      releaseDb.doc("broadcast_reservations/cap3000_ok").update({
+        status: "unknown",
+      }),
+    );
+    await assertFails(
+      releaseDb.doc("broadcast_reservations/cap3000_ok").update({
+        status: "delivered",
+      }),
+    );
+    await assertFails(
+      releaseDb.runTransaction(async (tx) => {
+        tx.update(releaseDb.doc("broadcast_reservations/cap3000_ok"), {
+          status: "failed",
+        });
+        tx.update(releaseDb.doc("plan_usage/cap3000"), {
+          broadcast_consumed: 1999,
+          broadcast_attempt: "cap3000_ok",
+        });
+      }),
+    );
+    await assertFails(
+      authed("director_cap500")
+        .firestore()
+        .doc("broadcast_reservations/cap3000_ok")
+        .update({ status: "failed" }),
+    );
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.doc("Companies/abandon").set({
+        is_active: true,
+        subscription_status: "active",
+        pricing_version: "v1",
+        usage_period_id: "p1",
+        current_period_end: periodEnd,
+        max_orders_per_month: 500,
+        broadcast_quota_monthly: 2000,
+      });
+      await db.doc("plan_usage/abandon").set({
+        period_id: "p1",
+        orders_consumed: 0,
+        broadcast_consumed: 2,
+      });
+      await db.doc("broadcast_reservations/abandon_once").set({
+        company_id: "abandon",
+        period_id: "p1",
+        count: 2,
+        status: "reserved",
+      });
+      await db.doc("users/director_abandon").set({
+        role: "director",
+        email: "director_abandon@test.com",
+        companyRef: db.doc("Companies/abandon"),
+        trial_enforced: true,
+        is_active: true,
+      });
+    });
+    const abandonDb = authed("director_abandon").firestore();
+    await assertSucceeds(
+      abandonDb.runTransaction(async (tx) => {
+        tx.update(abandonDb.doc("broadcast_reservations/abandon_once"), {
+          status: "failed",
+        });
+        tx.update(abandonDb.doc("plan_usage/abandon"), {
+          broadcast_consumed: 0,
+          broadcast_attempt: "abandon_once",
+        });
+      }),
+    );
+    await assertFails(
+      abandonDb.runTransaction(async (tx) => {
+        tx.update(abandonDb.doc("broadcast_reservations/abandon_once"), {
+          status: "failed",
+        });
+        tx.update(abandonDb.doc("plan_usage/abandon"), {
+          broadcast_consumed: 0,
+          broadcast_attempt: "abandon_once",
         });
       }),
     );
@@ -2097,23 +2201,38 @@ describe("trial quota enforcement", () => {
       source: "shopify",
     };
     const starterDb = authed("directorStarter").firestore();
-    await assertFails(
+    await assertDeniedWithoutRulesOverflow(
       starterDb.collection("orders").add({
         ...order,
         companyRef: starterDb.doc("Companies/companyStarter"),
       }),
     );
     const bizDb = authed("directorBiz").firestore();
-    await assertFails(
+    await assertDeniedWithoutRulesOverflow(
       bizDb.collection("orders").add({
         ...order,
         companyRef: bizDb.doc("Companies/companyBiz"),
       }),
     );
     const adminDb = authed("superA").firestore();
-    await assertSucceeds(
+    await assertDeniedWithoutRulesOverflow(
       adminDb.collection("orders").add({
         ...order,
+        companyRef: adminDb.doc("Companies/companyLegacy"),
+      }),
+    );
+    const legacyDb = authed("directorLegacy").firestore();
+    await assertSucceeds(
+      legacyDb.collection("orders").add({
+        status: "pending",
+        orderstatus: "pending",
+        companyRef: legacyDb.doc("Companies/companyLegacy"),
+      }),
+    );
+    await assertSucceeds(
+      adminDb.collection("orders").add({
+        status: "pending",
+        orderstatus: "pending",
         companyRef: adminDb.doc("Companies/companyLegacy"),
       }),
     );

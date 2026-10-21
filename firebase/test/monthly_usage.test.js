@@ -8,7 +8,8 @@ const {
   placePaidOrder,
   reserveBroadcast,
   releaseBroadcast,
-  markBroadcastOpened,
+  markBroadcastHandedOff,
+  markBroadcastUnknown,
 } = require("../functions/monthly_usage");
 
 const NOW = new Date("2026-10-17T04:00:00.000Z");
@@ -274,15 +275,21 @@ describe("monthly usage", () => {
     });
     assert.equal(released.released, true);
     assert.equal(released.consumed, 0);
+    assert.equal(db.docs.get("broadcast_reservations/pro_one").status, "failed");
     const second = await releaseBroadcast(db, {
       companyId: "pro",
       attemptId: "pro_one",
     });
     assert.equal(second.released, false);
     assert.equal(db.docs.get("plan_usage/pro").broadcast_consumed, 0);
+    const outsider = await releaseBroadcast(db, {
+      companyId: "other",
+      attemptId: "pro_one",
+    });
+    assert.equal(outsider.released, false);
   });
 
-  it("marks an opened handoff once and does not call it delivered", async () => {
+  it("does not release quota after handoff and keeps unknown uncounted as delivery", async () => {
     const db = createFakeDb();
     await reserveBroadcast(db, {
       companyId: "pro",
@@ -291,21 +298,39 @@ describe("monthly usage", () => {
       count: 1,
       now: NOW,
     });
-    const opened = await markBroadcastOpened(db, {
+    const handed = await markBroadcastHandedOff(db, {
       companyId: "pro",
       attemptId: "pro_open",
     });
-    const again = await markBroadcastOpened(db, {
+    const again = await markBroadcastHandedOff(db, {
       companyId: "pro",
       attemptId: "pro_open",
     });
-    assert.equal(opened.opened, true);
+    assert.equal(handed.status, "handed_off");
     assert.equal(again.duplicate, true);
-    assert.equal(db.docs.get("broadcast_reservations/pro_open").status, "opened");
-    assert.notEqual(
-      db.docs.get("broadcast_reservations/pro_open").status,
-      "delivered",
-    );
+    const blocked = await releaseBroadcast(db, {
+      companyId: "pro",
+      attemptId: "pro_open",
+    });
+    assert.equal(blocked.released, false);
+    assert.equal(db.docs.get("plan_usage/pro").broadcast_consumed, 1);
+    const unknown = await markBroadcastUnknown(db, {
+      companyId: "pro",
+      attemptId: "pro_open",
+    });
+    assert.equal(unknown.status, "unknown");
+    assert.notEqual(unknown.status, "delivered");
+    const stillBlocked = await releaseBroadcast(db, {
+      companyId: "pro",
+      attemptId: "pro_open",
+    });
+    assert.equal(stillBlocked.released, false);
+    assert.equal(db.docs.get("plan_usage/pro").broadcast_consumed, 1);
+    const repeatUnknown = await markBroadcastUnknown(db, {
+      companyId: "pro",
+      attemptId: "pro_open",
+    });
+    assert.equal(repeatUnknown.duplicate, true);
   });
 
   it("lets only one concurrent broadcast take the last recipient", async () => {

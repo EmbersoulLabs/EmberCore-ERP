@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tfg_vday/backend/customer_broadcast_helpers.dart';
@@ -172,6 +174,52 @@ void main() {
       expect(uri.queryParameters['bcc'], 'alice@example.com,carol@example.com');
       expect(uri.queryParameters['subject'], 'Promotion');
       expect(uri.queryParameters['body'], 'Dear customer');
+    });
+  });
+
+  group('broadcastAttemptId', () {
+    test('retries of one operation keep the same reservation id', () {
+      const operationId = 'op123';
+      final first = broadcastAttemptId(
+        companyId: 'company_a',
+        operationId: operationId,
+        channel: 'wa',
+        recipientKey: 'cust/1',
+      );
+      final retry = broadcastAttemptId(
+        companyId: 'company_a',
+        operationId: operationId,
+        channel: 'wa',
+        recipientKey: 'cust/1',
+      );
+
+      expect(first, retry);
+      expect(first, 'companya_wa_op123_cust1');
+    });
+
+    test('a new operation is a different reservation', () {
+      final first = broadcastAttemptId(
+        companyId: 'companyA',
+        operationId: 'one',
+        channel: 'email',
+      );
+      final second = broadcastAttemptId(
+        companyId: 'companyA',
+        operationId: 'two',
+        channel: 'email',
+      );
+
+      expect(first, isNot(equals(second)));
+    });
+
+    test('confirmation ids are not a single timestamp', () {
+      final random = Random(1);
+      final first = newBroadcastOperationId(random);
+      final second = newBroadcastOperationId(random);
+
+      expect(first, isNot(equals(second)));
+      expect(first.length, 24);
+      expect(int.tryParse(first), isNull);
     });
   });
 }

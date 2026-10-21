@@ -181,10 +181,9 @@ Future<BroadcastReservation> reserveBroadcastRecipients({
   });
 }
 
-/// Returns the reservation to the period counter. Only a still-reserved
-/// attempt can be released. This does not mean the message was undelivered
-/// by WhatsApp or email; those receipts are not visible to EmberCore.
-Future<void> releaseBroadcastReservation({
+/// Returns quota only while the attempt is still reserved. A second call,
+/// or any call after handoff, leaves the counter unchanged.
+Future<bool> releaseBroadcastReservation({
   required String companyId,
   required String attemptId,
 }) {
@@ -197,33 +196,40 @@ Future<void> releaseBroadcastReservation({
     if (data == null ||
         data['company_id'] != companyId ||
         data['status'] != 'reserved') {
-      return;
+      return false;
     }
     final count = (data['count'] as num?)?.toInt() ?? 0;
     final usageRef = db.collection('plan_usage').doc(companyId);
     final usageSnap = await transaction.get(usageRef);
     final usage = usageSnap.data() ?? {};
     if (usage['period_id'] != data['period_id']) {
-      return;
+      return false;
     }
     final used = (usage['broadcast_consumed'] as num?)?.toInt() ?? 0;
+    final next = used - count;
+    if (next < 0) {
+      return false;
+    }
     transaction.set(
       usageRef,
       {
-        'broadcast_consumed': used - count,
+        'broadcast_consumed': next,
         'broadcast_attempt': attemptId,
       },
       SetOptions(merge: true),
     );
     transaction.set(
       reservationRef,
-      {'status': 'released'},
+      {'status': 'failed'},
       SetOptions(merge: true),
     );
+    return true;
   });
 }
 
-Future<void> markBroadcastReservationOpened({
+/// Records the external-app handoff before launch. True only when this call
+/// moves `reserved` to `handed_off`. That state is not delivery.
+Future<bool> commitBroadcastHandoff({
   required String companyId,
   required String attemptId,
 }) {
@@ -233,14 +239,43 @@ Future<void> markBroadcastReservationOpened({
         db.collection('broadcast_reservations').doc(attemptId);
     final reservation = await transaction.get(reservationRef);
     final data = reservation.data();
+    if (data == null || data['company_id'] != companyId) {
+      return false;
+    }
+    if (data['status'] != 'reserved') {
+      return false;
+    }
+    transaction.set(
+      reservationRef,
+      {'status': 'handed_off'},
+      SetOptions(merge: true),
+    );
+    return true;
+  });
+}
+
+/// Launcher result was not a confirmed local failure before handoff.
+/// Quota stays consumed. This is not a delivery receipt.
+Future<void> markBroadcastReservationUnknown({
+  required String companyId,
+  required String attemptId,
+}) {
+  final db = FirebaseFirestore.instance;
+  return db.runTransaction((transaction) async {
+    final reservationRef =
+        db.collection('broadcast_reservations').doc(attemptId);
+    final reservation = await transaction.get(reservationRef);
+    final data = reservation.data();
+    final status = data?['status'];
     if (data == null ||
         data['company_id'] != companyId ||
-        data['status'] != 'reserved') {
+        (status != 'handed_off' && status != 'opened') ||
+        status == 'unknown') {
       return;
     }
     transaction.set(
       reservationRef,
-      {'status': 'opened'},
+      {'status': 'unknown'},
       SetOptions(merge: true),
     );
   });

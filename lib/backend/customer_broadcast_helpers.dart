@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -349,8 +351,48 @@ void _showBroadcastPlanBlock(BuildContext context, String message) {
   );
 }
 
-/// Quota is consumed at reservation. A failed launcher releases it.
-/// A successful launch is marked opened; that is not a delivery receipt.
+const _broadcastIdAlphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
+
+/// One id per confirmed broadcast. Retries of that broadcast reuse it.
+/// A later confirmation creates a new id and is a separate broadcast.
+String newBroadcastOperationId([Random? random]) {
+  final source = random ?? Random.secure();
+  return List.generate(
+    24,
+    (_) => _broadcastIdAlphabet[source.nextInt(_broadcastIdAlphabet.length)],
+  ).join();
+}
+
+String _broadcastIdPart(String value) {
+  return value.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+}
+
+/// Stable reservation id. The same operation and recipient always match.
+String broadcastAttemptId({
+  required String companyId,
+  required String operationId,
+  required String channel,
+  String? recipientKey,
+}) {
+  final company = _broadcastIdPart(companyId);
+  final operation = _broadcastIdPart(operationId);
+  final channelPart = _broadcastIdPart(channel);
+  if (company.isEmpty || operation.isEmpty || channelPart.isEmpty) {
+    return '';
+  }
+  final recipient = recipientKey == null || recipientKey.trim().isEmpty
+      ? ''
+      : '_${_broadcastIdPart(recipientKey)}';
+  return '${company}_${channelPart}_$operation$recipient';
+}
+
+bool _broadcastAlreadyCounted(String status) {
+  return status == 'handed_off' || status == 'opened' || status == 'unknown';
+}
+
+/// Quota is consumed at reservation. Handoff is recorded before the external
+/// app opens, and that quota cannot be released afterward. A launcher failure
+/// after handoff is `unknown`, not delivery and not a refund.
 Future<bool> _reserveAndOpenWhatsApp({
   required BuildContext context,
   required String? companyId,
@@ -362,27 +404,33 @@ Future<bool> _reserveAndOpenWhatsApp({
   if (companyId == null || attemptId.isEmpty) {
     return false;
   }
-  var activeAttempt = attemptId;
-  if (!isSuperAdminRole(currentViewerRole())) {
+  final superAdmin = isSuperAdminRole(currentViewerRole());
+  if (!superAdmin) {
     try {
-      BroadcastReservation? reservation;
-      for (var nonce = 0; nonce < 3; nonce++) {
-        activeAttempt = nonce == 0 ? attemptId : '${attemptId}_$nonce';
-        reservation = await reserveBroadcastRecipients(
-          companyId: companyId,
-          attemptId: activeAttempt,
-          count: 1,
-        );
-        if (!(reservation.duplicate && reservation.status == 'released')) {
-          break;
-        }
-        reservation = null;
+      final reservation = await reserveBroadcastRecipients(
+        companyId: companyId,
+        attemptId: attemptId,
+        count: 1,
+      );
+      if (_broadcastAlreadyCounted(reservation.status)) {
+        return true;
       }
-      if (reservation == null) {
+      if (reservation.status == 'failed') {
         return false;
       }
-      if (reservation.duplicate && reservation.status == 'opened') {
-        return true;
+      if (!context.mounted) {
+        await releaseBroadcastReservation(
+          companyId: companyId,
+          attemptId: attemptId,
+        );
+        return false;
+      }
+      final committed = await commitBroadcastHandoff(
+        companyId: companyId,
+        attemptId: attemptId,
+      );
+      if (!committed) {
+        return false;
       }
     } on MonthlyUsageException catch (error) {
       if (context.mounted) {
@@ -391,33 +439,40 @@ Future<bool> _reserveAndOpenWhatsApp({
       return false;
     }
   }
-  final opened = await launchCustomerBroadcastWhatsApp(
-    context: context,
-    recipient: recipient,
-    message: message,
-    imageUrl: imageUrl,
-  );
-  if (isSuperAdminRole(currentViewerRole())) {
-    return opened;
-  }
-  if (!opened) {
-    await releaseBroadcastReservation(
-      companyId: companyId,
-      attemptId: activeAttempt,
+  var launched = false;
+  try {
+    launched = await launchCustomerBroadcastWhatsApp(
+      context: context,
+      recipient: recipient,
+      message: message,
+      imageUrl: imageUrl,
     );
-    return false;
+  } catch (_) {
+    launched = false;
   }
-  await markBroadcastReservationOpened(
-    companyId: companyId,
-    attemptId: activeAttempt,
-  );
-  return true;
-}
+  if (superAdmin) {
+    return launched;
+  }
+    if (!launched) {
+      await markBroadcastReservationUnknown(
+        companyId: companyId,
+        attemptId: attemptId,
+      );
+      if (context.mounted) {
+        _showBroadcastPlanBlock(
+          context,
+          tr(context, 'customer.broadcast.outcomeUnknown'),
+        );
+      }
+    }
+    return true;
+  }
 
 Future<void> runCustomerWhatsAppBroadcast({
   required BuildContext context,
   required List<CustomersRecord> customers,
   required String message,
+  required String operationId,
   String? imageUrl,
 }) async {
   final recipients = filterCustomersForBroadcast(customers);
@@ -445,10 +500,10 @@ Future<void> runCustomerWhatsAppBroadcast({
   );
   final companyId = TenantContext.instance.writeCompanyRef?.id ??
       TenantContext.instance.activeCompanyRef?.id;
-  final session = DateTime.now().microsecondsSinceEpoch.toString();
 
   var index = 0;
   while (context.mounted && index < recipients.length) {
+    var stepBusy = false;
     final recipient = recipients[index];
     final action = await showDialog<CustomerBroadcastStepAction>(
       context: context,
@@ -508,17 +563,27 @@ Future<void> runCustomerWhatsAppBroadcast({
             ),
             FilledButton(
               onPressed: () async {
+                if (stepBusy) {
+                  return;
+                }
+                stepBusy = true;
                 final opened = await _reserveAndOpenWhatsApp(
                   context: dialogContext,
                   companyId: companyId,
                   attemptId: companyId == null
                       ? ''
-                      : '${companyId}_${session}_$index',
+                      : broadcastAttemptId(
+                          companyId: companyId,
+                          operationId: operationId,
+                          channel: 'wa',
+                          recipientKey: recipient.customer.reference.id,
+                        ),
                   recipient: recipient,
                   message: message,
                   imageUrl: imageUrl,
                 );
                 if (!opened) {
+                  stepBusy = false;
                   return;
                 }
                 if (dialogContext.mounted) {
@@ -557,6 +622,7 @@ Future<void> runCustomerEmailBroadcast({
   required List<CustomersRecord> customers,
   required String subject,
   required String message,
+  required String operationId,
   String? imageUrl,
 }) async {
   final recipients = filterCustomersForEmailBroadcast(customers);
@@ -606,16 +672,35 @@ Future<void> runCustomerEmailBroadcast({
       TenantContext.instance.activeCompanyRef?.id;
   final attemptId = companyId == null
       ? ''
-      : '${companyId}_email_${DateTime.now().microsecondsSinceEpoch}';
-  BroadcastReservation? reservation;
-  if (companyId != null && !isSuperAdminRole(currentViewerRole())) {
+      : broadcastAttemptId(
+          companyId: companyId,
+          operationId: operationId,
+          channel: 'email',
+        );
+  final superAdmin = isSuperAdminRole(currentViewerRole());
+  if (companyId != null && !superAdmin) {
     try {
-      reservation = await reserveBroadcastRecipients(
+      final reservation = await reserveBroadcastRecipients(
         companyId: companyId,
         attemptId: attemptId,
         count: recipients.length,
       );
-      if (reservation.duplicate && reservation.status == 'opened') {
+      if (_broadcastAlreadyCounted(reservation.status) ||
+          reservation.status == 'failed') {
+        return;
+      }
+      if (!context.mounted) {
+        await releaseBroadcastReservation(
+          companyId: companyId,
+          attemptId: attemptId,
+        );
+        return;
+      }
+      final committed = await commitBroadcastHandoff(
+        companyId: companyId,
+        attemptId: attemptId,
+      );
+      if (!committed) {
         return;
       }
     } on MonthlyUsageException catch (error) {
@@ -626,29 +711,32 @@ Future<void> runCustomerEmailBroadcast({
     }
   }
 
-  final launched = await launchCustomerBroadcastEmail(
-    context: context,
-    recipients: recipients,
-    subject: subject,
-    message: mailtoMessage,
-  );
+  var launched = false;
+  try {
+    launched = await launchCustomerBroadcastEmail(
+      context: context,
+      recipients: recipients,
+      subject: subject,
+      message: mailtoMessage,
+    );
+  } catch (_) {
+    launched = false;
+  }
 
   if (!launched) {
-    if (reservation != null &&
-        !reservation.duplicate &&
-        companyId != null) {
-      await releaseBroadcastReservation(
+    if (companyId != null && !superAdmin) {
+      await markBroadcastReservationUnknown(
         companyId: companyId,
         attemptId: attemptId,
       );
+      if (context.mounted) {
+        _showBroadcastPlanBlock(
+          context,
+          tr(context, 'customer.broadcast.outcomeUnknown'),
+        );
+      }
     }
     return;
-  }
-  if (reservation != null && companyId != null) {
-    await markBroadcastReservationOpened(
-      companyId: companyId,
-      attemptId: attemptId,
-    );
   }
   if (!context.mounted) {
     return;
@@ -903,12 +991,14 @@ Future<void> showCustomerBroadcastDialog({
     return;
   }
 
+  final operationId = newBroadcastOperationId();
   switch (selectedChannel) {
     case CustomerBroadcastChannel.whatsapp:
       await runCustomerWhatsAppBroadcast(
         context: context,
         customers: customers,
         message: message,
+        operationId: operationId,
         imageUrl: selectedImageUrl,
       );
     case CustomerBroadcastChannel.email:
@@ -917,6 +1007,7 @@ Future<void> showCustomerBroadcastDialog({
         customers: customers,
         subject: subject,
         message: message,
+        operationId: operationId,
         imageUrl: selectedImageUrl,
       );
   }

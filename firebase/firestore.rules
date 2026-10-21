@@ -776,13 +776,14 @@ service cloud.firestore {
       );
     }
 
-    /// Client writes cannot set source shopify. Plan allow/deny for Shopify
-    /// imports is enforced in the import Cloud Function. A company read here
-    /// pushes order creation over the 1000-expression rules limit.
+    /// Client writes cannot set source shopify, including Super Admin.
+    /// Shopify imports run in the Admin SDK function, which bypasses rules.
+    /// Do not call isSuperAdminUser() here: that extra evaluation pushes a
+    /// spoofed create over the 1000-expression limit and fails closed for
+    /// the wrong reason.
     function shopifyImportCreateOk() {
       return !('source' in request.resource.data)
-        || request.resource.data.source != 'shopify'
-        || isSuperAdminUser();
+        || request.resource.data.source != 'shopify';
     }
 
     /// Billing period when one is still open; otherwise the UTC month.
@@ -1512,7 +1513,7 @@ service cloud.firestore {
               companyId,
               period,
               resource.data.broadcast_consumed - nextBroadcast,
-              'released'
+              'failed'
             )
           )
           || (
@@ -1594,11 +1595,18 @@ service cloud.firestore {
         && (
           (
             resource.data.status == 'reserved'
-            && request.resource.data.status == 'opened'
+            && request.resource.data.status == 'handed_off'
+          )
+          || (
+            (
+              resource.data.status == 'handed_off'
+              || resource.data.status == 'opened'
+            )
+            && request.resource.data.status == 'unknown'
           )
           || (
             resource.data.status == 'reserved'
-            && request.resource.data.status == 'released'
+            && request.resource.data.status == 'failed'
             && planUsageAfter(resource.data.company_id).period_id == resource.data.period_id
             && planUsageAfter(resource.data.company_id).broadcast_consumed
                 == get(/databases/$(database)/documents/plan_usage/$(resource.data.company_id)).data.broadcast_consumed
@@ -1615,9 +1623,10 @@ service cloud.firestore {
           docBelongsToAuthTenant(resource.data)
           || (isDriverUser() && isOrderAssignedToAuthDriver(resource.data))
         );
-      allow create: if isStaffUser() && incomingBelongsToAuthTenant()
-        && trialOrderCreateOk(orderId)
-        && shopifyImportCreateOk();
+      allow create: if shopifyImportCreateOk()
+        && isStaffUser()
+        && incomingBelongsToAuthTenant()
+        && trialOrderCreateOk(orderId);
       allow update: if canUpdateOrderDoc();
       allow delete: if isSuperAdminUser()
         || ((isAdminUser() || canDeleteOrdersByPermission())

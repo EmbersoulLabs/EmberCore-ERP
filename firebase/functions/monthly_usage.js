@@ -8,9 +8,15 @@
  *
  * A rejected create writes nothing: no order, no order number, no counter
  * change. Shopify retries of the same external id return the first order.
- * Broadcast quota is consumed when a reservation is committed, and released
- * only if that reservation is still `reserved` and the local launcher fails.
- * Opening WhatsApp or mailto is not a delivery receipt.
+ * Broadcast quota is consumed when a reservation is committed. It returns
+ * only while that reservation is still `reserved` (abandoned before handoff),
+ * and only once. The handoff is recorded before the external app opens.
+ * After `handed_off`, a launcher failure becomes `unknown` and stays counted.
+ * None of these states is a delivery receipt.
+ *
+ * Deploy Functions first. Deploy Firestore rules and the Flutter client
+ * together: the client writes the plan-slot fields the rules require, and
+ * production Functions are not on that client path.
  */
 const { orderPeriodSuffix, counterDocId } = require("./shopify/order_id_helpers");
 
@@ -263,26 +269,46 @@ async function releaseBroadcast(db, { companyId, attemptId }) {
       },
       { merge: true },
     );
-    tx.set(reservationRef, { status: "released" }, { merge: true });
+    tx.set(reservationRef, { status: "failed" }, { merge: true });
     return { released: true, consumed: next };
   });
 }
 
-async function markBroadcastOpened(db, { companyId, attemptId }) {
+async function markBroadcastHandedOff(db, { companyId, attemptId }) {
   const reservationRef = db.collection("broadcast_reservations").doc(attemptId);
   return db.runTransaction(async (tx) => {
     const reservation = await tx.get(reservationRef);
     if (!reservation.exists || reservation.data().company_id !== companyId) {
-      return { opened: false };
+      return { handedOff: false, status: "missing" };
     }
-    if (reservation.data().status === "opened") {
-      return { opened: true, duplicate: true };
+    const status = reservation.data().status;
+    if (status === "handed_off" || status === "opened") {
+      return { handedOff: true, duplicate: true, status };
     }
-    if (reservation.data().status !== "reserved") {
-      return { opened: false, reason: reservation.data().status };
+    if (status !== "reserved") {
+      return { handedOff: false, duplicate: false, status };
     }
-    tx.set(reservationRef, { status: "opened" }, { merge: true });
-    return { opened: true, duplicate: false };
+    tx.set(reservationRef, { status: "handed_off" }, { merge: true });
+    return { handedOff: true, duplicate: false, status: "handed_off" };
+  });
+}
+
+async function markBroadcastUnknown(db, { companyId, attemptId }) {
+  const reservationRef = db.collection("broadcast_reservations").doc(attemptId);
+  return db.runTransaction(async (tx) => {
+    const reservation = await tx.get(reservationRef);
+    if (!reservation.exists || reservation.data().company_id !== companyId) {
+      return { unknown: false, status: "missing" };
+    }
+    const status = reservation.data().status;
+    if (status === "unknown") {
+      return { unknown: true, duplicate: true, status };
+    }
+    if (status !== "handed_off" && status !== "opened") {
+      return { unknown: false, duplicate: false, status };
+    }
+    tx.set(reservationRef, { status: "unknown" }, { merge: true });
+    return { unknown: true, duplicate: false, status: "unknown" };
   });
 }
 
@@ -295,5 +321,6 @@ module.exports = {
   placePaidOrder,
   reserveBroadcast,
   releaseBroadcast,
-  markBroadcastOpened,
+  markBroadcastHandedOff,
+  markBroadcastUnknown,
 };
