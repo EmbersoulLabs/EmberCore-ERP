@@ -26,6 +26,7 @@ class UserSignupPageModel extends FlutterFlowModel<UserSignupPageWidget> {
 
   DateTime? birthday;
   bool isCompanyAccount = false;
+  String countryCode = 'MY';
   bool saving = false;
   bool uploadingLogo = false;
   String? pickedLogoFilename;

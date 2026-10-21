@@ -184,6 +184,30 @@ service cloud.firestore {
           .hasAny(['permission_overrides']);
     }
 
+    function userAuthorityFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'uid', 'email', 'role', 'companyRef', 'permission_overrides',
+        'trial_enforced', 'trial_slot'
+      ]);
+    }
+
+    function userUpdateAllowed(userId) {
+      return isSuperAdminUser()
+        || (
+          isSelfUser(userId)
+          && !userAuthorityFieldsChanged()
+        )
+        || (
+          canManageStaffProfiles()
+          && docBelongsToAuthTenant(resource.data)
+          && incomingBelongsToAuthTenant()
+          && tenantUnchangedOnUpdate()
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.email == resource.data.email
+          && !permissionOverridesChangedOnUserUpdate()
+        );
+    }
+
     function isPaidInvoiceDoc() {
       return resource.data.get('status', '') == 'paid';
     }
@@ -691,6 +715,194 @@ service cloud.firestore {
         );
     }
 
+    /// SaaS trial (pricing v1). Legacy companies have no subscription status.
+    function trialCompanyData(companyId) {
+      return get(/databases/$(database)/documents/Companies/$(companyId)).data;
+    }
+
+    function isTrialTenantCompany(companyId) {
+      return companyId != null
+        && exists(/databases/$(database)/documents/Companies/$(companyId))
+        && 'subscription_status' in trialCompanyData(companyId)
+        && trialCompanyData(companyId).subscription_status == 'trialing'
+        && 'pricing_version' in trialCompanyData(companyId)
+        && trialCompanyData(companyId).pricing_version == 'v1';
+    }
+
+    /// Set on the staff profile by provisioning. Clients cannot change it.
+    function callerTrialEnforced() {
+      return authUserExists()
+        && 'trial_enforced' in userDoc(authUserDocId()).data
+        && userDoc(authUserDocId()).data.trial_enforced == true;
+    }
+
+    /// Tenant administrators cannot assign or edit a Super Admin profile.
+    function protectsSuperAdminAssignment() {
+      return isSuperAdminUser()
+        || (
+          request.resource.data.role != 'superadmin'
+          && (
+            !('role' in resource.data)
+            || resource.data.role != 'superadmin'
+          )
+        );
+    }
+
+    function trialEnforcedFlagUnchanged() {
+      return !('trial_enforced' in resource.data)
+        ? true
+        : 'trial_enforced' in request.resource.data
+          && request.resource.data.trial_enforced == resource.data.trial_enforced;
+    }
+
+    function trialQuotaDataAfter(companyId) {
+      return getAfter(/databases/$(database)/documents/trial_quota/$(companyId)).data;
+    }
+
+    /// Existing staff, or the new user whose profile is created in this request.
+    function callerMaySpendTrialQuota(companyId) {
+      return isSignedIn() && (
+        (
+          authUserExists()
+          && authUserCanonicalCompanyId() == companyId
+        )
+        || (
+          !authUserExists()
+          && existsAfter(/databases/$(database)/documents/users/$(request.auth.uid))
+          && companyRefCanonicalId(
+            getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyRef
+          ) == companyId
+        )
+      );
+    }
+
+    /// Client writes cannot set source shopify, including Super Admin.
+    /// Shopify imports run in the Admin SDK function, which bypasses rules.
+    /// Do not call isSuperAdminUser() here: that extra evaluation pushes a
+    /// spoofed create over the 1000-expression limit and fails closed for
+    /// the wrong reason.
+    function shopifyImportCreateOk() {
+      return !('source' in request.resource.data)
+        || request.resource.data.source != 'shopify';
+    }
+
+    /// Billing period when one is still open; otherwise the UTC month.
+    /// usage_period_id and current_period_end are server-owned.
+    function expectedUsagePeriod(company) {
+      return 'usage_period_id' in company
+        && company.usage_period_id is string
+        && company.usage_period_id.size() > 0
+        && 'current_period_end' in company
+        && company.current_period_end is timestamp
+        && request.time < company.current_period_end
+          ? company.usage_period_id
+          : string(request.time.year())
+              + (request.time.month() < 10 ? '-0' : '-')
+              + string(request.time.month());
+    }
+
+    function paidCompanyActive(company) {
+      return 'subscription_status' in company
+        && company.subscription_status == 'active'
+        && 'pricing_version' in company
+        && company.pricing_version == 'v1';
+    }
+
+    function planUsageAfter(companyId) {
+      return getAfter(/databases/$(database)/documents/plan_usage/$(companyId)).data;
+    }
+
+    /// Kept small. The order-create rule is already near the 1000-expression
+    /// limit, so the cap and period checks live on plan_usage and the slot.
+    function paidOrderCreateOk(orderId) {
+      let companyId = authUserCanonicalCompanyId();
+      let period = request.resource.data.plan_period;
+      let slot = request.resource.data.plan_slot;
+      return period is string
+        && slot is string
+        && getAfter(
+            /databases/$(database)/documents/plan_order_slots/$(companyId)/periods/$(period)/slots/$(slot)
+          ).data.order_id == orderId;
+    }
+
+    function trialOrderCreateOk(orderId) {
+      let companyId = authUserCanonicalCompanyId();
+      return !callerTrialEnforced()
+        ? true
+        : isTrialTenantCompany(companyId)
+          ? request.resource.data.companyRef != null
+          && companyRefCanonicalId(request.resource.data.companyRef) == companyId
+          && request.resource.data.trial_slot is string
+          && request.resource.data.trial_slot
+              == string(int(request.resource.data.trial_slot))
+          && int(request.resource.data.trial_slot)
+              == trialQuotaDataAfter(companyId).orders_consumed
+          && getAfter(
+              /databases/$(database)/documents/trial_order_slots/$(companyId)/slots/$(request.resource.data.trial_slot)
+            ).data.order_id == orderId
+          : paidOrderCreateOk(orderId);
+    }
+
+    /// Trial and active paid v1 companies share the lifetime staff-seat counter.
+    function isSeatLimitedCompany(companyId) {
+      return companyId != null
+        && exists(/databases/$(database)/documents/Companies/$(companyId))
+        && 'pricing_version' in trialCompanyData(companyId)
+        && trialCompanyData(companyId).pricing_version == 'v1'
+        && 'subscription_status' in trialCompanyData(companyId)
+        && (
+          trialCompanyData(companyId).subscription_status == 'trialing'
+          || trialCompanyData(companyId).subscription_status == 'active'
+        );
+    }
+
+    function trialStaffCreateOk(userId) {
+      let companyId = request.resource.data.companyRef == null
+        ? null
+        : companyRefCanonicalId(request.resource.data.companyRef);
+      return companyId == null || !isSeatLimitedCompany(companyId)
+        ? true
+        : request.resource.data.trial_enforced == true
+          && request.resource.data.trial_slot is string
+          && request.resource.data.trial_slot
+              == string(int(request.resource.data.trial_slot))
+          && int(request.resource.data.trial_slot)
+              == trialQuotaDataAfter(companyId).staff_consumed
+          && getAfter(
+              /databases/$(database)/documents/trial_staff_slots/$(companyId)/slots/$(request.resource.data.trial_slot)
+            ).data.user_id == userId;
+    }
+
+    function trialQuotaOrdersPlusOne(companyId) {
+      let next = request.resource.data.orders_consumed;
+      let slot = string(next);
+      let orderId = getAfter(
+        /databases/$(database)/documents/trial_order_slots/$(companyId)/slots/$(slot)
+      ).data.order_id;
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['orders_consumed'])
+        && next == resource.data.orders_consumed + 1
+        && next <= trialCompanyData(companyId).max_orders_per_month
+        && orderId is string
+        && getAfter(/databases/$(database)/documents/orders/$(orderId)).data.trial_slot
+            == slot;
+    }
+
+    function trialQuotaStaffPlusOne(companyId) {
+      let next = request.resource.data.staff_consumed;
+      let slot = string(next);
+      let userId = getAfter(
+        /databases/$(database)/documents/trial_staff_slots/$(companyId)/slots/$(slot)
+      ).data.user_id;
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['staff_consumed'])
+        && next == resource.data.staff_consumed + 1
+        && next <= trialCompanyData(companyId).max_staff_seats
+        && userId is string
+        && getAfter(/databases/$(database)/documents/users/$(userId)).data.trial_slot
+            == slot;
+    }
+
     /// Updates must not re-assign a document to another tenant.
     function tenantUnchangedOnUpdate() {
       return canCrossTenantAccess()
@@ -1089,6 +1301,7 @@ service cloud.firestore {
         && request.resource.data.phone is string
         && request.resource.data.phone.size() > 0
         && request.resource.data.account_type in ['private', 'company']
+        && request.resource.data.country in ['MY', 'SG']
         && request.resource.data.status == 'pending'
         && (
           request.resource.data.account_type == 'private'
@@ -1100,16 +1313,15 @@ service cloud.firestore {
     }
 
     match /user_registration_requests/{emailKey} {
-      allow read: if canManageStaffProfiles()
+      allow read: if isSuperAdminUser()
         || (isSignedIn() && request.auth.token.email == emailKey);
       allow create: if isValidUserRegistrationRequest(emailKey);
-      allow update: if canManageStaffProfiles()
-        || (
-          !isSignedIn()
-          && resource.data.status == 'rejected'
-          && isValidUserRegistrationRequest(emailKey)
-        );
-      allow delete: if canManageStaffProfiles();
+      // Approval and rejection are Cloud Functions (Admin SDK). Clients may
+      // only resubmit a rejected application as a new pending request.
+      allow update: if !isSignedIn()
+        && resource.data.status == 'rejected'
+        && isValidUserRegistrationRequest(emailKey);
+      allow delete: if isSuperAdminUser();
     }
 
     // --- staff registration intents (Add Staff gate) ---
@@ -1126,7 +1338,12 @@ service cloud.firestore {
 
     // --- users ---
     match /users/{userId} {
-      allow read: if isSignedIn() && (isSelfUser(userId) || isStaffUser());
+      allow read: if isSignedIn()
+        && (
+          isSelfUser(userId)
+          || isSuperAdminUser()
+          || (isStaffUser() && docBelongsToAuthTenant(resource.data))
+        );
       allow create: if isSignedIn()
         && request.auth.uid == userId
         && request.resource.data.uid == request.auth.uid
@@ -1135,20 +1352,268 @@ service cloud.firestore {
         && request.resource.data.role in [
           'senior_florist', 'florist', 'driver', 'admin', 'director',
           'manager', 'account', 'hr', 'payroll'
-        ];
+        ]
+        && trialStaffCreateOk(userId);
       allow update: if isSignedIn()
-        && (
-          (isSuperAdminUser() && (isSelfUser(userId) || canManageStaffProfiles()))
-          || (
-            (isSelfUser(userId) || canManageStaffProfiles())
-            && !permissionOverridesChangedOnUserUpdate()
-          )
-        );
+        && trialEnforcedFlagUnchanged()
+        && protectsSuperAdminAssignment()
+        && userUpdateAllowed(userId);
       allow delete: if canDeleteStaffProfile(userId);
 
       match /fcm_tokens/{tokenId} {
         allow read, write, delete: if isSignedIn() && request.auth.uid == userId;
       }
+    }
+
+    // Trial counters are created by provisioning (Admin SDK). Clients may
+    // only advance one slot, and only together with the new order or staff
+    // profile. Deletes never return a slot.
+    match /trial_quota/{companyId} {
+      allow read: if isSignedIn()
+        && (isSuperAdminUser() || authUserCanonicalCompanyId() == companyId);
+      allow create, delete: if false;
+      allow update: if callerMaySpendTrialQuota(companyId)
+        && (
+          (isTrialTenantCompany(companyId) && trialQuotaOrdersPlusOne(companyId))
+          || (isSeatLimitedCompany(companyId) && trialQuotaStaffPlusOne(companyId))
+        );
+    }
+
+    match /trial_order_slots/{companyId}/slots/{slotId} {
+      allow read: if isSignedIn()
+        && (isSuperAdminUser() || authUserCanonicalCompanyId() == companyId);
+      allow create: if callerMaySpendTrialQuota(companyId)
+        && isTrialTenantCompany(companyId)
+        && slotId == string(int(slotId))
+        && int(slotId) == trialQuotaDataAfter(companyId).orders_consumed
+        && int(slotId) >= 1
+        && int(slotId) <= trialCompanyData(companyId).max_orders_per_month
+        && request.resource.data.keys().hasOnly(['order_id'])
+        && request.resource.data.order_id is string
+        && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.order_id)).data.trial_slot == slotId;
+      allow update, delete: if false;
+    }
+
+    match /trial_staff_slots/{companyId}/slots/{slotId} {
+      allow read: if isSignedIn()
+        && (isSuperAdminUser() || authUserCanonicalCompanyId() == companyId);
+      allow create: if callerMaySpendTrialQuota(companyId)
+        && isSeatLimitedCompany(companyId)
+        && slotId == string(int(slotId))
+        && int(slotId) == trialQuotaDataAfter(companyId).staff_consumed
+        && int(slotId) >= 1
+        && int(slotId) <= trialCompanyData(companyId).max_staff_seats
+        && request.resource.data.keys().hasOnly(['user_id'])
+        && request.resource.data.user_id is string
+        && getAfter(/databases/$(database)/documents/users/$(request.resource.data.user_id)).data.trial_slot == slotId;
+      allow update, delete: if false;
+    }
+
+    function paidUsageShape(companyId) {
+      let company = trialCompanyData(companyId);
+      let period = expectedUsagePeriod(company);
+      return paidCompanyActive(company)
+        && request.resource.data.period_id == period
+        && request.resource.data.orders_consumed is int
+        && request.resource.data.broadcast_consumed is int;
+    }
+
+    function paidOrderSlotLinked(companyId, period, slot) {
+      let orderId = getAfter(
+        /databases/$(database)/documents/plan_order_slots/$(companyId)/periods/$(period)/slots/$(slot)
+      ).data.order_id;
+      return orderId is string
+        && getAfter(/databases/$(database)/documents/orders/$(orderId)).data.plan_slot == slot
+        && getAfter(/databases/$(database)/documents/orders/$(orderId)).data.plan_period == period;
+    }
+
+    function broadcastReservationAfter(attemptId) {
+      return getAfter(/databases/$(database)/documents/broadcast_reservations/$(attemptId)).data;
+    }
+
+    function paidBroadcastLinked(companyId, period, count, status) {
+      let attempt = request.resource.data.broadcast_attempt;
+      let reservation = broadcastReservationAfter(attempt);
+      return attempt is string
+        && reservation.company_id == companyId
+        && reservation.period_id == period
+        && reservation.count == count
+        && reservation.status == status;
+    }
+
+    function paidUsageCreateOk(companyId) {
+      let company = trialCompanyData(companyId);
+      let period = expectedUsagePeriod(company);
+      let orders = request.resource.data.orders_consumed;
+      let broadcast = request.resource.data.broadcast_consumed;
+      return paidUsageShape(companyId)
+        && (
+          (
+            orders == 1
+            && broadcast == 0
+            && request.resource.data.keys().hasOnly([
+              'period_id', 'orders_consumed', 'broadcast_consumed'
+            ])
+            && paidOrderSlotLinked(companyId, period, '1')
+            && 1 <= company.max_orders_per_month
+          )
+          || (
+            orders == 0
+            && broadcast >= 1
+            && 'broadcast_quota_monthly' in company
+            && broadcast <= company.broadcast_quota_monthly
+            && request.resource.data.keys().hasOnly([
+              'period_id', 'orders_consumed', 'broadcast_consumed', 'broadcast_attempt'
+            ])
+            && paidBroadcastLinked(companyId, period, broadcast, 'reserved')
+          )
+        );
+    }
+
+    function paidUsageUpdateOk(companyId) {
+      let company = trialCompanyData(companyId);
+      let period = expectedUsagePeriod(company);
+      let nextOrders = request.resource.data.orders_consumed;
+      let nextBroadcast = request.resource.data.broadcast_consumed;
+      let samePeriod = resource.data.period_id == period;
+      return paidUsageShape(companyId)
+        && (
+          (
+            samePeriod
+            && nextOrders == resource.data.orders_consumed + 1
+            && nextBroadcast == resource.data.broadcast_consumed
+            && nextOrders <= company.max_orders_per_month
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['orders_consumed'])
+            && paidOrderSlotLinked(companyId, period, string(nextOrders))
+          )
+          || (
+            samePeriod
+            && nextOrders == resource.data.orders_consumed
+            && nextBroadcast > resource.data.broadcast_consumed
+            && 'broadcast_quota_monthly' in company
+            && nextBroadcast <= company.broadcast_quota_monthly
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['broadcast_consumed', 'broadcast_attempt'])
+            && paidBroadcastLinked(
+              companyId,
+              period,
+              nextBroadcast - resource.data.broadcast_consumed,
+              'reserved'
+            )
+          )
+          || (
+            samePeriod
+            && nextOrders == resource.data.orders_consumed
+            && nextBroadcast < resource.data.broadcast_consumed
+            && nextBroadcast >= 0
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['broadcast_consumed', 'broadcast_attempt'])
+            && paidBroadcastLinked(
+              companyId,
+              period,
+              resource.data.broadcast_consumed - nextBroadcast,
+              'failed'
+            )
+          )
+          || (
+            !samePeriod
+            && nextOrders == 1
+            && nextBroadcast == 0
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['period_id', 'orders_consumed', 'broadcast_consumed'])
+            && 1 <= company.max_orders_per_month
+            && paidOrderSlotLinked(companyId, period, '1')
+          )
+          || (
+            !samePeriod
+            && nextOrders == 0
+            && nextBroadcast >= 1
+            && 'broadcast_quota_monthly' in company
+            && nextBroadcast <= company.broadcast_quota_monthly
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'period_id', 'orders_consumed', 'broadcast_consumed', 'broadcast_attempt'
+            ])
+            && paidBroadcastLinked(companyId, period, nextBroadcast, 'reserved')
+          )
+        );
+    }
+
+    match /plan_usage/{companyId} {
+      allow read: if isSignedIn()
+        && (isSuperAdminUser() || authUserCanonicalCompanyId() == companyId);
+      allow create: if callerMaySpendTrialQuota(companyId)
+        && paidUsageCreateOk(companyId);
+      allow update: if callerMaySpendTrialQuota(companyId)
+        && paidUsageUpdateOk(companyId);
+      allow delete: if false;
+    }
+
+    match /plan_order_slots/{companyId}/periods/{periodId}/slots/{slotId} {
+      allow read: if isSignedIn()
+        && (isSuperAdminUser() || authUserCanonicalCompanyId() == companyId);
+      allow create: if callerMaySpendTrialQuota(companyId)
+        && periodId == expectedUsagePeriod(trialCompanyData(companyId))
+        && paidCompanyActive(trialCompanyData(companyId))
+        && slotId == string(int(slotId))
+        && int(slotId) == planUsageAfter(companyId).orders_consumed
+        && planUsageAfter(companyId).period_id == periodId
+        && int(slotId) >= 1
+        && int(slotId) <= trialCompanyData(companyId).max_orders_per_month
+        && request.resource.data.keys().hasOnly(['order_id'])
+        && request.resource.data.order_id is string
+        && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.order_id)).data.plan_slot == slotId
+        && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.order_id)).data.plan_period == periodId;
+      allow update, delete: if false;
+    }
+
+    match /broadcast_reservations/{attemptId} {
+      allow read: if isSignedIn()
+        && (
+          isSuperAdminUser()
+          || resource.data.company_id == authUserCanonicalCompanyId()
+        );
+      allow create: if isSignedIn()
+        && authUserCanonicalCompanyId() != null
+        && attemptId[0:authUserCanonicalCompanyId().size()] == authUserCanonicalCompanyId()
+        && attemptId[authUserCanonicalCompanyId().size():authUserCanonicalCompanyId().size() + 1] == '_'
+        && request.resource.data.company_id == authUserCanonicalCompanyId()
+        && request.resource.data.status == 'reserved'
+        && request.resource.data.count is int
+        && request.resource.data.count >= 1
+        && request.resource.data.period_id == planUsageAfter(request.resource.data.company_id).period_id
+        && request.resource.data.keys().hasOnly([
+          'company_id', 'period_id', 'count', 'status'
+        ])
+        && planUsageAfter(request.resource.data.company_id).broadcast_attempt == attemptId;
+      allow update: if isSignedIn()
+        && resource.data.company_id == authUserCanonicalCompanyId()
+        && request.resource.data.company_id == resource.data.company_id
+        && request.resource.data.count == resource.data.count
+        && request.resource.data.period_id == resource.data.period_id
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && (
+          (
+            resource.data.status == 'reserved'
+            && request.resource.data.status == 'handed_off'
+          )
+          || (
+            (
+              resource.data.status == 'handed_off'
+              || resource.data.status == 'opened'
+            )
+            && request.resource.data.status == 'unknown'
+          )
+          || (
+            resource.data.status == 'reserved'
+            && request.resource.data.status == 'failed'
+            && planUsageAfter(resource.data.company_id).period_id == resource.data.period_id
+            && planUsageAfter(resource.data.company_id).broadcast_consumed
+                == get(/databases/$(database)/documents/plan_usage/$(resource.data.company_id)).data.broadcast_consumed
+                    - resource.data.count
+          )
+        );
+      allow delete: if false;
     }
 
     // --- orders (core) ---
@@ -1158,9 +1623,14 @@ service cloud.firestore {
           docBelongsToAuthTenant(resource.data)
           || (isDriverUser() && isOrderAssignedToAuthDriver(resource.data))
         );
-      allow create: if isStaffUser() && incomingBelongsToAuthTenant();
+      allow create: if shopifyImportCreateOk()
+        && isStaffUser()
+        && incomingBelongsToAuthTenant()
+        && trialOrderCreateOk(orderId);
       allow update: if canUpdateOrderDoc();
-      allow delete: if isPlatformAdminUser() || canDeleteOrdersByPermission();
+      allow delete: if isSuperAdminUser()
+        || ((isAdminUser() || canDeleteOrdersByPermission())
+          && docBelongsToAuthTenant(resource.data));
     }
 
     match /orders/{parent}/internal_messages/{document} {
@@ -1169,11 +1639,13 @@ service cloud.firestore {
       allow create, update: if isOperationsStaffUser()
         && docBelongsToAuthTenant(orderDocData(parent))
         && incomingBelongsToAuthTenant();
-      allow delete: if isPlatformAdminUser();
+      allow delete: if isSuperAdminUser()
+        || (isAdminUser() && docBelongsToAuthTenant(orderDocData(parent)));
     }
 
     match /{path=**}/internal_messages/{document} {
-      allow read: if canReadOrders();
+      allow read: if canReadOrders()
+        && docBelongsToAuthTenant(resource.data);
     }
 
     // --- order line items ---
@@ -1188,7 +1660,9 @@ service cloud.firestore {
             || !isPaidOrderItemParent()
             || effectiveAppPermission('editPaidOrderDetails'))
         || isOrderLineItemUpdateByPermission());
-      allow delete: if isPlatformAdminUser() || canDeleteOrdersByPermission();
+      allow delete: if isSuperAdminUser()
+        || ((isAdminUser() || canDeleteOrdersByPermission())
+          && orderItemBelongsToAuthTenant());
     }
 
     // --- catalog ---
@@ -1320,11 +1794,35 @@ service cloud.firestore {
     }
 
     // --- company ---
+    function subscriptionAuthorityKeys() {
+      return [
+        'plan_tier', 'subscription_status', 'trial_ends_at', 'trial_limits',
+        'trial_days', 'pricing_version', 'billing_country', 'currency',
+        'list_price_minor', 'capability_tier', 'max_staff_seats',
+        'max_orders_per_month', 'max_companies', 'paid_provider_activation',
+        'stripe_customer_id', 'stripe_subscription_id', 'current_period_end',
+        'stripe_event_created', 'billing_interval', 'plan_modules',
+        'broadcast_quota_monthly', 'priority_support', 'usage_period_id'
+      ];
+    }
+
     match /Companies/{document} {
       allow read: if isSignedIn()
-        || resource.data.is_active == true;
-      allow create, delete: if isSignedIn() && isSuperAdminUser();
-      allow update: if isSignedIn() && isPlatformAdminUser();
+        && (
+          isSuperAdminUser()
+          || document == authUserCanonicalCompanyId()
+        );
+      allow create: if isSignedIn()
+        && isSuperAdminUser()
+        && !request.resource.data.keys().hasAny(subscriptionAuthorityKeys());
+      allow update: if isSignedIn()
+        && (
+          isSuperAdminUser()
+          || (isAdminUser() && document == authUserCanonicalCompanyId())
+        )
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(subscriptionAuthorityKeys());
+      allow delete: if isSignedIn() && isSuperAdminUser();
     }
 
     // --- counters ---
@@ -1350,7 +1848,8 @@ service cloud.firestore {
           isPlatformAdminUser()
           || effectiveAppPermission('viewAuditLog')
         );
-      allow create: if isSignedIn();
+      allow create: if isSignedIn()
+        && auditLogBelongsToAuthTenant(request.resource.data);
       allow update, delete: if false;
     }
 

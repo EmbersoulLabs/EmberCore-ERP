@@ -30,6 +30,21 @@ const Map<String, Map<String, String>> billingStrings = {
     'zh': '试用结束',
     'ms': 'Percubaan tamat',
   },
+  'billing.trialOrders': {
+    'en': 'Trial orders',
+    'zh': '试用订单',
+    'ms': 'Pesanan percubaan',
+  },
+  'billing.ordersUsage': {
+    'en': 'Orders this period',
+    'zh': '本周期订单',
+    'ms': 'Pesanan tempoh ini',
+  },
+  'billing.broadcastUsage': {
+    'en': 'Broadcast recipients',
+    'zh': '群发收件人',
+    'ms': 'Penerima siaran',
+  },
   'billing.renews': {
     'en': 'Renews',
     'zh': '续费日',
@@ -86,14 +101,34 @@ const Map<String, Map<String, String>> billingStrings = {
     'ms': '—',
   },
   'billing.starterBlurb': {
-    'en': 'RM 149/mo · up to 5 staff · 500 orders/mo',
-    'zh': 'RM 149/月 · 最多 5 人 · 500 单/月',
-    'ms': 'RM 149/bulan · sehingga 5 staf · 500 pesanan/bulan',
+    'en': 'Core orders, POS and delivery.',
+    'zh': '订单、收银和配送。',
+    'ms': 'Pesanan, POS dan penghantaran.',
   },
   'billing.proBlurb': {
-    'en': 'RM 299/mo · up to 20 staff · unlimited orders',
-    'zh': 'RM 299/月 · 最多 20 人 · 不限订单',
-    'ms': 'RM 299/bulan · sehingga 20 staf · pesanan tanpa had',
+    'en': 'WhatsApp, Shopify and operating reports.',
+    'zh': 'WhatsApp、Shopify 和经营报表。',
+    'ms': 'WhatsApp, Shopify dan laporan operasi.',
+  },
+  'billing.businessBlurb': {
+    'en': 'Multiple companies, headquarters and higher limits.',
+    'zh': '多公司、总部和更高额度。',
+    'ms': 'Pelbagai syarikat, ibu pejabat dan had lebih tinggi.',
+  },
+  'billing.interval.month': {
+    'en': 'Monthly',
+    'zh': '月付',
+    'ms': 'Bulanan',
+  },
+  'billing.interval.year': {
+    'en': 'Annual',
+    'zh': '年付',
+    'ms': 'Tahunan',
+  },
+  'billing.countryMissing': {
+    'en': 'Billing is available for Malaysia and Singapore companies.',
+    'zh': '账单目前只对马来西亚和新加坡公司开放。',
+    'ms': 'Bil tersedia untuk syarikat Malaysia dan Singapura.',
   },
   'billing.subscribeStarter': {
     'en': 'Subscribe Starter',
@@ -104,6 +139,11 @@ const Map<String, Map<String, String>> billingStrings = {
     'en': 'Subscribe Pro',
     'zh': '订阅专业版',
     'ms': 'Langgan Pro',
+  },
+  'billing.subscribeBusiness': {
+    'en': 'Subscribe Business',
+    'zh': '订阅 Business',
+    'ms': 'Langgan Business',
   },
   'billing.managePortal': {
     'en': 'Manage billing',
@@ -126,9 +166,9 @@ const Map<String, Map<String, String>> billingStrings = {
     'ms': 'Tidak dapat membuka portal bil: {error}',
   },
   'billing.checkoutSuccess': {
-    'en': 'Payment received. Your subscription will update shortly.',
-    'zh': '付款成功，订阅状态将很快更新。',
-    'ms': 'Bayaran diterima. Langganan akan dikemas kini sebentar lagi.',
+    'en': 'Returned from checkout. The subscription changes only after the server confirms Stripe.',
+    'zh': '已从结账页返回。只有服务器确认 Stripe 之后，订阅才会更新。',
+    'ms': 'Kembali dari pembayaran. Langganan berubah hanya selepas pelayan mengesahkan Stripe.',
   },
   'billing.checkoutCancelled': {
     'en': 'Checkout cancelled.',

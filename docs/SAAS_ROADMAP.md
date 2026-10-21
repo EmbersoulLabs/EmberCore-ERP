@@ -242,9 +242,9 @@ On approve, automatically / 批准时自动:
 
 | Plan | Monthly (MYR) | Staff cap | Orders/mo | Upgrade hook |
 |------|---------------|-----------|-----------|--------------|
-| Starter | RM 59–89 (RM 69) | ≤ 2 | ≤ 2,000 | Core ERP + CSV import/export |
-| Pro | RM 179–249 (RM 199) | Unlimited | Unlimited | WhatsApp · Shopify · BOM/profit · audit |
-| Business | RM 449–599 (RM 499) | Unlimited | Unlimited | Multi-store · HQ dashboard · Open API |
+| Starter | RM 69 / S$ 29 | 2 | 500 | Core ERP + CSV import/export |
+| Pro | RM 199 / S$ 79 | 10 | 3,000 | WhatsApp · Shopify · BOM · audit |
+| Business | RM 399 / S$ 159 | 30 | 10,000 | Higher limits · priority support |
 
 - [x] Tier feature matrix documented
 - [ ] Stripe Price IDs (MYR) + Functions `PLAN_LIMITS` aligned

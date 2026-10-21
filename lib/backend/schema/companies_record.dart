@@ -62,6 +62,10 @@ class CompaniesRecord extends FirestoreRecord {
   String get planTier => _planTier ?? '';
   bool hasPlanTier() => _planTier != null;
 
+  String? _billingCountry;
+  String get billingCountry => _billingCountry ?? '';
+  bool hasBillingCountry() => _billingCountry != null;
+
   String? _subscriptionStatus;
   String get subscriptionStatus => _subscriptionStatus ?? '';
   bool hasSubscriptionStatus() => _subscriptionStatus != null;
@@ -118,6 +122,7 @@ class CompaniesRecord extends FirestoreRecord {
     _createdAt = snapshotData['created_at'] as DateTime?;
     _logo = snapshotData['logo'] as String?;
     _planTier = snapshotData['plan_tier'] as String?;
+    _billingCountry = snapshotData['billing_country'] as String?;
     _subscriptionStatus = snapshotData['subscription_status'] as String?;
     _trialEndsAt = snapshotData['trial_ends_at'] as DateTime?;
     _currentPeriodEnd = snapshotData['current_period_end'] as DateTime?;

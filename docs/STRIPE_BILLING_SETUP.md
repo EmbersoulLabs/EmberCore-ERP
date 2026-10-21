@@ -13,15 +13,15 @@ Stripe 结构：**1 个 Product 可挂多个 Price**，年付**不需要**另开
 ```
 EmberCore Starter
   ├── price_...  RM 69 / month
-  └── price_...  RM 699 / year
+  └── price_...  RM 690 / year
 
 EmberCore Pro
   ├── price_...  RM 199 / month
-  └── price_...  RM 1,999 / year
+  └── price_...  RM 1,990 / year
 
 EmberCore Business
-  ├── price_...  RM 499 / month
-  └── price_...  RM 4,999 / year
+  ├── price_...  RM 399 / month
+  └── price_...  RM 3,990 / year
 ```
 
 在 Dashboard：**产品 → 选择 Product → 添加另一个价格 → 开单周期选「每年」**。
@@ -34,9 +34,9 @@ Create **three** recurring products in **MYR**. For each product, add **monthly*
 
 | Product | plan_tier | Monthly | Yearly (~15% off) |
 |---------|-----------|---------|-------------------|
-| EmberCore Starter | `starter` | RM 69 | RM 699 |
-| EmberCore Pro | `pro` | RM 199 | RM 1,999 |
-| EmberCore Business | `business` | RM 499 | RM 4,999 |
+| EmberCore Starter | `starter` | RM 69 | RM 690 |
+| EmberCore Pro | `pro` | RM 199 | RM 1,990 |
+| EmberCore Business | `business` | RM 399 | RM 3,990 |
 
 For each price:
 
@@ -75,7 +75,7 @@ firebase functions:config:set \
 
 Or env vars: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `BILLING_APP_URL`, `STRIPE_PRICE_STARTER_MONTHLY`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_BUSINESS_MONTHLY`.
 
-> **Note:** `stripe_billing.js` currently implements **starter** and **pro** only. Add `business` to `PLAN_LIMITS` and `priceIdForPlan` before deploying Business checkout.
+> **Note:** `stripe_billing.js` resolves Starter, Pro and Business for MY and SG, monthly and yearly. Amounts come from `saas_pricing_v1.js`. Paid caps come from `plan_entitlements.js`.
 
 Deploy:
 
@@ -86,21 +86,21 @@ firebase deploy --only functions:createCheckoutSession,functions:createPortalSes
 
 ## 3. App flow
 
-- New tenants (registration approval) get **14-day trial** on **Starter** limits (`plan_tier: starter`, `subscription_status: trialing`).
+- New tenants (registration approval) get a **14-day trial** with **Pro modules** and trial caps of 3 staff / 100 orders (`subscription_status: trialing`). Paid Starter limits are not applied during trial.
 - **Director/Admin** → sidebar **Billing** → Subscribe or **Manage billing** (Stripe Portal).
 - Webhook updates `Companies`: `plan_tier`, `subscription_status`, `max_staff_seats`, `max_orders_per_month`, etc.
 - `past_due` / expired trial / `cancelled` → **Create Order** blocked with message.
-- **Pro-only modules** (WhatsApp import, Shopify, BOM, audit log) should be gated by `plan_tier` — see [PRICING_PLANS.md](PRICING_PLANS.md).
+- **Pro and Business modules** (WhatsApp import, Shopify, BOM, production menu, broadcast, audit log) are gated by `plan_entitlements.js`. Trial uses those modules with the 100-order trial cap. See [PRICING_PLANS.md](PRICING_PLANS.md).
 
 ## 4. Plan limits (target)
 
 | Tier | max_staff_seats | max_orders_per_month |
 |------|-----------------|----------------------|
-| starter | 2 | 2000 |
-| pro | null (unlimited) | null |
-| business | null | null |
+| starter | 2 | 500 |
+| pro | 10 | 3000 |
+| business | 30 | 10000 |
 
-Legacy code may still use 5 / 500 until updated in `stripe_billing.js` and `subscription_helpers.dart`.
+Trial remains 3 staff and 100 lifetime orders. Every paid plan has `max_companies: 1`.
 
 ## 5. Legacy tenants
 
@@ -125,7 +125,7 @@ Copy-paste into Stripe Dashboard → **Product catalog** → each product.
 | Field | English |
 |-------|---------|
 | **Name** | `EmberCore Starter` |
-| **Description** | `Essential ERP for small shops and florists. Orders, POS, delivery, customers, products, basic reports, and CSV import/export. Up to 2 staff and 2,000 orders per month.` |
+| **Description** | `Essential ERP for small shops. Orders, POS, delivery, customers, products, invoices, basic reports, and CSV import/export. Up to 2 staff and 500 orders per month.` |
 | **Statement descriptor** (≤22 chars, appears on card/bank statement) | `EMBERCORE STARTER` |
 
 **Product metadata (optional):**
@@ -140,12 +140,12 @@ Copy-paste into Stripe Dashboard → **Product catalog** → each product.
 | Price | Description |
 |-------|-------------|
 | Monthly RM 69 | `Monthly — billed every month` |
-| Yearly RM 699 | `Yearly — save ~15% vs monthly` |
+| Yearly RM 690 | `Yearly — billed every year` |
 
 **Marketing features** (Pricing table / Portal — one bullet per line):
 
 - Up to 2 staff members
-- Up to 2,000 orders/month
+- Up to 500 orders/month
 - Orders, POS & delivery
 - Customer & product management
 - Basic sales reports
@@ -158,7 +158,7 @@ Copy-paste into Stripe Dashboard → **Product catalog** → each product.
 | Field | English |
 |-------|---------|
 | **Name** | `EmberCore Pro` |
-| **Description** | `For growing stores. Everything in Starter, plus WhatsApp order import, Shopify sync, BOM & cost tracking, profit analytics, inventory alerts, audit logs, advanced roles, and custom reports. Unlimited staff and orders. Customer broadcast: 2,000 contacts/month.` |
+| **Description** | `Everything in Starter, plus WhatsApp order import, Shopify sync, BOM, production menu, audit logs, tenant roles, and customer broadcast for 2,000 recipients per month. Up to 10 staff and 3,000 orders per month.` |
 | **Statement descriptor** | `EMBERCORE PRO` |
 
 **Product metadata:**
@@ -173,11 +173,11 @@ Copy-paste into Stripe Dashboard → **Product catalog** → each product.
 | Price | Description |
 |-------|-------------|
 | Monthly RM 199 | `Monthly — billed every month` |
-| Yearly RM 1,999 | `Yearly — save ~15% vs monthly` |
+| Yearly RM 1,990 | `Yearly — billed every year` |
 
 **Marketing features:**
 
-- Unlimited staff & orders
+- Up to 10 staff and 3,000 orders/month
 - WhatsApp one-tap order import
 - Shopify order sync
 - BOM, cost & profit analytics
@@ -191,7 +191,7 @@ Copy-paste into Stripe Dashboard → **Product catalog** → each product.
 | Field | English |
 |-------|---------|
 | **Name** | `EmberCore Business` |
-| **Description** | `For chains and multi-location businesses. Everything in Pro, plus multi-store management, HQ dashboard, cross-store inventory, advanced API access, unlimited customer broadcast, and dedicated support. Multi-store and HQ features are rolling out — subscribers get early access.` |
+| **Description** | `Everything in Pro, with 30 staff, 10,000 orders per month, customer broadcast for 10,000 recipients per month, and priority support. Multi-store, HQ, open API, and AI analysis are not included.` |
 | **Statement descriptor** | `EMBERCORE BUSINESS` |
 
 **Product metadata:**
@@ -205,17 +205,16 @@ Copy-paste into Stripe Dashboard → **Product catalog** → each product.
 
 | Price | Description |
 |-------|-------------|
-| Monthly RM 499 | `Monthly — billed every month` |
-| Yearly RM 4,999 | `Yearly — save ~15% vs monthly` |
+| Monthly RM 399 | `Monthly — billed every month` |
+| Yearly RM 3,990 | `Yearly — billed every year` |
 
 **Marketing features:**
 
 - Everything in Pro
-- Multi-store & HQ dashboard
-- Cross-store inventory
-- Open API & webhooks
-- Unlimited customer broadcast
-- Dedicated support
+- Up to 30 staff and 10,000 orders/month
+- Customer broadcast (10,000/month)
+- Priority support
+- One company; multi-store and open API are not included
 
 ---
 
@@ -226,11 +225,11 @@ After creating all 6 prices, record IDs here (do not commit live secrets to git)
 | Env key | Price ID | Amount |
 |---------|----------|--------|
 | `STRIPE_PRICE_STARTER_MONTHLY` | `price_...` | RM 69/mo |
-| `STRIPE_PRICE_STARTER_YEARLY` | `price_...` | RM 699/yr |
+| `STRIPE_PRICE_STARTER_YEARLY` | `price_...` | RM 690/yr |
 | `STRIPE_PRICE_PRO_MONTHLY` | `price_...` | RM 199/mo |
-| `STRIPE_PRICE_PRO_YEARLY` | `price_...` | RM 1,999/yr |
-| `STRIPE_PRICE_BUSINESS_MONTHLY` | `price_...` | RM 499/mo |
-| `STRIPE_PRICE_BUSINESS_YEARLY` | `price_...` | RM 4,999/yr |
+| `STRIPE_PRICE_PRO_YEARLY` | `price_...` | RM 1,990/yr |
+| `STRIPE_PRICE_BUSINESS_MONTHLY` | `price_...` | RM 399/mo |
+| `STRIPE_PRICE_BUSINESS_YEARLY` | `price_...` | RM 3,990/yr |
 
 ---
 

@@ -71,50 +71,52 @@ service firebase.storage {
       return isStaffUser();
     }
 
-    // Product catalog photos — public read so download URLs render in web/img tags.
-    match /product_images/{productId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if canWriteTenantMedia();
+    // Tenant-scoped media. New uploads always include companyId in the path.
+    match /tenant_media/{companyId}/product_images/{productId}/{allPaths=**} {
+      allow read: if isSignedIn() && companyPathMatchesAuthTenant(companyId);
+      allow write: if canWriteTenantMedia() && companyPathMatchesAuthTenant(companyId);
     }
 
     // Company profile logos — public read so download URLs render in web/img tags.
     match /company_logos/{companyId}/{allPaths=**} {
-      allow read: if true;
+      allow read: if isSignedIn() && companyPathMatchesAuthTenant(companyId);
       allow write: if canWriteTenantMedia() && companyPathMatchesAuthTenant(companyId);
     }
 
     // One-off custom order line item photos
-    match /custom_product_images/{orderItemId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if canWriteTenantMedia();
+    match /tenant_media/{companyId}/custom_product_images/{orderItemId}/{allPaths=**} {
+      allow read: if isSignedIn() && companyPathMatchesAuthTenant(companyId);
+      allow write: if canWriteTenantMedia() && companyPathMatchesAuthTenant(companyId);
     }
 
     // Driver delivery proof photos (order completion)
-    match /delivery_proof_images/{orderId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if canWriteTenantMedia() && driverMayUploadOrder(orderId);
+    match /tenant_media/{companyId}/delivery_proof_images/{orderId}/{allPaths=**} {
+      allow read: if isSignedIn() && companyPathMatchesAuthTenant(companyId);
+      allow write: if canWriteTenantMedia()
+        && companyPathMatchesAuthTenant(companyId)
+        && driverMayUploadOrder(orderId);
     }
 
     // Invoice payment proof — tenant-scoped (companyId/invoiceId/file)
     match /invoice_payment_proof_images/{companyId}/{invoiceId}/{allPaths=**} {
-      allow read: if true;
+      allow read: if isSignedIn() && companyPathMatchesAuthTenant(companyId);
       allow write: if canWriteTenantMedia() && companyPathMatchesAuthTenant(companyId);
     }
 
     // Legacy invoice proof paths (read-only for older uploads)
     match /invoice_payment_proof_images/{invoiceId}/{fileName} {
-      allow read: if true;
+      allow read, write: if false;
     }
 
     // Customer broadcast photos (inline in email / WhatsApp link preview)
     match /customer_broadcast_images/{companyId}/{allPaths=**} {
-      allow read: if true;
+      allow read: if isSignedIn() && companyPathMatchesAuthTenant(companyId);
       allow write: if canWriteTenantMedia() && companyPathMatchesAuthTenant(companyId);
     }
 
     // Pending user signup logos (public write before account exists).
     match /user_registration_logos/{requestId}/{allPaths=**} {
-      allow read: if true;
+      allow read: if isSuperAdminUser();
       allow write: if request.resource != null
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
@@ -123,6 +125,20 @@ service firebase.storage {
     match /users/{userId}/{allPaths=**} {
       allow read: if request.auth.uid == userId;
       allow write: if request.auth.uid == userId;
+    }
+
+    // Legacy unscoped media paths are fail-closed. Existing objects must be
+    // copied to their tenant-scoped path by an audited, non-destructive job.
+    match /product_images/{productId}/{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    match /custom_product_images/{orderItemId}/{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    match /delivery_proof_images/{orderId}/{allPaths=**} {
+      allow read, write: if false;
     }
 
     match /{allPaths=**} {

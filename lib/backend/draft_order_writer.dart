@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '/auth/firebase_auth/auth_util.dart';
+import '/auth/role_helpers.dart';
+import '/auth/viewer_role_helpers.dart';
 import '/backend/observability/app_logger.dart';
 import '/backend/observability/observability_service.dart';
 import '/backend/observability/performance_baselines.dart';
@@ -13,6 +15,7 @@ import '/backend/schema/users_record.dart';
 import '/backend/tenant_company_helpers.dart';
 import '/backend/tenant_context.dart';
 import '/backend/tenant_query_helpers.dart';
+import '/backend/trial_quota.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 
 /// Returns true when Firestore failed due to connectivity / availability.
@@ -199,7 +202,16 @@ Future<DocumentReference> _createDraftOrderDocument() async {
     createdTime: getCurrentTimestamp,
   );
 
-  await orderRef.set(orderData);
+  try {
+    await commitOrderCreate(
+      orderRef: orderRef,
+      orderData: orderData,
+      companyId: companyId,
+      exemptFromQuota: isSuperAdminRole(currentViewerRole()),
+    );
+  } on TrialQuotaException catch (error) {
+    throw CreateOrderException(error.message);
+  }
   AppLogger.info('Draft order created', context: {'orderPath': orderRef.path});
   return orderRef;
 }

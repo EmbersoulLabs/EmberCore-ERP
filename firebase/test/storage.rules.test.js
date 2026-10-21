@@ -59,22 +59,38 @@ function uploadBytes(storageReference, bytes) {
 }
 
 describe("storage rules (claims-based)", () => {
-  it("allows public read on delivery proof path", async () => {
-    const objectPath = "delivery_proof_images/orderA/proof.jpg";
+  it("allows only the owning tenant to read delivery proof", async () => {
+    const objectPath =
+      "tenant_media/companyA/delivery_proof_images/orderA/proof.jpg";
     await testEnv.withSecurityRulesDisabled(async (context) => {
       const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x00]);
       await context.storage(BUCKET).ref(objectPath).put(bytes, {
         contentType: "image/jpeg",
       });
     });
-    await assertSucceeds(storageRef(null, objectPath).getDownloadURL());
+    await assertSucceeds(
+      storageRef("staffA", objectPath, {
+        role: "florist",
+        companyId: "companyA",
+      }).getDownloadURL(),
+    );
+    await assertFails(storageRef(null, objectPath).getDownloadURL());
+    await assertFails(
+      storageRef("staffB", objectPath, {
+        role: "florist",
+        companyId: "companyB",
+      }).getDownloadURL(),
+    );
   });
 
   it("denies unauthenticated write to delivery proof path", async () => {
     const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x00]);
     await assertFails(
       uploadBytes(
-        storageRef(null, "delivery_proof_images/orderA/proof.jpg"),
+        storageRef(
+          null,
+          "tenant_media/companyA/delivery_proof_images/orderA/proof.jpg",
+        ),
         bytes,
       ),
     );
@@ -84,7 +100,10 @@ describe("storage rules (claims-based)", () => {
     const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x00]);
     await assertFails(
       uploadBytes(
-        storageRef("unknownUser", "delivery_proof_images/orderA/proof.jpg"),
+        storageRef(
+          "unknownUser",
+          "tenant_media/companyA/delivery_proof_images/orderA/proof.jpg",
+        ),
         bytes,
       ),
     );
@@ -124,7 +143,21 @@ describe("storage rules (claims-based)", () => {
       uploadBytes(
         storageRef(
           "floristUser",
-          "product_images/product123/photo.jpg",
+          "tenant_media/companyA/product_images/product123/photo.jpg",
+          { role: "florist", companyId: "companyA" },
+        ),
+        bytes,
+      ),
+    );
+  });
+
+  it("denies florist product image write for another tenant", async () => {
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x00]);
+    await assertFails(
+      uploadBytes(
+        storageRef(
+          "floristUser",
+          "tenant_media/companyB/product_images/product123/photo.jpg",
           { role: "florist", companyId: "companyA" },
         ),
         bytes,
@@ -138,7 +171,7 @@ describe("storage rules (claims-based)", () => {
       uploadBytes(
         storageRef(
           "driverUser",
-          "delivery_proof_images/orderA/proof.jpg",
+          "tenant_media/companyA/delivery_proof_images/orderA/proof.jpg",
           {
             role: "driver",
             companyId: "companyA",
@@ -156,13 +189,56 @@ describe("storage rules (claims-based)", () => {
       uploadBytes(
         storageRef(
           "driverUser",
-          "delivery_proof_images/orderB/proof.jpg",
+          "tenant_media/companyA/delivery_proof_images/orderB/proof.jpg",
           {
             role: "driver",
             companyId: "companyA",
             assignedOrderIds: ["orderA"],
           },
         ),
+        bytes,
+      ),
+    );
+  });
+
+  it("denies driver delivery proof write for another tenant", async () => {
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x00]);
+    await assertFails(
+      uploadBytes(
+        storageRef(
+          "driverUser",
+          "tenant_media/companyB/delivery_proof_images/orderA/proof.jpg",
+          {
+            role: "driver",
+            companyId: "companyA",
+            assignedOrderIds: ["orderA"],
+          },
+        ),
+        bytes,
+      ),
+    );
+  });
+
+  it("denies all access to legacy unscoped sensitive media", async () => {
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x00]);
+    const legacyPath = "delivery_proof_images/orderA/proof.jpg";
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.storage(BUCKET).ref(legacyPath).put(bytes, {
+        contentType: "image/jpeg",
+      });
+    });
+    await assertFails(
+      storageRef("staffA", legacyPath, {
+        role: "florist",
+        companyId: "companyA",
+      }).getDownloadURL(),
+    );
+    await assertFails(
+      uploadBytes(
+        storageRef("staffA", "product_images/product123/photo.jpg", {
+          role: "florist",
+          companyId: "companyA",
+        }),
         bytes,
       ),
     );

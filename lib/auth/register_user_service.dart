@@ -14,6 +14,7 @@ import '/backend/schema/enums/enums.dart';
 import '/auth/app_permissions.dart' as app_permissions;
 import '/backend/staff_registration_intent_helpers.dart';
 import '/backend/tenant_company_helpers.dart';
+import '/backend/trial_quota.dart';
 import '/backend/user_list_helpers.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/nav/nav.dart';
@@ -97,6 +98,12 @@ Future<RegisterUserResult> registerStaffUser({
   }
 
   final priorUid = loggedIn ? currentUserUid : null;
+  final staffLimit = await trialStaffLimitMessageIfFull(
+    canonicalCompanyRef(companyRef).id,
+  );
+  if (staffLimit != null) {
+    return RegisterUserResult(success: false, errorMessage: staffLimit);
+  }
 
   GoRouter.of(context).prepareAuthEvent();
 
@@ -153,21 +160,23 @@ Future<RegisterUserResult> registerStaffUser({
   }
 
   try {
-    await UsersRecord.collection.doc(uid).set(
-          createUsersRecordData(
-            name: trimmedName,
-            email: normalizedEmail,
-            role: role,
-            companyRef: canonicalCompanyRef(companyRef),
-            uid: uid,
-            displayName: trimmedName,
-            createdTime: getCurrentTimestamp,
-            phoneNumber: phoneNumber?.trim().isEmpty ?? true
-                ? null
-                : phoneNumber!.trim(),
-            isActive: true,
-          ),
-        );
+    await commitStaffCreate(
+      userRef: UsersRecord.collection.doc(uid),
+      userData: createUsersRecordData(
+        name: trimmedName,
+        email: normalizedEmail,
+        role: role,
+        companyRef: canonicalCompanyRef(companyRef),
+        uid: uid,
+        displayName: trimmedName,
+        createdTime: getCurrentTimestamp,
+        phoneNumber: phoneNumber?.trim().isEmpty ?? true
+            ? null
+            : phoneNumber!.trim(),
+        isActive: true,
+      ),
+      companyId: canonicalCompanyRef(companyRef).id,
+    );
     final createdProfile =
         await UsersRecord.getDocumentOnce(UsersRecord.collection.doc(uid));
     await auditLogStaffChange(
@@ -178,6 +187,10 @@ Future<RegisterUserResult> registerStaffUser({
     );
     await deleteStaffRegistrationIntent(normalizedEmail);
   } catch (e) {
+    if (e is TrialQuotaException) {
+      await deleteStaffRegistrationIntent(normalizedEmail);
+      return RegisterUserResult(success: false, errorMessage: e.message);
+    }
     return RegisterUserResult(
       success: false,
       errorMessage:
