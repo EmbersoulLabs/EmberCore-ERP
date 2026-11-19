@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '/backend/backend.dart';
+import '/backend/schema/shopify_reviews_record.dart';
 import '/backend/schema/enums/enums.dart';
 import '/backend/tenant_company_helpers.dart';
 import '/backend/tenant_context.dart';
@@ -179,6 +180,36 @@ Future<List<DeletedOrdersRecord>> queryTenantDeletedOrdersRecordOnce({
   bool singleRecord = false,
 }) =>
     queryDeletedOrdersRecordOnce(
+      queryBuilder: chainQueryBuilders(
+        applyTenantCompanyFilter,
+        queryBuilder,
+      ),
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+// --- Shopify reviews ---
+
+Stream<List<ShopifyReviewsRecord>> queryTenantShopifyReviewsRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryShopifyReviewsRecord(
+      queryBuilder: chainQueryBuilders(
+        applyTenantCompanyFilter,
+        queryBuilder,
+      ),
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<ShopifyReviewsRecord>> queryTenantShopifyReviewsRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryShopifyReviewsRecordOnce(
       queryBuilder: chainQueryBuilders(
         applyTenantCompanyFilter,
         queryBuilder,

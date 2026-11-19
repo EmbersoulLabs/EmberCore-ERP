@@ -1,9 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '/auth/role_helpers.dart';
 import '/auth/viewer_role_helpers.dart';
+import '/backend/billing_catalog.dart';
+import '/backend/monthly_usage.dart';
 import '/backend/schema/companies_record.dart';
 import '/backend/stripe_billing_service.dart';
 import '/backend/subscription_helpers.dart';
@@ -30,7 +33,11 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
   bool _loading = true;
   String? _loadError;
   bool _checkoutBusy = false;
+  String _interval = 'month';
   String? _bannerMessage;
+  String? _ordersUsage;
+  String? _broadcastUsage;
+  bool _trialOrders = false;
 
   @override
   void initState() {
@@ -64,12 +71,21 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
         });
         return;
       }
-      final company = await CompaniesRecord.getDocumentOnce(companyRef);
+      final snap = await companyRef.get();
+      final company = CompaniesRecord.fromSnapshot(snap);
+      final raw = snap.data();
+      final usage = await _usageLines(
+        company,
+        raw is Map<String, dynamic> ? raw : <String, dynamic>{},
+      );
       if (!mounted) {
         return;
       }
       setState(() {
         _company = company;
+        _ordersUsage = usage.orders;
+        _broadcastUsage = usage.broadcast;
+        _trialOrders = usage.trial;
         _loading = false;
       });
     } catch (error) {
@@ -81,6 +97,51 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
         _loading = false;
       });
     }
+  }
+
+  Future<({String? orders, String? broadcast, bool trial})> _usageLines(
+    CompaniesRecord company,
+    Map<String, dynamic> raw,
+  ) async {
+    final status = company.subscriptionStatus;
+    if (status == 'trialing') {
+      final quota = await FirebaseFirestore.instance
+          .collection('trial_quota')
+          .doc(company.reference.id)
+          .get();
+      final used = (quota.data()?['orders_consumed'] as num?)?.toInt() ?? 0;
+      return (
+        orders: '$used / ${company.maxOrdersPerMonth}',
+        broadcast: null,
+        trial: true,
+      );
+    }
+    if (status != 'active') {
+      return (orders: null, broadcast: null, trial: false);
+    }
+    final end = raw['current_period_end'];
+    final period = usagePeriodId(
+      nowUtc: DateTime.now().toUtc(),
+      storedPeriodId: raw['usage_period_id'] as String?,
+      periodEnd: end is Timestamp ? end.toDate() : null,
+    );
+    final usage = await FirebaseFirestore.instance
+        .collection('plan_usage')
+        .doc(company.reference.id)
+        .get();
+    final data = usage.data() ?? {};
+    final same = data['period_id'] == period;
+    final ordersUsed =
+        same ? (data['orders_consumed'] as num?)?.toInt() ?? 0 : 0;
+    final broadcastUsed =
+        same ? (data['broadcast_consumed'] as num?)?.toInt() ?? 0 : 0;
+    final broadcastMax =
+        (raw['broadcast_quota_monthly'] as num?)?.toInt() ?? 0;
+    return (
+      orders: '$ordersUsed / ${company.maxOrdersPerMonth}',
+      broadcast: broadcastMax > 0 ? '$broadcastUsed / $broadcastMax' : null,
+      trial: false,
+    );
   }
 
   Future<void> _openCheckout(String planTier) async {
@@ -98,6 +159,7 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
       final result = await createStripeCheckoutSession(
         companyId: company.reference.id,
         planTier: planTier,
+        interval: _interval,
       );
       final uri = Uri.parse(result.url);
       final launched = await launchUrl(uri, webOnlyWindowName: '_self');
@@ -248,6 +310,23 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
                                     tr(context, 'billing.trialEnds'),
                                     _formatDate(context, _company!.trialEndsAt),
                                   ),
+                                if (_ordersUsage != null)
+                                  _infoRow(
+                                    context,
+                                    tr(
+                                      context,
+                                      _trialOrders
+                                          ? 'billing.trialOrders'
+                                          : 'billing.ordersUsage',
+                                    ),
+                                    _ordersUsage!,
+                                  ),
+                                if (_broadcastUsage != null)
+                                  _infoRow(
+                                    context,
+                                    tr(context, 'billing.broadcastUsage'),
+                                    _broadcastUsage!,
+                                  ),
                                 if (_company?.currentPeriodEnd != null)
                                   _infoRow(
                                     context,
@@ -261,66 +340,63 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          EmberSectionCard(
-                            title: tr(context, 'billing.plan.starter'),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  tr(context, 'billing.starterBlurb'),
-                                  style: theme.bodyMedium,
-                                ),
-                                const SizedBox(height: 12),
-                                FFButtonWidget(
-                                  onPressed: _checkoutBusy
-                                      ? null
-                                      : () => _openCheckout('starter'),
-                                  text: tr(context, 'billing.subscribeStarter'),
-                                  options: FFButtonOptions(
-                                    height: 44,
-                                    color: theme.primary,
-                                    textStyle: theme.titleSmall.override(
-                                      font: GoogleFonts.interTight(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      color: Colors.white,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ],
+                          SegmentedButton<String>(
+                            segments: [
+                              ButtonSegment(
+                                value: 'month',
+                                label: Text(tr(context, 'billing.interval.month')),
+                              ),
+                              ButtonSegment(
+                                value: 'year',
+                                label: Text(tr(context, 'billing.interval.year')),
+                              ),
+                            ],
+                            selected: {_interval},
+                            onSelectionChanged: (selection) {
+                              setState(() => _interval = selection.first);
+                            },
+                          ),
+                          if (normalizeBillingCountry(_company?.billingCountry)
+                                  .isEmpty ||
+                              billingListPriceMinor(
+                                    country: _company?.billingCountry,
+                                    plan: 'starter',
+                                    interval: _interval,
+                                  ) ==
+                                  null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: Text(
+                                tr(context, 'billing.countryMissing'),
+                                style: theme.bodyMedium,
+                              ),
                             ),
+                          const SizedBox(height: 16),
+                          _planCard(
+                            context,
+                            theme,
+                            plan: 'starter',
+                            titleKey: 'billing.plan.starter',
+                            blurbKey: 'billing.starterBlurb',
+                            buttonKey: 'billing.subscribeStarter',
                           ),
                           const SizedBox(height: 16),
-                          EmberSectionCard(
-                            title: tr(context, 'billing.plan.pro'),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  tr(context, 'billing.proBlurb'),
-                                  style: theme.bodyMedium,
-                                ),
-                                const SizedBox(height: 12),
-                                FFButtonWidget(
-                                  onPressed: _checkoutBusy
-                                      ? null
-                                      : () => _openCheckout('pro'),
-                                  text: tr(context, 'billing.subscribePro'),
-                                  options: FFButtonOptions(
-                                    height: 44,
-                                    color: theme.primary,
-                                    textStyle: theme.titleSmall.override(
-                                      font: GoogleFonts.interTight(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      color: Colors.white,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ],
-                            ),
+                          _planCard(
+                            context,
+                            theme,
+                            plan: 'pro',
+                            titleKey: 'billing.plan.pro',
+                            blurbKey: 'billing.proBlurb',
+                            buttonKey: 'billing.subscribePro',
+                          ),
+                          const SizedBox(height: 16),
+                          _planCard(
+                            context,
+                            theme,
+                            plan: 'business',
+                            titleKey: 'billing.plan.business',
+                            blurbKey: 'billing.businessBlurb',
+                            buttonKey: 'billing.subscribeBusiness',
                           ),
                           const SizedBox(height: 16),
                           FFButtonWidget(
@@ -347,6 +423,54 @@ class _BillingPageWidgetState extends State<BillingPageWidget> {
                         ],
                       ),
                     ),
+    );
+  }
+
+  Widget _planCard(
+    BuildContext context,
+    FlutterFlowTheme theme, {
+    required String plan,
+    required String titleKey,
+    required String blurbKey,
+    required String buttonKey,
+  }) {
+    final priced = billingListPriceMinor(
+          country: _company?.billingCountry,
+          plan: plan,
+          interval: _interval,
+        ) !=
+        null;
+    return EmberSectionCard(
+      title: tr(context, titleKey),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            formatBillingPrice(
+              country: _company?.billingCountry,
+              plan: plan,
+              interval: _interval,
+            ),
+            style: theme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(tr(context, blurbKey), style: theme.bodyMedium),
+          const SizedBox(height: 12),
+          FFButtonWidget(
+            onPressed: _checkoutBusy || !priced ? null : () => _openCheckout(plan),
+            text: tr(context, buttonKey),
+            options: FFButtonOptions(
+              height: 44,
+              color: theme.primary,
+              textStyle: theme.titleSmall.override(
+                font: GoogleFonts.interTight(fontWeight: FontWeight.w600),
+                color: Colors.white,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

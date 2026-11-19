@@ -80,6 +80,14 @@ List<EmberNavGroup> buildEmberNavGroups(
           visible: platformModuleEnabled(PlatformModule.orders),
         ),
         item(
+          labelKey: 'nav.shopifyReview',
+          icon: Icons.storefront_outlined,
+          routePath: ShopifyPendingOrdersPageWidget.routePath,
+          routeName: ShopifyPendingOrdersPageWidget.routeName,
+          visible: platformModuleEnabled(PlatformModule.shopifyImport) &&
+              canViewOrders(role),
+        ),
+        item(
           labelKey: 'nav.pos',
           icon: Icons.point_of_sale_outlined,
           routePath: SalesDashBoardWidget.routePath,
@@ -112,6 +120,14 @@ List<EmberNavGroup> buildEmberNavGroups(
           routePath: ProductlistWidget.routePath,
           routeName: ProductlistWidget.routeName,
           visible: platformModuleEnabled(PlatformModule.products),
+        ),
+        item(
+          labelKey: 'nav.assetLibrary',
+          icon: Icons.photo_library_outlined,
+          routePath: AssetLibraryPageWidget.routePath,
+          routeName: AssetLibraryPageWidget.routeName,
+          visible: platformModuleEnabled(PlatformModule.products) &&
+              canEditProducts(role),
         ),
         item(
           labelKey: 'nav.staff',

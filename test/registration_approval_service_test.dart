@@ -32,4 +32,53 @@ void main() {
       expect(request.companyName, 'Acme Co');
     });
   });
+
+  group('validateUserRegistrationInput', () {
+    test('accepts Malaysia and Singapore', () {
+      expect(
+        validateUserRegistrationInput(
+          name: 'A',
+          phone: '1',
+          email: 'a@b.com',
+          accountType: UserSignupAccountType.private,
+          country: 'MY',
+        ),
+        isNull,
+      );
+      expect(
+        validateUserRegistrationInput(
+          name: 'A',
+          phone: '1',
+          email: 'a@b.com',
+          accountType: UserSignupAccountType.company,
+          companyName: 'Shop',
+          country: 'sg',
+        ),
+        isNull,
+      );
+    });
+
+    test('rejects an unsupported country and a duplicate-prone empty company', () {
+      expect(
+        validateUserRegistrationInput(
+          name: 'A',
+          phone: '1',
+          email: 'a@b.com',
+          accountType: UserSignupAccountType.private,
+          country: 'US',
+        ),
+        isNotNull,
+      );
+      expect(
+        validateUserRegistrationInput(
+          name: '',
+          phone: '1',
+          email: 'not-an-email',
+          accountType: UserSignupAccountType.company,
+          country: 'MY',
+        ),
+        isNotNull,
+      );
+    });
+  });
 }

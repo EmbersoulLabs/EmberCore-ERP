@@ -119,8 +119,8 @@ void main() {
   group('productImageStoragePath', () {
     test('scopes uploads under product id', () {
       expect(
-        productImageStoragePath('abc123', 'rose.png'),
-        'product_images/abc123/rose.png',
+        productImageStoragePath('companyA', 'abc123', 'rose.png'),
+        'tenant_media/companyA/product_images/abc123/rose.png',
       );
     });
   });

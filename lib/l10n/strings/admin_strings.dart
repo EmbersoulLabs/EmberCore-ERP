@@ -965,4 +965,53 @@ const Map<String, Map<String, String>> adminStrings = {
     'zh': '链接已复制。',
     'ms': 'Pautan disalin.',
   },
+  'admin.company.website': {
+    'en': 'Website',
+    'zh': '官网',
+    'ms': 'Laman web',
+  },
+  'admin.company.websiteHint': {
+    'en': 'https://shop.example.com',
+    'zh': 'https://shop.example.com',
+    'ms': 'https://shop.example.com',
+  },
+  'admin.company.websiteInvalid': {
+    'en': 'Enter a valid website, e.g. https://shop.example.com',
+    'zh': '请输入有效官网，例如 https://shop.example.com',
+    'ms': 'Masukkan laman web yang sah, cth. https://shop.example.com',
+  },
+  'admin.company.updateCatalog': {
+    'en': 'Update catalog',
+    'zh': '更新商品',
+    'ms': 'Kemas kini katalog',
+  },
+  'admin.company.updatingCatalog': {
+    'en': 'Updating...',
+    'zh': '更新中…',
+    'ms': 'Mengemas kini...',
+  },
+  'admin.company.updateCatalogConfirmTitle': {
+    'en': 'Update products from website?',
+    'zh': '从官网更新商品？',
+    'ms': 'Kemas kini produk dari laman web?',
+  },
+  'admin.company.updateCatalogConfirmBody': {
+    'en':
+        'New website items will be added. Matching prices will be updated. Extra retail items not on the website will be deactivated. Funeral packages and Delivery stay.',
+    'zh': '官网新商品会新增，已有商品会按官网改价。官网上没有的零售款会停用。丧葬套餐和运费会保留。',
+    'ms':
+        'Item baharu dari laman web akan ditambah. Harga sepadan akan dikemas kini. Item runcit tambahan yang tiada di laman web akan dinyahaktif. Pakej pengebumian dan Delivery kekal.',
+  },
+  'admin.company.updateCatalogDone': {
+    'en':
+        'Catalog updated: {created} added, {prices} prices, {deactivated} deactivated.',
+    'zh': '目录已更新：新增 {created}，改价 {prices}，停用 {deactivated}。',
+    'ms':
+        'Katalog dikemas kini: {created} ditambah, {prices} harga, {deactivated} dinyahaktif.',
+  },
+  'admin.company.updateCatalogFailed': {
+    'en': 'Catalog update failed: {error}',
+    'zh': '更新商品失败：{error}',
+    'ms': 'Kemas kini katalog gagal: {error}',
+  },
 };

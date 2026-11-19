@@ -411,14 +411,16 @@ class _InvoiceEditPageWidgetState extends State<InvoiceEditPageWidget> {
                       ),
                       const SizedBox(height: 8),
                       SegmentedButton<CustomerInvoiceDiscountType>(
-                        segments: const [
-                          ButtonSegment(
+                        segments: [
+                          const ButtonSegment(
                             value: CustomerInvoiceDiscountType.percent,
                             label: Text('%'),
                           ),
                           ButtonSegment(
                             value: CustomerInvoiceDiscountType.amount,
-                            label: Text('SGD'),
+                            label: Text(
+                              tr(context, 'invoice.discount.amountType'),
+                            ),
                           ),
                         ],
                         selected: {_discountType},

@@ -47,6 +47,9 @@ class ExactPaymentMethodButton extends StatelessWidget {
   }
 
   Future<void> _onPressed(BuildContext context) async {
+    if (isPaymentDialogTapFallthrough()) {
+      return;
+    }
     if (_selectionOnly) {
       final selection = await selectExactPaymentForSummary(
         context,

@@ -46,6 +46,9 @@ class PartialPaymentMethodButton extends StatelessWidget {
   }
 
   Future<void> _onPressed(BuildContext context) async {
+    if (isPaymentDialogTapFallthrough()) {
+      return;
+    }
     if (_selectionOnly) {
       final selection = await selectPartialPaymentForSummary(
         context,

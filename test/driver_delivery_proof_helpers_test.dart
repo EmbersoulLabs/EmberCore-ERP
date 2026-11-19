@@ -6,8 +6,8 @@ void main() {
   group('deliveryProofStoragePath', () {
     test('stores under order id folder', () {
       expect(
-        deliveryProofStoragePath('order123', 'photo.jpg'),
-        'delivery_proof_images/order123/photo.jpg',
+        deliveryProofStoragePath('companyA', 'order123', 'photo.jpg'),
+        'tenant_media/companyA/delivery_proof_images/order123/photo.jpg',
       );
     });
   });

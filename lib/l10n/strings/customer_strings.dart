@@ -729,6 +729,11 @@ const Map<String, Map<String, String>> customerStrings = {
     'zh': '已打开邮件应用，{count} 个密送收件人。',
     'ms': 'Apl e-mel dibuka dengan {count} penerima dalam BCC.',
   },
+  'customer.broadcast.outcomeUnknown': {
+    'en': 'The external app may have opened. Delivery is not confirmed, and this reservation stays counted.',
+    'zh': '外部应用可能已打开。无法确认送达，本次名额仍会计入。',
+    'ms': 'Apl luaran mungkin telah dibuka. Penghantaran tidak disahkan, dan tempahan ini kekal dikira.',
+  },
   'customer.autocomplete.quickAddName': {
     'en': 'Name',
     'zh': '姓名',

@@ -243,7 +243,7 @@ class _DeliveryReceiptPreviewPageWidgetState
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                           StreamBuilder<List<CompaniesRecord>>(
-                            stream: queryDefaultCompanyRecord(),
+                            stream: queryLetterheadCompanyRecordForOrder(widget.orderRef),
                             builder: (context, snapshot) {
                               // Customize what your widget looks like when it's loading.
                               if (!snapshot.hasData) {

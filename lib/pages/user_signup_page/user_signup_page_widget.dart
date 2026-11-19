@@ -164,6 +164,7 @@ class _UserSignupPageWidgetState extends State<UserSignupPageWidget> {
         companyPhone: _model.companyPhoneTextController?.text,
         companyEmail: _model.companyEmailTextController?.text,
         companyLogoUrl: logoUrl,
+        country: _model.countryCode,
       );
 
       if (!mounted) {
@@ -337,6 +338,28 @@ class _UserSignupPageWidgetState extends State<UserSignupPageWidget> {
                         birthday: _model.birthday,
                         labelText: loc(context, en: 'Birthday', zh: '生日'),
                         onChanged: (value) => setState(() => _model.birthday = value),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        loc(context, en: 'Country', zh: '国家'),
+                        style: theme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      SegmentedButton<String>(
+                        segments: [
+                          ButtonSegment(
+                            value: 'MY',
+                            label: Text(loc(context, en: 'Malaysia', zh: '马来西亚')),
+                          ),
+                          ButtonSegment(
+                            value: 'SG',
+                            label: Text(loc(context, en: 'Singapore', zh: '新加坡')),
+                          ),
+                        ],
+                        selected: {_model.countryCode},
+                        onSelectionChanged: (selection) {
+                          setState(() => _model.countryCode = selection.first);
+                        },
                       ),
                       const SizedBox(height: 24),
                       Text(

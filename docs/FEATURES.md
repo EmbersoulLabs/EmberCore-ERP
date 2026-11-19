@@ -163,8 +163,8 @@ Retail orders typically go straight to **completed** at checkout.
 
 | Item | Detail |
 |------|--------|
-| Trigger | Shopify `orders/create` → Cloud Function |
-| Result | Firestore delivery order + staff notice + audit log |
+| Trigger | Shopify `orders/paid` → Cloud Function (`shopifyOrderCreated` URL) |
+| Result | Stage in `shopify_reviews` until staff approve; then official order + notice + audit |
 | Config | [SHOPIFY_WEBHOOK.md](SHOPIFY_WEBHOOK.md) |
 
 ---

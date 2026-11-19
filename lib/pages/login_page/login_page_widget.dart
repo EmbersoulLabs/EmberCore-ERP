@@ -4,6 +4,7 @@ import '/components/ember_brand_logo.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/auth/firebase_auth/firebase_auth_error_messages.dart';
 import '/auth/saved_login_credentials.dart';
+import '/backend/registration_approval_service.dart';
 import '/index.dart';
 import '/components/language_picker_button.dart';
 import '/flutter_flow/nav/nav.dart';
@@ -103,6 +104,11 @@ class _LoginPageWidgetState extends State<LoginPageWidget> {
       return;
     }
     if (user == null) {
+      return;
+    }
+
+    await recordDirectorFirstLogin();
+    if (!mounted) {
       return;
     }
 

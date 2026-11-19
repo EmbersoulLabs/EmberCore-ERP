@@ -7,7 +7,8 @@
 
 **Stripe 英文文案与年付配置：** [STRIPE_BILLING_SETUP.md](STRIPE_BILLING_SETUP.md)（Appendix A）
 
-**最后更新：** 2026-06-23
+**最后更新：** 2026-10-17  
+**权威合同：** 以下价格、额度与模块以本节为准。旧的 RM 499、年付 699/1999/4999、Starter 2,000 单、Pro/Business 无限员工或无限订单不再有效。
 
 ---
 
@@ -15,7 +16,7 @@
 
 1. **Starter 要够用** — 小店主能日常经营，不因「缺导出」产生数据绑架感。
 2. **Pro 卖差异化** — WhatsApp 建单、Shopify 导单、BOM/利润分析是升级动力，不放 Starter。
-3. **Business 卖规模** — 多门店、总部看板、API；Enterprise 改称为 **Business**，避免与 B2B 客户混淆。
+3. **Business 卖额度与支持** — 更高员工、订单和群发额度，以及优先支持标记。多门店、总部看板、跨店库存、多仓库、Open API 与 AI 分析尚未实现，不得当作已开通功能销售。
 4. **额度制控成本** — 客户群发按人数/月封顶，消息成本可预测。
 5. **14 天试用** — 在 App / Firestore 管理（`subscription_status: trialing`），Stripe 产品不设 trial period。
 
@@ -23,15 +24,15 @@
 
 ## 套餐总览
 
-| 档位 | 月费（马币） | 目标用户 | 员工上限 | 订单上限 |
-|------|-------------|----------|----------|----------|
-| **Starter** | **RM 59–89** | 1–3 人花店、小零售 | **2** | **2,000 笔/月** |
-| **Pro** | **RM 179–249** | 成长中门店 | **无限** | **无限** |
-| **Business** | **RM 449–599** | 连锁 / 企业 | **无限** | **无限** |
+| 档位 | 月费 MYR | 月费 SGD | 年费 MYR | 年费 SGD | 员工 | 订单/月 | 公司 |
+|------|----------:|---------:|---------:|---------:|-----:|--------:|-----:|
+| **Starter** | 69 | 29 | 690 | 290 | 2 | 500 | 1 |
+| **Pro** | 199 | 79 | 1,990 | 790 | 10 | 3,000 | 1 |
+| **Business** | 399 | 159 | 3,990 | 1,590 | 30 | 10,000 | 1 |
 
-**Stripe 建议标价（月付）：** Starter **RM 69** · Pro **RM 199** · Business **RM 499**
+**试用（14 天）：** Pro 模块，3 名员工，**100 笔试用订单（终身，不是 Pro 的 3,000/月）**，1 家公司。
 
-**年付（约 15%  off，可选）：** Starter **RM 699/年** · Pro **RM 1,999/年** · Business **RM 4,999/年**
+**未运营，所有套餐均不可用：** 多门店 / 总部看板、Open API、跨店库存、多仓库、AI 经营分析、Appointments。Business 的优先支持只是分类标记，不是新的产品模块。
 
 > **定价锚点：** Starter 约 RM 2–3/天；Pro 约 3× Starter，换 WhatsApp + Shopify + 经营分析；Business 约 7× Starter，换多门店与 API。  
 > **SST：** 面向马来西亚 B2B 订阅，按现行法规确认是否含/另加 8% SST，发票由 EmberSoulLabs 开具。
@@ -65,11 +66,11 @@
 | BOM / 成本管理 | ➖ | ✅ | ✅ | `PlatformModule.materialsBom` |
 | 利润分析 | ➖ | ✅ | ✅ | Profit Summary 报表 |
 | 库存预警 | ➖ | ✅ | ✅ | 待接 inventory 模块 |
-| 客户群发 | ➖ | 🔢 2,000/月 | 🔢 无限 | `PlatformModule.customerBroadcast` + 额度字段 |
+| 客户群发 | ➖ | 🔢 2,000/月 | 🔢 10,000/月 | `PlatformModule.customerBroadcast`。发送走客户端，月累计计数尚未落地 |
 | 审计日志 | ➖ | ✅ | ✅ | `viewAuditLog` 权限 + 3+ 员工场景 |
 | 多角色权限 | ➖ | ✅ | ✅ | 完整 RBAC（33 权限） |
 | 自定义报表 | ➖ | ✅ | ✅ | 扩展 reports |
-| API / Webhook | ➖ | ✅ | ✅ | Business 为 Open API + Dedicated |
+| API / Webhook | ➖ | ➖ | 🔜 | Open API 未实现，不随 Pro 或 Business 开通 |
 
 ### 企业能力（Business）
 
@@ -88,8 +89,8 @@
 
 | 限制项 | 说明 |
 |--------|------|
-| 最多 **2** 个员工 | 含 director；超额提示升级 Pro |
-| 最多 **2,000** 笔订单/月 | 计数器校验；超额提示升级 |
+| 最多 **2** 个员工 | 含 director；超额提示升级 |
+| 最多 **500** 笔订单/月 | 合同额度。付费月度计数重置尚未在规则中落地；试用 100 笔仍单独执行 |
 | 无 API / Webhook | Business 或 Pro（按上表） |
 | 无自动化集成 | 无 WhatsApp / Shopify |
 | 无 BOM / 利润报表 | 经营分析属 Pro |
@@ -103,7 +104,7 @@
 |------|------|----------|
 | Starter | **0**（功能不可用） | 隐藏入口或展示升级 CTA |
 | Pro | **2,000 人/月** | 软提示 + 阻止发送 |
-| Business | **无限**（或 10,000+ 可配置） | — |
+| Business | **10,000 人/月** | 超出时阻止本次发送 |
 
 **Firestore 建议字段（`Companies`）：**
 
@@ -138,9 +139,9 @@
 |---------------|-----------|------|------|----------|
 | EmberCore Starter | `starter` | **MYR** | 每月 | **RM 69** |
 | EmberCore Pro | `pro` | **MYR** | 每月 | **RM 199** |
-| EmberCore Business | `business` | **MYR** | 每月 | **RM 499** |
+| EmberCore Business | `business` | **MYR** | 每月 | **RM 399** |
 
-**年付 Price（可选）：** RM 699 / RM 1,999 / RM 4,999 — env key：`STRIPE_PRICE_*_YEARLY`。
+**年付 Price：** RM 690 / RM 1,990 / RM 3,990。SGD 月付 29 / 79 / 159，年付 290 / 790 / 1,590。
 
 ### Functions 环境变量（待扩展 Business）
 
@@ -175,7 +176,7 @@ plan_tier 允许的模块 = industry 预设模块 ∩ 套餐模块
 | whatsappImport | ❌ | ✅ | ✅ |
 | shopifyImport | ❌ | ✅ | ✅ |
 | materialsBom, productionMenu | ❌ | ✅ | ✅ |
-| customerBroadcast | ❌ | ✅（额度） | ✅（无限） |
+| customerBroadcast | ❌ | ✅（2,000/月） | ✅（10,000/月） |
 | invoices | ✅ | ✅ | ✅ |
 | appointments | ❌ | ❌ | 🔜 |
 
@@ -187,12 +188,12 @@ plan_tier 允许的模块 = industry 预设模块 ∩ 套餐模块
 
 | 场景 | 行为 |
 |------|------|
-| 新租户注册批准 | `plan_tier: starter`，`subscription_status: trialing`，14 天 |
-| 试用期内 | 全 Starter 功能；**不**开放 Pro 模块（或可选「试用 Pro 3 天」营销） |
-| 试用结束未付款 | 禁止建单；Billing 页 CTA |
-| Starter → Pro | Stripe Checkout 换 Price；Webhook 更新 `plan_tier` + 解锁模块 |
-| Pro → Business | 同上；多门店能力 🔜 随 Business 功能上线 |
-| 降级 | Stripe Portal；周期结束后生效；超员工/订单需提示清理 |
+| 新租户注册批准 | `plan_tier: pro`，`subscription_status: trialing`，14 天，3 员工 / 100 订单 |
+| 试用期内 | Pro 模块；额度仍是试用额度，不是付费 Pro 的 10 人 / 3,000 单 |
+| 试用结束未付款 | 禁止新建计费操作；历史记录和导出保留 |
+| 升级 | 只在已验证的付款确认或经过审计的 Super Admin 手动开通后写入新权益 |
+| 降级 | 不删除员工、订单或产品；新写入受较低额度限制 |
+| 过期 | 保留历史记录；限制新的计费写入 |
 
 ---
 
@@ -200,13 +201,13 @@ plan_tier 允许的模块 = industry 预设模块 ∩ 套餐模块
 
 | 项 | 当前代码 | 目标（本文档） |
 |----|----------|----------------|
-| 套餐档位数 | starter / pro | + **business** |
-| Starter 员工上限 | 5（`PLAN_LIMITS`） | **2** |
-| Starter 订单上限 | 500/月 | **2,000/月** |
-| 按套餐锁模块 | 未实现 | `PlanFeatureService` + UI 升级 CTA |
-| 客户群发额度 | 未实现 | `broadcast_quota_*` 字段 |
-| Billing 页 | 仅 Starter / Pro 卡片 | + Business；展示功能对比 |
-| 币种 | 文档曾混用 SGD | **MYR** 主定价 |
+| 套餐档位 | starter / pro / business | 与 `plan_entitlements.js` 一致 |
+| 付费员工 / 订单 | 2/500、10/3000、30/10000 | 公司数均为 1 |
+| 试用 | 3 员工 / 100 订单 / Pro 模块 | 不套用付费月额度 |
+| 模块门控 | 导航与 Shopify 导入 | 见 `plan_entitlements` |
+| 付费订单月重置 | 未落地 | 不把试用计数当成月额度 |
+| 群发月累计 | 未落地 | 客户端按单次人数拦截 |
+| Appointments、多门店、API、AI | 未实现 | 所有套餐保持关闭 |
 
 **关键文件：**
 
@@ -221,15 +222,15 @@ plan_tier 允许的模块 = industry 预设模块 ∩ 套餐模块
 
 ### Starter — RM 69/月
 
-适合 1–3 人的花店与小零售店。订单、POS、配送、客户与产品管理，以及 CSV 导入导出与基础报表。最多 2 名员工，每月 2,000 笔订单。
+适合小店。订单、POS、配送、客户、产品、发票与基础报表，以及授权 CSV 导出。最多 2 名员工，每月 500 笔订单。不含 WhatsApp 导单、Shopify、BOM、生产菜单和客户群发。
 
 ### Pro — RM 199/月
 
-适合成长中的门店。含 Starter 全部能力，另加 **WhatsApp 建单**、**Shopify 导单**、BOM 成本、利润分析、库存预警、审计日志、多角色权限与每月 2,000 人客户群发。员工与订单不限。
+含 Starter 全部能力，另加 WhatsApp 建单、Shopify 导单、BOM、生产菜单、审计日志、租户 RBAC，以及每月 2,000 人客户群发。10 名员工，每月 3,000 笔订单。
 
-### Business — RM 499/月
+### Business — RM 399/月
 
-适合连锁与企业。含 Pro 全部能力，另加多门店、总部 Dashboard、跨店库存、Open API 与专属支持。（部分能力随版本发布逐步开放。）
+含 Pro 全部能力。30 名员工，每月 10,000 笔订单，客户群发 10,000 人/月，并标记优先支持。多门店、总部看板、跨店库存、多仓库、Open API 与 AI 分析尚未开通。
 
 ---
 
@@ -239,9 +240,9 @@ plan_tier 允许的模块 = industry 预设模块 ∩ 套餐模块
 
 | 档位 | 马币（主） | 新币（参考） |
 |------|-----------|-------------|
-| Starter | RM 69 | S$ 22 |
-| Pro | RM 199 | S$ 65 |
-| Business | RM 499 | S$ 165 |
+| Starter | RM 69 / RM 690 年 | S$ 29 / S$ 290 年 |
+| Pro | RM 199 / RM 1,990 年 | S$ 79 / S$ 790 年 |
+| Business | RM 399 / RM 3,990 年 | S$ 159 / S$ 1,590 年 |
 
 ---
 

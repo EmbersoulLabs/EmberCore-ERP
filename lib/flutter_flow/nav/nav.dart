@@ -251,6 +251,19 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => const DriverAssignmentsPageWidget(),
         ),
         FFRoute(
+          name: ShopifyPendingOrdersPageWidget.routeName,
+          path: ShopifyPendingOrdersPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) =>
+              const ShopifyPendingOrdersPageWidget(),
+        ),
+        FFRoute(
+          name: AssetLibraryPageWidget.routeName,
+          path: AssetLibraryPageWidget.routePath,
+          requireAuth: true,
+          builder: (context, params) => const AssetLibraryPageWidget(),
+        ),
+        FFRoute(
           name: SalesDashBoardWidget.routeName,
           path: SalesDashBoardWidget.routePath,
           requireAuth: true,

@@ -90,7 +90,8 @@ String? subscriptionWriteBlockMessage(CompaniesRecord company) {
   return 'Subscription inactive. Open Billing to continue.';
 }
 
-/// Default subscription fields for manually provisioned companies (matches Cloud Function).
+/// Display helper only. Trial pricing is written by the approval Cloud Function.
+/// Do not save this map from the client.
 Map<String, dynamic> defaultSubscriptionRecordData({
   String planTier = 'starter',
 }) {
@@ -99,8 +100,8 @@ Map<String, dynamic> defaultSubscriptionRecordData({
     planTier: planTier,
     subscriptionStatus: 'trialing',
     trialEndsAt: trialEnds,
-    maxStaffSeats: planTier == 'pro' ? 20 : 5,
-    maxOrdersPerMonth: planTier == 'pro' ? null : 500,
+    maxStaffSeats: 3,
+    maxOrdersPerMonth: 100,
   );
 }
 

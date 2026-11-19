@@ -260,4 +260,79 @@ const Map<String, Map<String, String>> dashboardStrings = {
     'zh': '已完成',
     'ms': 'Selesai',
   },
+  'dashboard.action.shopifyReview': {
+    'en': 'Shopify Review',
+    'zh': 'Shopify 审批',
+    'ms': 'Semakan Shopify',
+  },
+  'dashboard.leftoverBanner': {
+    'en': '{count} leftover order(s)',
+    'zh': '{count} 笔遗留订单',
+    'ms': '{count} pesanan baki',
+  },
+  'dashboard.leftoverBannerHint': {
+    'en': 'Unfinished deliveries from previous days. Tap to open the list.',
+    'zh': '过往未完成的配送单。点这里打开列表。',
+    'ms': 'Penghantaran belum selesai. Ketik untuk buka senarai.',
+  },
+  'dashboard.pasteWhatsapp': {
+    'en': 'WhatsApp Business',
+    'zh': 'WhatsApp Business',
+    'ms': 'WhatsApp Business',
+  },
+  'dashboard.progress': {
+    'en': 'Today progress',
+    'zh': '当天进度',
+    'ms': 'Kemajuan hari ini',
+  },
+  'dashboard.stat.allOrders': {
+    'en': 'All orders',
+    'zh': '全部订单',
+    'ms': 'Semua pesanan',
+  },
+  'dashboard.stat.completedShort': {
+    'en': 'Completed',
+    'zh': '已完成',
+    'ms': 'Selesai',
+  },
+  'dashboard.stat.delivery': {
+    'en': 'Delivery',
+    'zh': '配送',
+    'ms': 'Penghantaran',
+  },
+  'dashboard.stat.outForDelivery': {
+    'en': 'Out for delivery',
+    'zh': '配送中',
+    'ms': 'Dalam penghantaran',
+  },
+  'dashboard.stat.pendingShort': {
+    'en': 'Pending',
+    'zh': '处理',
+    'ms': 'Menunggu',
+  },
+  'dashboard.stat.pickup': {
+    'en': 'Pickup',
+    'zh': '自取',
+    'ms': 'Ambil sendiri',
+  },
+  'dashboard.stat.processing': {
+    'en': 'Processing',
+    'zh': '处理中',
+    'ms': 'Memproses',
+  },
+  'dashboard.stat.readyToShip': {
+    'en': 'Ready to ship',
+    'zh': '待派送',
+    'ms': 'Sedia dihantar',
+  },
+  'dashboard.today': {
+    'en': 'Today',
+    'zh': '今日',
+    'ms': 'Hari Ini',
+  },
+  'dashboard.tomorrow': {
+    'en': 'Tomorrow',
+    'zh': '明日',
+    'ms': 'Esok',
+  },
 };

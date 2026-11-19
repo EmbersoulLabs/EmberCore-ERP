@@ -50,6 +50,9 @@ class CreditPaymentMethodButton extends StatelessWidget {
   }
 
   Future<void> _onPressed(BuildContext context) async {
+    if (isPaymentDialogTapFallthrough()) {
+      return;
+    }
     final paymentType = await showCreditTermPickerDialog(context);
     if (paymentType == null || !context.mounted) {
       return;

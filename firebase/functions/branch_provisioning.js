@@ -109,6 +109,16 @@ async function assertCanCreateBranch(db, context, headquartersCompanyId) {
     );
   }
 
+  if (
+    hqData.subscription_status === "trialing" ||
+    Number(hqData.max_companies) === 1
+  ) {
+    throw httpsError(
+      "failed-precondition",
+      "This plan includes one company. Additional companies are not available.",
+    );
+  }
+
   if (!isBusinessPlanCompany(hqData)) {
     throw httpsError(
       "failed-precondition",

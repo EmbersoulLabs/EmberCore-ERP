@@ -27,6 +27,24 @@ String companyLogoStoragePath(String companyId, String filename) {
 Future<CompaniesRecord> loadCompanyProfile(DocumentReference ref) =>
     CompaniesRecord.getDocumentOnce(ref);
 
+String? normalizeCompanyWebsite(String? raw) {
+  final trimmed = (raw ?? '').trim();
+  if (trimmed.isEmpty) {
+    return null;
+  }
+  final withScheme = trimmed.contains('://') ? trimmed : 'https://$trimmed';
+  final uri = Uri.tryParse(withScheme);
+  if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+    return null;
+  }
+  final host = uri.host.trim().toLowerCase();
+  if (host.isEmpty || !host.contains('.')) {
+    return null;
+  }
+  final port = uri.hasPort ? ':${uri.port}' : '';
+  return '${uri.scheme}://$host$port';
+}
+
 Future<void> saveCompanyProfile({
   required DocumentReference companyRef,
   required String companyName,
@@ -34,6 +52,7 @@ Future<void> saveCompanyProfile({
   required String companyPhone,
   required String companyAddress,
   required String logoUrl,
+  String? website,
   bool? isActive,
 }) async {
   await companyRef.update(
@@ -43,6 +62,7 @@ Future<void> saveCompanyProfile({
       companyPhone: companyPhone,
       companyAddress: companyAddress,
       logo: logoUrl.isNotEmpty ? logoUrl : null,
+      website: website,
       isActive: isActive,
     ),
   );

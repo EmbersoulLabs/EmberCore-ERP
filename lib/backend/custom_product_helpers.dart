@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '/backend/firebase_storage/storage.dart';
 import '/backend/schema/order_item_record.dart';
 import '/backend/tenant_query_helpers.dart';
+import '/backend/tenant_context.dart';
 import '/flutter_flow/upload_data.dart';
 
 enum CustomProductAddOption {
@@ -40,9 +41,13 @@ Future<CustomProductAddOption?> showCustomProductAddOptionDialog(
   );
 }
 
-String customProductImageStoragePath(String orderItemId, String filename) {
+String customProductImageStoragePath(
+  String companyId,
+  String orderItemId,
+  String filename,
+) {
   final safeName = filename.replaceAll(RegExp(r'[^\w.\-]'), '_');
-  return 'custom_product_images/$orderItemId/$safeName';
+  return 'tenant_media/$companyId/custom_product_images/$orderItemId/$safeName';
 }
 
 Future<String?> pickAndUploadCustomProductImage({
@@ -63,7 +68,11 @@ Future<String?> pickAndUploadCustomProductImage({
 
   final media = selectedMedia.first;
   final filename = media.storagePath.split('/').last;
-  final path = customProductImageStoragePath(orderItemId, filename);
+  final companyId = TenantContext.instance.writeCompanyId;
+  if (companyId.isEmpty) {
+    return null;
+  }
+  final path = customProductImageStoragePath(companyId, orderItemId, filename);
   final uploadResult = await uploadDataWithResult(path, media.bytes);
   if (!uploadResult.isSuccess && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(

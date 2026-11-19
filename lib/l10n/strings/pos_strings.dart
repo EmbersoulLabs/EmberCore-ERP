@@ -170,4 +170,64 @@ const Map<String, Map<String, String>> posStrings = {
     'zh': '分享',
     'ms': 'Kongsi',
   },
+  'pos.discount.amountType': {
+    'en': 'Amount',
+    'zh': '金额',
+    'ms': 'Jumlah',
+  },
+  'pos.discount.hintAmount': {
+    'en': 'e.g. 5.00',
+    'zh': '例如 5.00',
+    'ms': 'cth. 5.00',
+  },
+  'pos.discount.hintPercent': {
+    'en': 'e.g. 10',
+    'zh': '例如 10',
+    'ms': 'cth. 10',
+  },
+  'pos.discount.line': {
+    'en': 'Discount ({label})',
+    'zh': '折扣（{label}）',
+    'ms': 'Diskaun ({label})',
+  },
+  'pos.discount.payable': {
+    'en': 'Amount due',
+    'zh': '应付金额',
+    'ms': 'Jumlah perlu bayar',
+  },
+  'pos.discount.remark': {
+    'en': 'Discount remark',
+    'zh': '折扣备注',
+    'ms': 'Catatan diskaun',
+  },
+  'pos.discount.remarkHint': {
+    'en': 'Required when applying a discount',
+    'zh': '输入折扣时必填',
+    'ms': 'Wajib bila ada diskaun',
+  },
+  'pos.discount.remarkRequired': {
+    'en': 'Please enter a discount remark.',
+    'zh': '请填写折扣备注。',
+    'ms': 'Sila masukkan catatan diskaun.',
+  },
+  'pos.discount.subtotal': {
+    'en': 'Subtotal',
+    'zh': '小计',
+    'ms': 'Jumlah kecil',
+  },
+  'pos.discount.title': {
+    'en': 'Discount',
+    'zh': '折扣',
+    'ms': 'Diskaun',
+  },
+  'pos.receipt.discount': {
+    'en': 'Discount ({label}):',
+    'zh': '折扣（{label}）：',
+    'ms': 'Diskaun ({label}):',
+  },
+  'pos.receipt.total': {
+    'en': 'Total:',
+    'zh': '合计：',
+    'ms': 'Jumlah:',
+  },
 };

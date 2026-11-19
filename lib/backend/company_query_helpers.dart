@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '/backend/backend.dart';
 import '/backend/schema/companies_record.dart';
 import '/backend/schema/customers_record.dart';
+import '/backend/schema/orders_record.dart';
 import '/backend/tenant_context.dart';
 
 /// Sort companies alphabetically by display name (client-side; avoids composite index).
@@ -30,7 +33,8 @@ List<CompaniesRecord> filterCompaniesBySearchQuery(
   }).toList();
 }
 
-/// Deterministic default company (alphabetical first active, else first by name).
+/// Deterministic default company (alphabetical first). Superadmin must not
+/// use this for receipts — use [queryLetterheadCompanyRecordForOrder].
 Stream<List<CompaniesRecord>> queryDefaultCompanyRecord() =>
     queryCompaniesRecord(
       queryBuilder: (q) => q.orderBy('Company_name').limit(1),
@@ -41,6 +45,51 @@ Future<CompaniesRecord?> getDefaultCompanyOnce() async {
     queryBuilder: (q) => q.orderBy('Company_name').limit(1),
   );
   return records.isNotEmpty ? records.first : null;
+}
+
+/// Letterhead for the selected tenant / order, never "first company by name".
+Stream<List<CompaniesRecord>> queryLetterheadCompanyRecord([
+  DocumentReference? companyRef,
+]) {
+  final ref = companyRef ??
+      TenantContext.instance.writeCompanyRef ??
+      TenantContext.instance.activeCompanyRef;
+  if (ref != null) {
+    return CompaniesRecord.getDocument(ref).map((company) => [company]);
+  }
+  return queryDefaultCompanyRecord();
+}
+
+Stream<List<CompaniesRecord>> queryLetterheadCompanyRecordForOrder(
+  DocumentReference? orderRef,
+) {
+  if (orderRef == null) {
+    return queryLetterheadCompanyRecord();
+  }
+  return OrdersRecord.getDocument(orderRef).asyncExpand(
+    (order) => queryLetterheadCompanyRecord(order.companyRef),
+  );
+}
+
+Future<CompaniesRecord?> getLetterheadCompany({
+  DocumentReference? companyRef,
+}) async {
+  final refs = <DocumentReference>[];
+  if (companyRef != null) {
+    refs.add(companyRef);
+  }
+  final tenantRef = TenantContext.instance.writeCompanyRef ??
+      TenantContext.instance.activeCompanyRef;
+  if (tenantRef != null &&
+      (companyRef == null || tenantRef.path != companyRef.path)) {
+    refs.add(tenantRef);
+  }
+  for (final ref in refs) {
+    try {
+      return await CompaniesRecord.getDocumentOnce(ref);
+    } catch (_) {}
+  }
+  return getDefaultCompanyOnce();
 }
 
 /// Company letterhead for customer invoices (tenant / customer companyRef).
@@ -67,5 +116,5 @@ Future<CompaniesRecord?> resolveCustomerInvoiceCompany(
       // Fall through to default company.
     }
   }
-  return getDefaultCompanyOnce();
+  return getLetterheadCompany();
 }

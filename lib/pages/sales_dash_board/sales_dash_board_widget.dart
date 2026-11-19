@@ -443,6 +443,35 @@ class _SalesDashBoardWidgetState extends State<SalesDashBoardWidget> {
                               runWhatsAppOrderImportFromDashboard(context),
                         ),
                       ],
+                      if (platformModuleEnabled(
+                            PlatformModule.shopifyImport,
+                          ) &&
+                          canViewOrders(
+                            AppStateNotifier.instance.userRole,
+                          )) ...[
+                        const SizedBox(height: 10),
+                        FFButtonWidget(
+                          onPressed: () => context.pushNamed(
+                            ShopifyPendingOrdersPageWidget.routeName,
+                          ),
+                          text: tr(context, 'dashboard.action.shopifyReview'),
+                          options: FFButtonOptions(
+                            width: double.infinity,
+                            height: 52.0,
+                            color: EmberBrand.navy.withValues(alpha: 0.9),
+                            textStyle: theme.titleMedium.override(
+                              font: GoogleFonts.interTight(
+                                fontWeight: FontWeight.w600,
+                              ),
+                              color: Colors.white,
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              EmberBrand.radiusLg,
+                            ),
+                            elevation: 0,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

@@ -10,10 +10,23 @@ import 'package:flutter/material.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/firebase_storage/storage.dart';
 import '/backend/schema/product_record.dart';
+import '/backend/tenant_context.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/upload_data.dart';
 
 final _resolvedImageUrlCache = <String, String>{};
+
+String tenantProductImageFolderPrefix() {
+  final companyId = TenantContext.instance.writeCompanyId;
+  return companyId.isEmpty
+      ? 'product_images'
+      : 'tenant_media/$companyId/product_images';
+}
+
+String _effectiveProductImageFolderPrefix(String folderPrefix) =>
+    folderPrefix == 'product_images'
+        ? tenantProductImageFolderPrefix()
+        : folderPrefix;
 
 /// Coerces FlutterFlow / legacy Firestore image values to a URL string.
 String? coerceProductImageUrl(dynamic raw) {
@@ -156,14 +169,15 @@ Future<String?> resolveProductImageFromStorageFolder(
   String folderPrefix = 'product_images',
   DocumentReference? repairProductRef,
 }) async {
-  final cacheKey = 'folder:$folderPrefix:$entityId';
+  final effectivePrefix = _effectiveProductImageFolderPrefix(folderPrefix);
+  final cacheKey = 'folder:$effectivePrefix:$entityId';
   final cached = _resolvedImageUrlCache[cacheKey];
   if (cached != null) {
     return cached;
   }
   try {
     final list = await FirebaseStorage.instance
-        .ref('$folderPrefix/$entityId')
+        .ref('$effectivePrefix/$entityId')
         .listAll();
     if (list.items.isEmpty) {
       return null;
@@ -556,9 +570,13 @@ Widget _networkProductImage({
 }
 
 /// Storage path for a product image upload.
-String productImageStoragePath(String productId, String filename) {
+String productImageStoragePath(
+  String companyId,
+  String productId,
+  String filename,
+) {
   final safeName = safeProductImageFilename(filename);
-  return 'product_images/$productId/$safeName';
+  return 'tenant_media/$companyId/product_images/$productId/$safeName';
 }
 
 /// Uploads bytes to Storage only (no Firestore write). Safe before product doc exists.
@@ -566,11 +584,21 @@ Future<UploadDataResult> uploadProductImageBytes({
   required String productId,
   required Uint8List bytes,
   required String filename,
-}) =>
-    uploadDataWithResult(
-      productImageStoragePath(productId, filename),
-      bytes,
+}) {
+  final companyId = TenantContext.instance.writeCompanyId;
+  if (companyId.isEmpty) {
+    return Future.value(
+      const UploadDataResult.failure(
+        errorCode: 'failed-precondition',
+        errorMessage: 'No active company for product image upload.',
+      ),
     );
+  }
+  return uploadDataWithResult(
+    productImageStoragePath(companyId, productId, filename),
+    bytes,
+  );
+}
 
 Map<String, dynamic> productImageFirestoreFields(String downloadUrl) => {
       ...createProductRecordData(image: downloadUrl),
@@ -619,8 +647,22 @@ Future<ProductImageUploadResult?> uploadBytesAndPersistProductImage({
     return null;
   }
 
+  final companyId = TenantContext.instance.writeCompanyId;
+  if (companyId.isEmpty) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select a company before uploading photos.')),
+      );
+    }
+    return null;
+  }
+
   final uploadResult = await uploadDataWithResult(
-    productImageStoragePath(productRef.id, filename),
+    productImageStoragePath(
+      companyId,
+      productRef.id,
+      filename,
+    ),
     bytes,
   );
   if (!uploadResult.isSuccess) {
@@ -751,8 +793,12 @@ Future<void> deleteProductRecord(ProductRecord product) async {
     return;
   }
   try {
-    final folder =
-        FirebaseStorage.instance.ref('product_images/$productId');
+    final companyId = TenantContext.instance.writeCompanyId;
+    if (companyId.isEmpty) {
+      return;
+    }
+    final folder = FirebaseStorage.instance
+        .ref('tenant_media/$companyId/product_images/$productId');
     final listing = await folder.listAll();
     for (final item in listing.items) {
       await item.delete();

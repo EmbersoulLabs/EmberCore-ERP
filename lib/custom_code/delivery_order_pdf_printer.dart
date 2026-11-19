@@ -55,7 +55,7 @@ class DeliveryOrderPdfPrinter {
         // Fall back to default company below.
       }
     }
-    return getDefaultCompanyOnce();
+    return getLetterheadCompany(companyRef: companyRef);
   }
 
   static Future<CustomersRecord?> _loadBillingCustomer(

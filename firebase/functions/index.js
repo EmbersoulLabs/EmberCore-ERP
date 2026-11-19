@@ -1,7 +1,22 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const { verifyShopifyWebhookHmac } = require("./shopify/verify_hmac");
-const { importShopifyOrder } = require("./shopify/import_service");
+const { handleShopifyPaidWebhook } = require("./shopify/webhook_handler");
+const {
+  loadStaffProfile,
+  staffCanCreateOrders,
+  staffCanEditCompanyProfile,
+  resolveStaffCompanyId,
+} = require("./shopify/staff_auth");
+const {
+  StorefrontSyncError,
+  parseStorefrontWebsite,
+  syncStorefrontCatalog,
+} = require("./shopify/sync_storefront_catalog");
+const { approveShopifyReviews } = require("./shopify/approve_reviews");
+const { deleteShopifyReviews } = require("./shopify/delete_reviews");
+const { TrialLimitError } = require("./trial_quota");
+const { PlanModuleError } = require("./plan_entitlements");
+const { PlanQuotaError } = require("./monthly_usage");
 const { sendStaffNoticePush } = require("./staff_notice_push");
 const {
   syncStaffAuthClaims,
@@ -20,6 +35,8 @@ const { parseOrderMessageWithGemini } = require("./order_import_parser");
 const {
   assertCallerIsSuperadmin,
   approveRegistrationRequestImpl,
+  rejectRegistrationRequestImpl,
+  recordDirectorFirstLoginImpl,
 } = require("./registration_provisioning");
 const { createBranchImpl } = require("./branch_provisioning");
 const {
@@ -67,7 +84,8 @@ function rawBodyBuffer(req) {
 
 /**
  * POST /shopifyOrderCreated
- * Shopify orders/create webhook → ERP order + staff notice + audit log.
+ * Legacy stable public URL. Production Shopify topic: orders/paid.
+ * HMAC-verified payload is staged in shopify_reviews (not orders).
  */
 exports.shopifyOrderCreated = functions
   .region(FUNCTION_REGION)
@@ -76,59 +94,230 @@ exports.shopifyOrderCreated = functions
     memory: "256MB",
   })
   .https.onRequest(async (req, res) => {
-    if (req.method !== "POST") {
-      res.set("Allow", "POST");
-      return res.status(405).json({ error: "Method not allowed" });
+    const { secret, companyId } = readConfig();
+    return handleShopifyPaidWebhook(req, res, { secret, companyId, db });
+  });
+
+/**
+ * Authenticated staff approval gate: pending Shopify review → official order.
+ */
+exports.approveShopifyReviews = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 120,
+    memory: "256MB",
+  })
+  .https.onCall(async (data, context) => {
+    if (!context.auth?.uid) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Sign in required",
+      );
     }
 
-    const { secret, companyId } = readConfig();
-    if (!secret) {
-      functions.logger.error("SHOPIFY_WEBHOOK_SECRET is not configured");
-      return res.status(500).json({ error: "Webhook secret not configured" });
+    const reviewIds = Array.isArray(data?.reviewIds) ? data.reviewIds : [];
+    if (reviewIds.length === 0) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "reviewIds is required",
+      );
+    }
+
+    const profile = await loadStaffProfile(db, context.auth.uid);
+    if (!profile) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Staff profile not found",
+      );
+    }
+    const allowed = await staffCanCreateOrders(db, profile);
+    if (!allowed) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Missing permission to approve Shopify reviews",
+      );
+    }
+
+    const staff = {
+      uid: context.auth.uid,
+      email: context.auth.token?.email || profile.data.email || "",
+      name: profile.data.name || "",
+      role: profile.data.role || "",
+      profile: profile.data,
+    };
+
+    try {
+      const result = await approveShopifyReviews(db, reviewIds, staff);
+      functions.logger.info("Shopify reviews approval finished", {
+        uid: staff.uid,
+        approved: result.approved.length,
+        alreadyApproved: result.alreadyApproved.length,
+        failed: result.failed.length,
+      });
+      return result;
+    } catch (error) {
+      if (
+        error instanceof TrialLimitError ||
+        error instanceof PlanModuleError ||
+        error instanceof PlanQuotaError ||
+        error.code === "trial-limit" ||
+        error.code === "plan-module" ||
+        error.code === "plan-quota" ||
+        error.code === "subscription-inactive"
+      ) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          error.message || "Plan or trial limit",
+        );
+      }
+      throw error;
+    }
+  });
+
+/**
+ * Authenticated staff gate: remove staged Shopify reviews.
+ * Does not delete official Order List rows.
+ */
+exports.deleteShopifyReviews = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 120,
+    memory: "256MB",
+  })
+  .https.onCall(async (data, context) => {
+    if (!context.auth?.uid) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Sign in required",
+      );
+    }
+
+    const reviewIds = Array.isArray(data?.reviewIds) ? data.reviewIds : [];
+    if (reviewIds.length === 0) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "reviewIds is required",
+      );
+    }
+
+    const profile = await loadStaffProfile(db, context.auth.uid);
+    if (!profile) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Staff profile not found",
+      );
+    }
+    const allowed = await staffCanCreateOrders(db, profile);
+    if (!allowed) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Missing permission to delete Shopify reviews",
+      );
+    }
+
+    const staff = {
+      uid: context.auth.uid,
+      email: context.auth.token?.email || profile.data.email || "",
+      name: profile.data.name || "",
+      role: profile.data.role || "",
+      profile: profile.data,
+    };
+
+    const result = await deleteShopifyReviews(db, reviewIds, staff);
+    functions.logger.info("Shopify reviews delete finished", {
+      uid: staff.uid,
+      deleted: result.deleted.length,
+      failed: result.failed.length,
+    });
+    return result;
+  });
+
+/**
+ * Authenticated catalog sync from the company Website (Shopify products.json).
+ */
+exports.syncStorefrontCatalog = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 120,
+    memory: "512MB",
+  })
+  .https.onCall(async (data, context) => {
+    if (!context.auth?.uid) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Sign in required",
+      );
+    }
+
+    const profile = await loadStaffProfile(db, context.auth.uid);
+    if (!profile) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Staff profile not found",
+      );
+    }
+    const allowed = await staffCanEditCompanyProfile(db, profile);
+    if (!allowed) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Missing permission to update company catalog",
+      );
+    }
+
+    let companyId;
+    try {
+      companyId = resolveStaffCompanyId(profile, data?.companyId);
+    } catch (err) {
+      throw new functions.https.HttpsError(
+        err.code || "permission-denied",
+        err.message || "Company belongs to another tenant",
+      );
     }
     if (!companyId) {
-      functions.logger.error("SHOPIFY_DEFAULT_COMPANY_ID is not configured");
-      return res.status(500).json({ error: "Company id not configured" });
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "No company linked to your account",
+      );
     }
 
-    const hmacHeader = req.get("x-shopify-hmac-sha256");
-    const rawBody = rawBodyBuffer(req);
-    if (!verifyShopifyWebhookHmac(rawBody, hmacHeader, secret)) {
-      functions.logger.warn("Shopify HMAC verification failed");
-      return res.status(401).json({ error: "Invalid webhook signature" });
+    const companySnap = await db.collection("Companies").doc(companyId).get();
+    if (!companySnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Company not found");
     }
-
-    let shopifyOrder;
-    try {
-      shopifyOrder = JSON.parse(rawBody.toString("utf8"));
-    } catch (error) {
-      functions.logger.error("Invalid JSON body", error);
-      return res.status(400).json({ error: "Invalid JSON body" });
-    }
-
-    if (!shopifyOrder?.id) {
-      return res.status(400).json({ error: "Missing Shopify order id" });
+    const website =
+      String(data?.website || "").trim() ||
+      String(companySnap.data()?.website || "").trim();
+    const parsed = parseStorefrontWebsite(website);
+    if (!parsed) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Enter a valid website, e.g. https://shop.example.com",
+      );
     }
 
     try {
-      const result = await importShopifyOrder(db, shopifyOrder, companyId);
-      functions.logger.info("Shopify order processed", {
-        duplicate: result.duplicate,
-        externalOrderId: result.externalOrderId,
-        orderPath: result.orderRef.path,
+      const result = await syncStorefrontCatalog(db, {
+        companyId,
+        website: parsed.website,
+        deactivateExtra: true,
       });
-      return res.status(200).json({
-        ok: true,
-        duplicate: result.duplicate,
-        orderId: result.orderId,
-        externalOrderId: result.externalOrderId,
-        externalOrderName: result.externalOrderName,
-        orderPath: result.orderRef.path,
-        noticesCreated: result.noticesCreated ?? 0,
+      functions.logger.info("Storefront catalog sync finished", {
+        uid: context.auth.uid,
+        companyId,
+        created: result.createdCount,
+        priceUpdates: result.priceUpdateCount,
+        deactivated: result.deactivatedCount,
       });
-    } catch (error) {
-      functions.logger.error("Shopify import failed", error);
-      return res.status(500).json({ error: "Import failed" });
+      return result;
+    } catch (err) {
+      if (err instanceof StorefrontSyncError) {
+        throw new functions.https.HttpsError(err.code, err.message);
+      }
+      functions.logger.error("Storefront catalog sync failed", err);
+      throw new functions.https.HttpsError(
+        "internal",
+        err.message || "Catalog sync failed",
+      );
     }
   });
 
@@ -428,6 +617,42 @@ exports.approveRegistrationRequest = functions
       passwordSet: result.passwordSet,
     });
     return result;
+  });
+
+/**
+ * Callable: rejectRegistrationRequest
+ * Superadmin-only. Marks a pending application rejected. Does not provision.
+ */
+exports.rejectRegistrationRequest = functions
+  .region(FUNCTION_REGION)
+  .runWith({
+    timeoutSeconds: 60,
+    memory: "256MB",
+  })
+  .https.onCall(async (data, context) => {
+    const reviewerUid = await assertCallerIsSuperadmin(db, context);
+    const result = await rejectRegistrationRequestImpl(db, data, reviewerUid);
+    functions.logger.info("registration request rejected", {
+      reviewerUid,
+      requestId: data && data.requestId,
+    });
+    return result;
+  });
+
+/**
+ * Callable: recordDirectorFirstLogin
+ * The signed-in director stamps first-login activation. Idempotent.
+ */
+exports.recordDirectorFirstLogin = functions
+  .region(FUNCTION_REGION)
+  .https.onCall(async (data, context) => {
+    if (!context.auth || !context.auth.uid) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Sign in required.",
+      );
+    }
+    return recordDirectorFirstLoginImpl(db, context.auth.uid);
   });
 
 /**

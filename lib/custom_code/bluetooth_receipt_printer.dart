@@ -276,7 +276,7 @@ class BluetoothReceiptPrinter {
         // Fall back to default company below.
       }
     }
-    return getDefaultCompanyOnce();
+    return getLetterheadCompany(companyRef: companyRef);
   }
 
   /// Builds ESC/POS bytes (GBK Chinese + structured layout).

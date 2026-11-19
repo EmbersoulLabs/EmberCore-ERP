@@ -99,6 +99,9 @@ bool canCreateCreditCustomers(UserRole? role) =>
 bool canCreateOrders(UserRole? role) =>
     hasAppPermission(role, AppPermission.createOrders);
 
+bool canViewOrders(UserRole? role) =>
+    hasAppPermission(role, AppPermission.viewOrders);
+
 bool canUpdateOrderStatus(UserRole? role) =>
     hasAppPermission(role, AppPermission.updateOrderStatus);
 
@@ -128,6 +131,9 @@ bool canManageBilling(UserRole? role) =>
 
 bool canViewAuditLog(UserRole? role) =>
     hasAppPermission(role, AppPermission.viewAuditLog);
+
+bool canApplyOrderDiscount(UserRole? role) =>
+    hasAppPermission(role, AppPermission.applyOrderDiscount);
 
 bool canDeleteOrders(UserRole? role) =>
     hasAppPermission(role, AppPermission.deleteOrders);

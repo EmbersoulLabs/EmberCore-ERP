@@ -123,7 +123,7 @@ CustomerInvoiceTotals calculateCustomerInvoiceTotals({
       discountLabel = '${discount.value.toStringAsFixed(2)}%';
     } else {
       discountAmount = discount.value;
-      discountLabel = 'SGD ${discount.value.toStringAsFixed(2)}';
+      discountLabel = formatAmountDiscountLabel(discount.value);
     }
   }
   if (discountAmount > subtotal) {
@@ -200,6 +200,29 @@ List<CustomerInvoiceLineItem> parseInvoiceLineItemsSnapshot(
   return lines;
 }
 
+String formatAmountDiscountLabel(double value) => value.toStringAsFixed(2);
+
+bool isAmountDiscountLabel(String label) {
+  final trimmed = label.trim();
+  if (trimmed.isEmpty || trimmed == '-') {
+    return false;
+  }
+  final lower = trimmed.toLowerCase();
+  if (lower.startsWith('rm') ||
+      lower.startsWith('sgd') ||
+      lower.startsWith('myr')) {
+    return true;
+  }
+  return double.tryParse(trimmed.replaceAll(',', '')) != null;
+}
+
+double? parseAmountDiscountLabel(String label, {double? fallback}) {
+  if (!isAmountDiscountLabel(label)) {
+    return fallback;
+  }
+  return double.tryParse(label.replaceAll(RegExp(r'[^0-9.]'), '')) ?? fallback;
+}
+
 CustomerInvoiceDiscountInput parseInvoiceDiscountInput(InvoicesRecord invoice) {
   final label = invoice.discountLabel.trim();
   if (label.endsWith('%')) {
@@ -210,13 +233,11 @@ CustomerInvoiceDiscountInput parseInvoiceDiscountInput(InvoicesRecord invoice) {
       value: value,
     );
   }
-  if (label.toLowerCase().startsWith('sgd')) {
-    final value =
-        double.tryParse(label.replaceAll(RegExp(r'[^0-9.]'), '')) ??
-            invoice.discount;
+  final amount = parseAmountDiscountLabel(label, fallback: invoice.discount);
+  if (amount != null && amount > 0) {
     return CustomerInvoiceDiscountInput(
       type: CustomerInvoiceDiscountType.amount,
-      value: value,
+      value: amount,
     );
   }
   if (invoice.discount > 0) {

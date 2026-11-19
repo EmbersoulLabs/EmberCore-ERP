@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '/backend/registration_approval_service.dart';
 import '/backend/schema/companies_record.dart';
-import '/backend/subscription_helpers.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 
 /// Creates a [Companies] document and initializes tenant defaults.
@@ -27,9 +26,17 @@ Future<DocumentReference> provisionNewCompanyDocument({
       createdAt: getCurrentTimestamp,
       logo: (logoUrl ?? '').trim().isEmpty ? null : logoUrl!.trim(),
     ),
-    ...defaultSubscriptionRecordData(),
   });
 
-  await initializeNewTenantFirestore(companyRef);
+  try {
+    await initializeNewTenantFirestore(companyRef);
+  } catch (error) {
+    throw StateError(
+      'Company "$companyName" was created, but tenant setup failed '
+      '(staff roles / permissions). ${error.toString()} '
+      'Fix Firestore rules, then open this company as superadmin and retry setup, '
+      'or add the director from User List.',
+    );
+  }
   return companyRef;
 }

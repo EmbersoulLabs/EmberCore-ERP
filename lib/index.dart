@@ -85,3 +85,7 @@ export '/materiallist/materiallist_widget.dart' show MateriallistWidget;
 export '/orderlist1/orderlist1_widget.dart' show Orderlist1Widget;
 export '/d_o/d_o_widget.dart' show DOWidget;
 export '/home_page/home_page_widget.dart' show HomePageWidget;
+export '/pages/shopify_pending_orders_page/shopify_pending_orders_page_widget.dart'
+    show ShopifyPendingOrdersPageWidget;
+export '/pages/asset_library_page/asset_library_page_widget.dart'
+    show AssetLibraryPageWidget;
