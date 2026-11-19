@@ -20,9 +20,10 @@ class OrderBalanceSummaryPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     final amountPaid = readOrderAmountPaid(order);
-    final balanceDue = order.balanceDue > 0
-        ? order.balanceDue
-        : calculateBalanceDue(saleTotal: saleTotal, amountPaid: amountPaid);
+    final balanceDue = calculateBalanceDue(
+      saleTotal: saleTotal,
+      amountPaid: amountPaid,
+    );
 
     if (amountPaid <= 0.005 && balanceDue <= 0.005) {
       return const SizedBox.shrink();

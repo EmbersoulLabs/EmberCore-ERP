@@ -152,21 +152,37 @@ Future<void> increaseOrderItemQuantity({
   required OrderItemRecord item,
   required DocumentReference orderRef,
 }) async {
-  await item.reference.update({
-    ...createOrderItemRecordData(
-      subtotal: functions.increaseQtySubtotal(item.price, item.qty),
-    ),
-    ...mapToFirestore({
-      'qty': FieldValue.increment(1),
-    }),
-  });
+  await setOrderItemQuantity(
+    item: item,
+    orderRef: orderRef,
+    qty: item.qty + 1,
+  );
+}
 
-  await orderRef.update({
-    ...mapToFirestore({
-      'totalAmount': FieldValue.increment(item.price),
-      'totalQty': FieldValue.increment(1),
-    }),
-  });
+/// Sets absolute qty (checkout summary). Zeroes the line when qty <= 0.
+Future<void> setOrderItemQuantity({
+  required OrderItemRecord item,
+  required DocumentReference orderRef,
+  required int qty,
+}) async {
+  if (qty <= 0) {
+    await item.reference.update(
+      createOrderItemRecordData(
+        qty: 0,
+        subtotal: 0,
+      ),
+    );
+    await recalculateOrderTotals(orderRef);
+    return;
+  }
+
+  await item.reference.update(
+    createOrderItemRecordData(
+      qty: qty,
+      subtotal: item.price * qty,
+    ),
+  );
+  await recalculateOrderTotals(orderRef);
 }
 
 Future<DocumentReference> addCatalogProductToOrderItem({

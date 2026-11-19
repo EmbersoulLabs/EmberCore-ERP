@@ -242,3 +242,40 @@ Future<PriceListImportWriteResult> writeImportedPriceListLines({
     messages: messages,
   );
 }
+
+String priceListLinesToCsv(List<PriceListLine> lines) {
+  final rows = <List<String>>[
+    List<String>.from(priceListImportTemplateHeaders),
+    ...lines.map(
+      (line) => [
+        line.sku,
+        line.productName,
+        line.price.toStringAsFixed(2),
+      ],
+    ),
+  ];
+  return ordersToCsvString(rows);
+}
+
+Uint8List priceListLinesToCsvBytes(List<PriceListLine> lines) =>
+    encodeCsvUtf8Bytes(priceListLinesToCsv(lines));
+
+String priceListExportFilename({
+  required String listName,
+  String? customerName,
+}) {
+  final safeList = listName
+      .trim()
+      .replaceAll(RegExp(r'[^\w\-]+'), '_')
+      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp(r'^_|_$'), '');
+  final safeCustomer = (customerName ?? '')
+      .trim()
+      .replaceAll(RegExp(r'[^\w\-]+'), '_')
+      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp(r'^_|_$'), '');
+  final base = safeCustomer.isNotEmpty
+      ? '${safeCustomer}_${safeList.isNotEmpty ? safeList : 'price_list'}'
+      : (safeList.isNotEmpty ? safeList : 'price_list');
+  return '${base}_prices.csv';
+}

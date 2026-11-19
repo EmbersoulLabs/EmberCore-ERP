@@ -12,6 +12,7 @@ import '/backend/tenant_company_helpers.dart';
 import '/backend/tenant_query_helpers.dart';
 import '/backend/user_list_helpers.dart';
 import '/backend/dashboard_order_stats_helpers.dart';
+import '/backend/operation_reminder_copy.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,7 @@ abstract final class StaffNoticeType {
   static const orderCreated = 'order_created';
   static const driverAssigned = 'driver_assigned';
   static const shopifyOrderImported = 'shopify_order_imported';
+  static const shopifyReviewPending = 'shopify_review_pending';
   static const tomorrowPrepReminder = 'tomorrow_prep_reminder';
   static const todayOpsReminder = 'today_ops_reminder';
   static const specialProcurementReminder = 'special_procurement_reminder';
@@ -78,6 +80,8 @@ String staffNoticeTitle(StaffNoticesRecord notice) {
       return 'Delivery assigned';
     case StaffNoticeType.shopifyOrderImported:
       return 'New Shopify Order';
+    case StaffNoticeType.shopifyReviewPending:
+      return 'Shopify order awaiting review';
     case StaffNoticeType.tomorrowPrepReminder:
       return tomorrowPrepNoticeTitle;
     case StaffNoticeType.todayOpsReminder:
@@ -124,6 +128,7 @@ String _monthLabel(int month) {
 
 String staffNoticeBody(StaffNoticesRecord notice) {
   if ((notice.type == StaffNoticeType.shopifyOrderImported ||
+          notice.type == StaffNoticeType.shopifyReviewPending ||
           notice.type == StaffNoticeType.tomorrowPrepReminder ||
           notice.type == StaffNoticeType.todayOpsReminder ||
           notice.type == StaffNoticeType.specialProcurementReminder) &&
@@ -186,6 +191,10 @@ String? staffNoticeNavigationPayload(StaffNoticesRecord notice) {
   if (notice.type == StaffNoticeType.tomorrowPrepReminder) {
     return staffNoticeNavTomorrowPrep;
   }
+  if (notice.type == StaffNoticeType.shopifyReviewPending ||
+      notice.navTarget == StaffNoticeNavTarget.shopifyReview) {
+    return encodeStaffNoticeNavPayload(StaffNoticeNavTarget.shopifyReview);
+  }
   if (notice.hasOrderRef()) {
     return notice.orderRef!.path;
   }
@@ -201,6 +210,11 @@ Future<void> openStaffNoticeTarget(
       context,
       DashboardOrderListFilter.tomorrowDeliveryOrders,
     );
+    return;
+  }
+  if (notice.type == StaffNoticeType.shopifyReviewPending ||
+      notice.navTarget == StaffNoticeNavTarget.shopifyReview) {
+    await context.pushNamed(ShopifyPendingOrdersPageWidget.routeName);
     return;
   }
   if (!notice.hasOrderRef()) {

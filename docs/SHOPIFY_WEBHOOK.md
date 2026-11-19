@@ -1,6 +1,6 @@
 # Shopify Webhook Integration
 
-Shopify **orders/create** webhooks are imported into ERP as Firestore `orders` + `Order_item`, with `staff_notices` and `audit_logs`. Existing POS, PDF, receipt printing, deleted orders, and tenant flows are unchanged.
+Shopify **orders/paid** webhooks are HMAC-verified by the existing `shopifyOrderCreated` URL, then **staged** in Firestore `shopify_reviews`. Staff approve on **Shopify Review**; only then is an official `orders` + `Order_item` row created (`EC-…` prefix). POS, Stripe, registration, and tenant identity stay EmberCore.
 
 ---
 
@@ -8,13 +8,17 @@ Shopify **orders/create** webhooks are imported into ERP as Firestore `orders` +
 
 ```
 Shopify Store
-    │ orders/create webhook (HMAC signed)
+    │ orders/paid webhook (HMAC signed)
     ▼
-Cloud Function: shopifyOrderCreated
+Cloud Function: shopifyOrderCreated  (URL identity — do not rename)
     │ verify x-shopify-hmac-sha256
-    ├─► orders (+ source, externalOrderId, externalOrderName)
-    ├─► Order_item (line items)
-    ├─► staff_notices (admin / florist recipients)
+    ├─► shopify_reviews (pending / quarantined)
+    ├─► staff_notices (type shopify_review_pending)
+    └─► audit_logs (shopify_review_received)
+          │
+          ▼ staff callable approveShopifyReviews
+    ├─► orders + Order_item (official ERP order)
+    ├─► staff_notices (shopify_order_imported)
     └─► audit_logs (shopify_order_imported)
 ```
 
@@ -97,7 +101,7 @@ firebase functions:list --project production
 ## Shopify Admin Setup
 
 1. Shopify Admin → Settings → Notifications → Webhooks
-2. Create webhook: **Order creation** · JSON
+2. Create webhook: **Order payment** (`orders/paid`) · JSON
 3. URL: function URL above
 4. Copy signing secret → `SHOPIFY_WEBHOOK_SECRET`
 5. Run `npm run init:counters` if counters missing
@@ -125,11 +129,11 @@ Invalid HMAC → **401**. Duplicate `id` → **200** with `"duplicate": true`.
 
 | Collection | Verify |
 |------------|--------|
-| `orders` | `source`, `externalOrderId`, `status == pending` |
-| `Order_item` | line items linked by `orderRef` |
-| `staff_notices` | `type == shopify_order_imported`, `order_ref` |
-| `audit_logs` | `action == shopify_order_imported` |
+| `shopify_reviews` | `reviewStatus == PENDING_REVIEW`, `shopifyOrderId` |
+| `staff_notices` | `type == shopify_review_pending`, `nav_target == shopify_review` |
+| `audit_logs` | `action == shopify_review_received` |
+| After approve | `orders` with `source == shopify`, `Order_item`, `shopify_order_imported` notice |
 
 ### ERP app
 
-Dashboard → bell → **New Shopify Order** → tap → Order Detail.
+Dashboard / nav → **Shopify Review** → approve → official order in Order List.

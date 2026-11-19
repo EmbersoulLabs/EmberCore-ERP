@@ -1752,13 +1752,24 @@ service cloud.firestore {
           || companyCategoryDocMatchesAuthTenant(document)
         );
       allow create: if canManageRolePermissionsDoc()
-        && companyCategoryDocMatchesAuthTenant(document)
-        && incomingProductCategoriesBelongsToAuthTenant();
+        && incomingProductCategoriesBelongsToAuthTenant()
+        && (
+          canCrossTenantAccess()
+          && rolePermissionsPayloadMatchesDocId(document)
+          || companyCategoryDocMatchesAuthTenant(document)
+        );
       allow update: if canManageRolePermissionsDoc()
-        && companyCategoryDocMatchesAuthTenant(document)
-        && incomingProductCategoriesBelongsToAuthTenant();
+        && incomingProductCategoriesBelongsToAuthTenant()
+        && (
+          canCrossTenantAccess()
+          && rolePermissionsPayloadMatchesDocId(document)
+          || companyCategoryDocMatchesAuthTenant(document)
+        );
       allow delete: if canManageRolePermissionsDoc()
-        && companyCategoryDocMatchesAuthTenant(document);
+        && (
+          canCrossTenantAccess()
+          || companyCategoryDocMatchesAuthTenant(document)
+        );
     }
 
     match /role_permissions/{document} {
@@ -1917,6 +1928,12 @@ service cloud.firestore {
         && docBelongsToAuthTenant(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read_at']);
       allow delete: if false;
+    }
+
+    // --- Shopify review staging (webhook). Cloud Functions write only. ---
+    match /shopify_reviews/{document} {
+      allow read: if isStaffUser() && docBelongsToAuthTenant(resource.data);
+      allow create, update, delete: if false;
     }
   }
 }

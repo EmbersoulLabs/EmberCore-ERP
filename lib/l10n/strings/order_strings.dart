@@ -1104,4 +1104,762 @@ const Map<String, Map<String, String>> orderStrings = {
     'zh': '物料总成本',
     'ms': 'Jumlah kos bahan',
   },
+  'order.action.barTitle': {
+    'en': 'Actions',
+    'zh': '操作',
+    'ms': 'Tindakan',
+  },
+  'order.action.cancelOrder': {
+    'en': 'Cancel order',
+    'zh': '取消订单',
+    'ms': 'Batal pesanan',
+  },
+  'order.action.cancelOrderConfirm': {
+    'en': 'Mark this order as cancelled?',
+    'zh': '将此订单标为已取消？',
+    'ms': 'Tandakan pesanan ini sebagai dibatalkan?',
+  },
+  'order.action.more': {
+    'en': 'More',
+    'zh': '更多',
+    'ms': 'Lagi',
+  },
+  'order.action.pay': {
+    'en': 'Pay {amount}',
+    'zh': '付款 {amount}',
+    'ms': 'Bayar {amount}',
+  },
+  'order.action.whatsapp': {
+    'en': 'WhatsApp',
+    'zh': 'WhatsApp',
+    'ms': 'WhatsApp',
+  },
+  'order.bulk.assignDriver': {
+    'en': 'Assign driver',
+    'zh': '指派司机',
+    'ms': 'Tugaskan pemandu',
+  },
+  'order.bulk.assignDriverConfirm': {
+    'en': 'Assign to all selected',
+    'zh': '指派给全部所选',
+    'ms': 'Tugaskan kepada semua terpilih',
+  },
+  'order.bulk.assignDriverDenied': {
+    'en': 'You do not have permission to assign drivers.',
+    'zh': '您没有指派司机的权限。',
+    'ms': 'Anda tiada kebenaran menugaskan pemandu.',
+  },
+  'order.bulk.assignDriverFailed': {
+    'en': 'Could not assign driver: {error}',
+    'zh': '指派司机失败：{error}',
+    'ms': 'Gagal menugaskan pemandu: {error}',
+  },
+  'order.bulk.assignDriverTitle': {
+    'en': 'Assign driver to selected orders',
+    'zh': '为所选订单指派司机',
+    'ms': 'Tugaskan pemandu kepada pesanan terpilih',
+  },
+  'order.bulk.driverAssigned': {
+    'en': 'Driver assigned to {count} orders',
+    'zh': '已为 {count} 笔订单指派司机',
+    'ms': 'Pemandu ditugaskan kepada {count} pesanan',
+  },
+  'order.bulk.noDrivers': {
+    'en': 'No drivers found for this company.',
+    'zh': '未找到本公司的司机。',
+    'ms': 'Tiada pemandu untuk syarikat ini.',
+  },
+  'order.bulk.noneSelected': {
+    'en': 'Select orders below to apply bulk actions',
+    'zh': '在下方勾选订单以进行批量操作',
+    'ms': 'Pilih pesanan di bawah untuk tindakan pukal',
+  },
+  'order.bulk.pickDriver': {
+    'en': 'Select a driver.',
+    'zh': '请选择司机。',
+    'ms': 'Pilih pemandu.',
+  },
+  'order.bulk.printThermalDelivery': {
+    'en': 'Print thermal (full delivery)',
+    'zh': '批量打印热敏配送单',
+    'ms': 'Cetak thermal (penghantaran penuh)',
+  },
+  'order.bulk.printThermalFailed': {
+    'en': '{count} failed — check Bluetooth printer.',
+    'zh': '{count} 笔失败 — 请检查蓝牙打印机。',
+    'ms': '{count} gagal — semak pencetak Bluetooth.',
+  },
+  'order.bulk.printThermalNone': {
+    'en': 'No delivery/pickup orders selected. Retail orders are skipped.',
+    'zh': '未选中配送/自取订单。零售订单已跳过。',
+    'ms': 'Tiada pesanan delivery/pickup dipilih. Pesanan runcit dilangkau.',
+  },
+  'order.bulk.printThermalPrinting': {
+    'en': 'Printing…',
+    'zh': '打印中…',
+    'ms': 'Mencetak…',
+  },
+  'order.bulk.printThermalResult': {
+    'en': 'Printed {printed}/{total} delivery slips.',
+    'zh': '已打印 {printed}/{total} 张配送热敏单。',
+    'ms': 'Dicetak {printed}/{total} slip penghantaran.',
+  },
+  'order.bulk.printThermalSkippedRetail': {
+    'en': 'Skipped {count} retail.',
+    'zh': '已跳过 {count} 笔零售。',
+    'ms': 'Dilangkau {count} runcit.',
+  },
+  'order.bulk.selectFirst': {
+    'en': 'Select at least one order first.',
+    'zh': '请先勾选至少一笔订单。',
+    'ms': 'Pilih sekurang-kurangnya satu pesanan dahulu.',
+  },
+  'order.bulk.selectedCount': {
+    'en': '{count} selected',
+    'zh': '已选 {count} 笔',
+    'ms': '{count} dipilih',
+  },
+  'order.bulk.selectedOfTotal': {
+    'en': '{selected} of {total} selected',
+    'zh': '已选 {selected} / 共 {total} 单',
+    'ms': '{selected} / {total} dipilih',
+  },
+  'order.bulk.statusApplied': {
+    'en': '{count} orders set to {status}',
+    'zh': '已将 {count} 笔订单设为 {status}',
+    'ms': '{count} pesanan ditetapkan kepada {status}',
+  },
+  'order.bulk.updateStatus': {
+    'en': 'Update status',
+    'zh': '更改状态',
+    'ms': 'Kemas kini status',
+  },
+  'order.bulk.updateStatusDenied': {
+    'en': 'You do not have permission to update order status.',
+    'zh': '您没有更改订单状态的权限。',
+    'ms': 'Anda tiada kebenaran mengemas kini status pesanan.',
+  },
+  'order.bulk.updateStatusFailed': {
+    'en': 'Could not update status: {error}',
+    'zh': '更改状态失败：{error}',
+    'ms': 'Gagal mengemas kini status: {error}',
+  },
+  'order.bulk.updateStatusTitle': {
+    'en': 'Update status for selected orders',
+    'zh': '更改所选订单状态',
+    'ms': 'Kemas kini status pesanan terpilih',
+  },
+  'order.card.applyHint': {
+    'en': 'Applies to products that do not already have their own card.',
+    'zh': '只会套用到还没有单独贺卡的商品。',
+    'ms': 'Hanya digunakan pada produk yang belum ada kad sendiri.',
+  },
+  'order.card.copied': {
+    'en': 'Message card copied',
+    'zh': '已复制贺卡',
+    'ms': 'Kad mesej disalin',
+  },
+  'order.card.copyTooltip': {
+    'en': 'Copy message card',
+    'zh': '复制贺卡',
+    'ms': 'Salin kad mesej',
+  },
+  'order.card.empty': {
+    'en': 'Message card is empty',
+    'zh': '贺卡是空的',
+    'ms': 'Kad mesej kosong',
+  },
+  'order.card.forProduct': {
+    'en': 'Message card · {name}',
+    'zh': '贺卡 · {name}',
+    'ms': 'Kad mesej · {name}',
+  },
+  'order.card.title': {
+    'en': 'Message Card',
+    'zh': '贺卡',
+    'ms': 'Kad mesej',
+  },
+  'order.col.customerRecipient': {
+    'en': 'Customer / recipient',
+    'zh': '客户 / 收件',
+    'ms': 'Pelanggan / penerima',
+  },
+  'order.col.slot': {
+    'en': 'Time',
+    'zh': '时段',
+    'ms': 'Slot',
+  },
+  'order.detail.addressOptional': {
+    'en': 'Address (optional)',
+    'zh': '地址（选填）',
+    'ms': 'Alamat (pilihan)',
+  },
+  'order.detail.amountPaid': {
+    'en': 'Paid',
+    'zh': '已付',
+    'ms': 'Telah dibayar',
+  },
+  'order.detail.balanceDue': {
+    'en': 'Balance due',
+    'zh': '余款',
+    'ms': 'Baki tertunggak',
+  },
+  'order.detail.billingAddress': {
+    'en': 'Billing address',
+    'zh': '账单地址',
+    'ms': 'Alamat bil',
+  },
+  'order.detail.copied': {
+    'en': 'Order details copied',
+    'zh': '已复制订单详情',
+    'ms': 'Butiran pesanan disalin',
+  },
+  'order.detail.copyTooltip': {
+    'en': 'Copy order details',
+    'zh': '复制订单详情',
+    'ms': 'Salin butiran pesanan',
+  },
+  'order.detail.customerPrefix': {
+    'en': 'Customer',
+    'zh': '客户',
+    'ms': 'Pelanggan',
+  },
+  'order.detail.orderMethod': {
+    'en': 'Order method',
+    'zh': '配送方式',
+    'ms': 'Kaedah pesanan',
+  },
+  'order.detail.progress': {
+    'en': 'Progress',
+    'zh': '进度',
+    'ms': 'Kemajuan',
+  },
+  'order.detail.sectionDelivery': {
+    'en': 'Delivery',
+    'zh': '配送',
+    'ms': 'Penghantaran',
+  },
+  'order.detail.shopifyOrder': {
+    'en': 'Shopify Order:',
+    'zh': 'Shopify 订单：',
+    'ms': 'Pesanan Shopify:',
+  },
+  'order.detail.source': {
+    'en': 'Source:',
+    'zh': '来源：',
+    'ms': 'Sumber:',
+  },
+  'order.detail.total': {
+    'en': 'Total',
+    'zh': '合计',
+    'ms': 'Jumlah',
+  },
+  'order.detail.unpaidHint': {
+    'en': 'Payment is not complete. Tap Pay to collect the balance.',
+    'zh': '尚未付清。点付款收余款。',
+    'ms': 'Pembayaran belum selesai. Ketik Bayar untuk kutip baki.',
+  },
+  'order.driver.assigned': {
+    'en': 'Assigned',
+    'zh': '已指派',
+    'ms': 'Ditugaskan',
+  },
+  'order.driver.assignedDriver': {
+    'en': 'Driver',
+    'zh': '司机',
+    'ms': 'Pemandu',
+  },
+  'order.driver.dateFromLabel': {
+    'en': 'From',
+    'zh': '从',
+    'ms': 'Dari',
+  },
+  'order.driver.dateOnwards': {
+    'en': 'Onwards',
+    'zh': '往后',
+    'ms': 'Seterusnya',
+  },
+  'order.driver.dateToLabel': {
+    'en': 'To',
+    'zh': '至',
+    'ms': 'Hingga',
+  },
+  'order.driver.deliveryDateLabel': {
+    'en': 'Delivery date',
+    'zh': '配送日期',
+    'ms': 'Tarikh penghantaran',
+  },
+  'order.driver.fromTodayOnwards': {
+    'en': 'From today onwards',
+    'zh': '从今天起',
+    'ms': 'Dari hari ini',
+  },
+  'order.driver.resetToToday': {
+    'en': 'Today',
+    'zh': '今天',
+    'ms': 'Hari ini',
+  },
+  'order.driver.unassigned': {
+    'en': 'Unassigned',
+    'zh': '未指派',
+    'ms': 'Belum ditugaskan',
+  },
+  'order.field.addon': {
+    'en': 'Add-on:',
+    'zh': '加购：',
+    'ms': 'Tambahan:',
+  },
+  'order.field.billingAddress': {
+    'en': 'Billing Address:',
+    'zh': '账单地址：',
+    'ms': 'Alamat Bil:',
+  },
+  'order.field.cardMessage': {
+    'en': 'Card message:',
+    'zh': '贺卡内容：',
+    'ms': 'Mesej kad:',
+  },
+  'order.field.remark': {
+    'en': 'Remark:',
+    'zh': '备注：',
+    'ms': 'Catatan:',
+  },
+  'order.field.senderPhone': {
+    'en': 'Sender phone:',
+    'zh': '下单人电话：',
+    'ms': 'Telefon pengirim:',
+  },
+  'order.filter.driverCount': {
+    'en': 'Driver · {count}',
+    'zh': '司机 · {count}',
+    'ms': 'Pemandu · {count}',
+  },
+  'order.filter.driverHint': {
+    'en': 'Driver (multi)',
+    'zh': '司机（可多选）',
+    'ms': 'Pemandu (berbilang)',
+  },
+  'order.filter.leftover': {
+    'en': 'Leftover',
+    'zh': '逾期未完成',
+    'ms': 'Tertinggal',
+  },
+  'order.filter.readyByCount': {
+    'en': 'Ready by · {count}',
+    'zh': 'Ready by · {count}',
+    'ms': 'Ready by · {count}',
+  },
+  'order.filter.readyByHint': {
+    'en': 'Ready by (multi)',
+    'zh': 'Ready by（可多选）',
+    'ms': 'Ready by (berbilang)',
+  },
+  'order.filter.statusCount': {
+    'en': 'Status · {count}',
+    'zh': '状态 · {count}',
+    'ms': 'Status · {count}',
+  },
+  'order.filter.time': {
+    'en': 'Time',
+    'zh': '时间',
+    'ms': 'Masa',
+  },
+  'order.filter.timeClear': {
+    'en': 'Clear time',
+    'zh': '清除时间',
+    'ms': 'Kosongkan masa',
+  },
+  'order.filter.timeEnd': {
+    'en': 'To',
+    'zh': '结束',
+    'ms': 'Hingga',
+  },
+  'order.filter.timeHint': {
+    'en': 'Delivery time',
+    'zh': '配送时段（几点–几点）',
+    'ms': 'Waktu penghantaran',
+  },
+  'order.filter.timeStart': {
+    'en': 'From',
+    'zh': '开始',
+    'ms': 'Dari',
+  },
+  'order.list.count': {
+    'en': '{count} orders',
+    'zh': '{count} 单',
+    'ms': '{count} pesanan',
+  },
+  'order.list.selectAll': {
+    'en': 'Select all',
+    'zh': '全选',
+    'ms': 'Pilih semua',
+  },
+  'order.list.shopifyRef': {
+    'en': 'Shopify {name}',
+    'zh': 'Shopify {name}',
+    'ms': 'Shopify {name}',
+  },
+  'order.preview.noProducts': {
+    'en': 'No products on this order.',
+    'zh': '此订单暂无商品。',
+    'ms': 'Tiada produk untuk pesanan ini.',
+  },
+  'order.preview.productsTitle': {
+    'en': 'Order products',
+    'zh': '订单商品',
+    'ms': 'Produk pesanan',
+  },
+  'order.production.qtyConfirm': {
+    'en': 'Confirm quantity',
+    'zh': '确认数量',
+    'ms': 'Sahkan kuantiti',
+  },
+  'order.production.qtySaveFailed': {
+    'en': 'Could not save quantity: {error}',
+    'zh': '无法保存数量：{error}',
+    'ms': 'Tidak dapat simpan kuantiti: {error}',
+  },
+  'order.readyBy.denied': {
+    'en': 'You cannot assign Ready by.',
+    'zh': '没有权限选择 Ready by。',
+    'ms': 'Anda tidak boleh tetapkan Ready by.',
+  },
+  'order.readyBy.empty': {
+    'en': 'No staff found for this company.',
+    'zh': '本公司没有可选手员工。',
+    'ms': 'Tiada kakitangan untuk syarikat ini.',
+  },
+  'order.readyBy.failed': {
+    'en': 'Could not save Ready by: {error}',
+    'zh': '无法保存 Ready by：{error}',
+    'ms': 'Tidak dapat simpan Ready by: {error}',
+  },
+  'order.readyBy.hint': {
+    'en': 'Who made this order ready. Does not change the driver.',
+    'zh': '谁把这单做好。不会改司机。',
+    'ms': 'Siapa yang sediakan pesanan. Tidak menukar pemandu.',
+  },
+  'order.readyBy.label': {
+    'en': 'Ready by',
+    'zh': 'Ready by',
+    'ms': 'Ready by',
+  },
+  'order.readyBy.saved': {
+    'en': 'Ready by updated',
+    'zh': '已更新 Ready by',
+    'ms': 'Ready by dikemas kini',
+  },
+  'order.readyBy.title': {
+    'en': 'Ready by',
+    'zh': '谁做好（Ready by）',
+    'ms': 'Ready by',
+  },
+  'order.readyBy.unassigned': {
+    'en': 'Ready by —',
+    'zh': 'Ready by —',
+    'ms': 'Ready by —',
+  },
+  'order.remark.printedDo': {
+    'en': 'Printed DO',
+    'zh': 'Printed DO',
+    'ms': 'Printed DO',
+  },
+  'order.shopify.approve': {
+    'en': 'Approve',
+    'zh': '批准',
+    'ms': 'Luluskan',
+  },
+  'order.shopify.approveBody': {
+    'en':
+        'Admit {shopify} into the official Order List. Florists can then start work.',
+    'zh': '将 {shopify} 纳入正式订单列表，花艺师即可开始备货。',
+    'ms':
+        'Masukkan {shopify} ke senarai pesanan rasmi. Florist kemudian boleh mula kerja.',
+  },
+  'order.shopify.approveBulkBody': {
+    'en': 'Admit {count} Shopify order(s) into the official Order List.',
+    'zh': '将 {count} 笔 Shopify 订单纳入正式订单列表。',
+    'ms':
+        'Masukkan {count} pesanan Shopify ke senarai pesanan rasmi.',
+  },
+  'order.shopify.approveBulkSuccess': {
+    'en': 'Approved {count} order(s).',
+    'zh': '已批准 {count} 笔订单。',
+    'ms': '{count} pesanan diluluskan.',
+  },
+  'order.shopify.approveBulkTitle': {
+    'en': 'Approve selected Shopify orders?',
+    'zh': '批准所选 Shopify 订单？',
+    'ms': 'Luluskan pesanan Shopify yang dipilih?',
+  },
+  'order.shopify.approveFailed': {
+    'en': 'Could not approve order. Try again.',
+    'zh': '无法批准订单，请重试。',
+    'ms': 'Tidak dapat meluluskan pesanan. Cuba lagi.',
+  },
+  'order.shopify.approvePartial': {
+    'en':
+        'Approved {approved}. {failed} failed and can be retried. Successful orders were not duplicated.',
+    'zh': '已批准 {approved} 笔。{failed} 笔失败，可重试。成功的订单不会重复创建。',
+    'ms':
+        '{approved} diluluskan. {failed} gagal dan boleh dicuba semula. Pesanan berjaya tidak diduakan.',
+  },
+  'order.shopify.approveSelected': {
+    'en': 'Approve selected ({count})',
+    'zh': '批准所选 ({count})',
+    'ms': 'Luluskan dipilih ({count})',
+  },
+  'order.shopify.approveSuccess': {
+    'en': 'Order approved and added to Order List.',
+    'zh': '已批准并加入正式订单列表。',
+    'ms': 'Pesanan diluluskan dan ditambah ke senarai pesanan.',
+  },
+  'order.shopify.approveTitle': {
+    'en': 'Approve Shopify order?',
+    'zh': '批准此 Shopify 订单？',
+    'ms': 'Luluskan pesanan Shopify?',
+  },
+  'order.shopify.clearSelection': {
+    'en': 'Clear selection',
+    'zh': '清除选择',
+    'ms': 'Kosongkan pilihan',
+  },
+  'order.shopify.delete': {
+    'en': 'Delete',
+    'zh': '删除',
+    'ms': 'Padam',
+  },
+  'order.shopify.deleteBody': {
+    'en':
+        'Remove {shopify} from the review queue. It will not be added to the official Order List.',
+    'zh': '将 {shopify} 从审批队列移除，不会加入正式订单列表。',
+    'ms':
+        'Buang {shopify} dari giliran semakan. Ia tidak akan ditambah ke senarai pesanan rasmi.',
+  },
+  'order.shopify.deleteBulkBody': {
+    'en':
+        'Remove {count} Shopify order(s) from the review queue. They will not be added to the official Order List.',
+    'zh': '将 {count} 笔 Shopify 订单从审批队列移除，不会加入正式订单列表。',
+    'ms':
+        'Buang {count} pesanan Shopify dari giliran semakan. Ia tidak akan ditambah ke senarai pesanan rasmi.',
+  },
+  'order.shopify.deleteBulkSuccess': {
+    'en': 'Deleted {count} order(s).',
+    'zh': '已删除 {count} 笔订单。',
+    'ms': '{count} pesanan dipadam.',
+  },
+  'order.shopify.deleteBulkTitle': {
+    'en': 'Delete selected Shopify orders?',
+    'zh': '删除所选 Shopify 订单？',
+    'ms': 'Padam pesanan Shopify yang dipilih?',
+  },
+  'order.shopify.deleteFailed': {
+    'en': 'Could not delete order. Try again.',
+    'zh': '无法删除订单，请重试。',
+    'ms': 'Tidak dapat memadam pesanan. Cuba lagi.',
+  },
+  'order.shopify.deletePartial': {
+    'en':
+        'Deleted {deleted}. {failed} failed and can be retried.',
+    'zh': '已删除 {deleted} 笔。{failed} 笔失败，可重试。',
+    'ms':
+        '{deleted} dipadam. {failed} gagal dan boleh dicuba semula.',
+  },
+  'order.shopify.deleteSelected': {
+    'en': 'Delete selected ({count})',
+    'zh': '删除所选 ({count})',
+    'ms': 'Padam dipilih ({count})',
+  },
+  'order.shopify.deleteSuccess': {
+    'en': 'Shopify order removed from review.',
+    'zh': '已从审批队列删除。',
+    'ms': 'Pesanan Shopify dibuang dari semakan.',
+  },
+  'order.shopify.deleteTitle': {
+    'en': 'Delete Shopify order?',
+    'zh': '删除此 Shopify 订单？',
+    'ms': 'Padam pesanan Shopify?',
+  },
+  'order.shopify.empty': {
+    'en': 'No Shopify orders in this view.',
+    'zh': '此视图没有 Shopify 订单。',
+    'ms': 'Tiada pesanan Shopify dalam paparan ini.',
+  },
+  'order.shopify.filterAll': {
+    'en': 'All Shopify',
+    'zh': '全部 Shopify',
+    'ms': 'Semua Shopify',
+  },
+  'order.shopify.filterPending': {
+    'en': 'Pending review ({count})',
+    'zh': '待审批 ({count})',
+    'ms': 'Menunggu semakan ({count})',
+  },
+  'order.shopify.financial.authorized': {
+    'en': 'Authorized',
+    'zh': '已授权',
+    'ms': 'Dibenarkan',
+  },
+  'order.shopify.financial.paid': {
+    'en': 'Paid',
+    'zh': '已付款',
+    'ms': 'Dibayar',
+  },
+  'order.shopify.financial.partially_paid': {
+    'en': 'Partially paid',
+    'zh': '部分付款',
+    'ms': 'Dibayar sebahagian',
+  },
+  'order.shopify.financial.partially_refunded': {
+    'en': 'Partially refunded',
+    'zh': '部分退款',
+    'ms': 'Dipulangkan sebahagian',
+  },
+  'order.shopify.financial.pending': {
+    'en': 'Pending',
+    'zh': '待付款',
+    'ms': 'Menunggu bayaran',
+  },
+  'order.shopify.financial.refunded': {
+    'en': 'Refunded',
+    'zh': '已退款',
+    'ms': 'Dipulangkan',
+  },
+  'order.shopify.financial.unknown': {
+    'en': 'Unknown payment',
+    'zh': '付款状态未知',
+    'ms': 'Bayaran tidak diketahui',
+  },
+  'order.shopify.financial.unpaid': {
+    'en': 'Unpaid',
+    'zh': '未付款',
+    'ms': 'Belum dibayar',
+  },
+  'order.shopify.financial.voided': {
+    'en': 'Voided',
+    'zh': '已作废',
+    'ms': 'Dibatalkan',
+  },
+  'order.shopify.loadFailed': {
+    'en': 'Failed to load Shopify orders.',
+    'zh': '加载 Shopify 订单失败。',
+    'ms': 'Gagal memuatkan pesanan Shopify.',
+  },
+  'order.shopify.noPermission': {
+    'en': 'You do not have permission to view orders.',
+    'zh': '您没有查看订单的权限。',
+    'ms': 'Anda tiada kebenaran untuk melihat pesanan.',
+  },
+  'order.shopify.open': {
+    'en': 'Details',
+    'zh': '详情',
+    'ms': 'Butiran',
+  },
+  'order.shopify.openOfficial': {
+    'en': 'Open order',
+    'zh': '打开订单',
+    'ms': 'Buka pesanan',
+  },
+  'order.shopify.paid': {
+    'en': 'Paid',
+    'zh': '已付款',
+    'ms': 'Dibayar',
+  },
+  'order.shopify.searchHint': {
+    'en': 'Search Shopify #, customer…',
+    'zh': '搜索 Shopify #、客户…',
+    'ms': 'Cari Shopify #, pelanggan…',
+  },
+  'order.shopify.status.approved': {
+    'en': 'Approved',
+    'zh': '已批准',
+    'ms': 'Diluluskan',
+  },
+  'order.shopify.status.pending': {
+    'en': 'Pending review',
+    'zh': '待审批',
+    'ms': 'Menunggu semakan',
+  },
+  'order.shopify.status.quarantined': {
+    'en': 'Needs check',
+    'zh': '需核对',
+    'ms': 'Perlu semak',
+  },
+  'order.shopify.status.rejected': {
+    'en': 'Rejected',
+    'zh': '已拒绝',
+    'ms': 'Ditolak',
+  },
+  'order.shopify.subtitle': {
+    'en': '{count} order(s)',
+    'zh': '{count} 笔订单',
+    'ms': '{count} pesanan',
+  },
+  'order.shopify.title': {
+    'en': 'Shopify Order Review',
+    'zh': 'Shopify 订单审批',
+    'ms': 'Semakan Pesanan Shopify',
+  },
+  'order.shopify.unpaid': {
+    'en': 'Unpaid',
+    'zh': '未付款',
+    'ms': 'Belum dibayar',
+  },
+  'order.status.pickedUp': {
+    'en': 'Picked Up',
+    'zh': '已自取',
+    'ms': 'Telah Diambil',
+  },
+  'order.status.readyForPickup': {
+    'en': 'Ready for Pickup',
+    'zh': '待自取',
+    'ms': 'Sedia Diambil',
+  },
+  'order.timeline.pickedUp': {
+    'en': 'Picked Up',
+    'zh': '已自取',
+    'ms': 'Telah Diambil',
+  },
+  'order.timeline.readyPickup': {
+    'en': 'Ready for Pickup',
+    'zh': '待自取',
+    'ms': 'Sedia Diambil',
+  },
+  'order.whatsapp.businessOpenFailed': {
+    'en': 'Could not open WhatsApp Business.',
+    'zh': '无法打开 WhatsApp Business。',
+    'ms': 'Tidak dapat membuka WhatsApp Business.',
+  },
+  'order.whatsapp.importSuccess': {
+    'en': 'Order imported. Review delivery details, then payment.',
+    'zh': '订单已导入。请核对配送资料，然后付款。',
+    'ms': 'Pesanan diimport. Semak butiran penghantaran, kemudian bayaran.',
+  },
+  'order.whatsapp.parseFailed': {
+    'en':
+        'Could not read an order from the message. Paste a WhatsApp Business message with customer or product details.',
+    'zh': '无法从消息读取订单。请粘贴包含客户或商品信息的 WhatsApp Business 消息。',
+    'ms':
+        'Tidak dapat membaca pesanan daripada mesej. Tampal mesej WhatsApp Business dengan butiran pelanggan atau produk.',
+  },
+  'order.whatsapp.pasteDialogHintEmpty': {
+    'en': 'Clipboard is empty. Paste the WhatsApp Business message here, then tap OK.',
+    'zh': '剪贴板为空。请粘贴 WhatsApp Business 消息，然后点确定。',
+    'ms': 'Papan keratan kosong. Tampal mesej WhatsApp Business di sini, kemudian ketik OK.',
+  },
+  'order.whatsapp.pasteDialogHintReview': {
+    'en': 'Review the message below, edit if needed, then tap OK.',
+    'zh': '请核对下方消息，如需可编辑，然后点确定。',
+    'ms': 'Semak mesej di bawah, sunting jika perlu, kemudian ketik OK.',
+  },
+  'order.whatsapp.pasteDialogTitle': {
+    'en': 'WhatsApp Business',
+    'zh': 'WhatsApp Business',
+    'ms': 'WhatsApp Business',
+  },
+  'order.whatsapp.phoneInvalid': {
+    'en': 'Customer phone number is missing or invalid.',
+    'zh': '客户电话号码缺失或无效。',
+    'ms': 'Nombor telefon pelanggan tiada atau tidak sah.',
+  },
 };

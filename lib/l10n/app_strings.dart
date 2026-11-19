@@ -10,6 +10,7 @@ import 'strings/dashboard_strings.dart';
 import 'strings/brand_strings.dart';
 import 'strings/billing_strings.dart';
 import 'strings/branch_strings.dart';
+import 'strings/asset_strings.dart';
 
 /// Merged translation catalog for the app.
 const Map<String, Map<String, String>> kAppStrings = {

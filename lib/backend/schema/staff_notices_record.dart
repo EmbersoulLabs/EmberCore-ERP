@@ -72,6 +72,10 @@ class StaffNoticesRecord extends FirestoreRecord {
   String get prepStatus => _prepStatus ?? '';
   bool hasPrepStatus() => _prepStatus != null && _prepStatus!.isNotEmpty;
 
+  String? _navTarget;
+  String get navTarget => _navTarget ?? '';
+  bool hasNavTarget() => _navTarget != null;
+
   void _initializeFields() {
     _type = snapshotData['type'] as String?;
     _recipientUserRef = snapshotData['recipient_user_ref'] as DocumentReference?;
@@ -87,6 +91,7 @@ class StaffNoticesRecord extends FirestoreRecord {
     _prepDeliveryCount = (snapshotData['prep_delivery_count'] as num?)?.toInt();
     _prepPendingCount = (snapshotData['prep_pending_count'] as num?)?.toInt();
     _prepStatus = snapshotData['prep_status'] as String?;
+    _navTarget = snapshotData['nav_target'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -138,6 +143,7 @@ Map<String, dynamic> createStaffNoticesRecordData({
   int? prepDeliveryCount,
   int? prepPendingCount,
   String? prepStatus,
+  String? navTarget,
 }) {
   return mapToFirestore(
     <String, dynamic>{
@@ -155,6 +161,7 @@ Map<String, dynamic> createStaffNoticesRecordData({
       'prep_delivery_count': prepDeliveryCount,
       'prep_pending_count': prepPendingCount,
       'prep_status': prepStatus,
+      'nav_target': navTarget,
     }.withoutNulls,
   );
 }

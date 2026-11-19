@@ -26,6 +26,8 @@ abstract final class AuditLogAction {
   static const exportSalesReport = 'export_sales_report';
   static const printReceipt = 'print_receipt';
   static const shopifyOrderImported = 'shopify_order_imported';
+  static const assignReadyBy = 'assign_ready_by';
+  static const applyOrderDiscount = 'apply_order_discount';
 
   static const all = [
     createOrder,
@@ -43,6 +45,8 @@ abstract final class AuditLogAction {
     exportSalesReport,
     printReceipt,
     shopifyOrderImported,
+    assignReadyBy,
+    applyOrderDiscount,
   ];
 }
 

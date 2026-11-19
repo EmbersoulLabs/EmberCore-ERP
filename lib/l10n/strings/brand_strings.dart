@@ -70,6 +70,16 @@ const Map<String, Map<String, String>> brandStrings = {
     'zh': '订单导入',
     'ms': 'Import Pesanan',
   },
+  'nav.shopifyReview': {
+    'en': 'Shopify Review',
+    'zh': 'Shopify 待审',
+    'ms': 'Semakan Shopify',
+  },
+  'nav.assetLibrary': {
+    'en': 'Image Library',
+    'zh': '图片库',
+    'ms': 'Perpustakaan Imej',
+  },
   'nav.businessSettings': {
     'en': 'Business Settings',
     'zh': '业务设置',
@@ -144,6 +154,31 @@ const Map<String, Map<String, String>> brandStrings = {
     'en': 'Enter company address',
     'zh': '输入公司地址',
     'ms': 'Masukkan alamat syarikat',
+  },
+  'settings.company.country': {
+    'en': 'Country',
+    'zh': '国家',
+    'ms': 'Negara',
+  },
+  'settings.company.countryHint': {
+    'en': 'Chosen at registration. Malaysia and Singapore prices use numbers only — no RM/SGD labels.',
+    'zh': '注册时选择。马来西亚与新加坡价格只显示数字，不标注 RM/SGD。',
+    'ms': 'Dipilih semasa pendaftaran. Harga Malaysia dan Singapura tanpa label RM/SGD.',
+  },
+  'settings.company.country.my': {
+    'en': 'Malaysia',
+    'zh': '马来西亚',
+    'ms': 'Malaysia',
+  },
+  'settings.company.country.sg': {
+    'en': 'Singapore',
+    'zh': '新加坡',
+    'ms': 'Singapura',
+  },
+  'settings.company.country.unset': {
+    'en': 'Not set — choose Malaysia or Singapore when registering',
+    'zh': '未设置 — 请在注册时选择马来西亚或新加坡',
+    'ms': 'Belum ditetapkan — pilih Malaysia atau Singapura semasa daftar',
   },
   'settings.company.activeStatus': {
     'en': 'Active',

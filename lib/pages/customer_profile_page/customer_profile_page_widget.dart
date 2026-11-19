@@ -20,6 +20,7 @@ import '/backend/user_query_helpers.dart';
 import '/backend/customer_navigation_helpers.dart';
 import '/pages/customer_invoice_confirm_page/customer_invoice_confirm_page_widget.dart';
 import '/pages/customer_edit_form/customer_edit_form_widget.dart';
+import '/components/customer_price_list_panel.dart';
 import '/components/home_nav_button.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -540,6 +541,13 @@ class _CustomerProfilePageWidgetState extends State<CustomerProfilePageWidget>
               ),
             ),
           ),
+          if (isCredit) ...[
+            const SizedBox(height: 12),
+            CustomerPriceListPanel(
+              customer: customer,
+              onChanged: _loadCustomer,
+            ),
+          ],
           const SizedBox(height: 16),
           Text(
             tr(context, 'customer.profile.orderHistory'),

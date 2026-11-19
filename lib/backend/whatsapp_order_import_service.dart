@@ -49,8 +49,7 @@ Future<double?> promptWhatsAppProductPriceDialog(
             autofocus: true,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(
-              labelText: 'Price (SGD)',
-              prefixText: 'SGD ',
+              labelText: 'Price',
             ),
           ),
         ],

@@ -21,6 +21,7 @@ import 'schema/customers_record.dart';
 import 'schema/invoices_record.dart';
 import 'schema/price_lists_record.dart';
 import 'schema/staff_notices_record.dart';
+import 'schema/shopify_reviews_record.dart';
 
 export 'dart:async' show StreamSubscription;
 export 'package:cloud_firestore/cloud_firestore.dart' hide Order;
@@ -45,6 +46,7 @@ export 'schema/customers_record.dart';
 export 'schema/invoices_record.dart';
 export 'schema/price_lists_record.dart';
 export 'schema/staff_notices_record.dart';
+export 'schema/shopify_reviews_record.dart';
 export 'tenant_context.dart';
 export 'tenant_query_helpers.dart';
 
@@ -392,6 +394,33 @@ Future<List<DeletedOrdersRecord>> queryDeletedOrdersRecordOnce({
     queryCollectionOnce(
       DeletedOrdersRecord.collection,
       DeletedOrdersRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+/// Functions to query ShopifyReviewsRecords (as a Stream and as a Future).
+Future<List<ShopifyReviewsRecord>> queryShopifyReviewsRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      ShopifyReviewsRecord.collection,
+      ShopifyReviewsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Stream<List<ShopifyReviewsRecord>> queryShopifyReviewsRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      ShopifyReviewsRecord.collection,
+      ShopifyReviewsRecord.fromSnapshot,
       queryBuilder: queryBuilder,
       limit: limit,
       singleRecord: singleRecord,

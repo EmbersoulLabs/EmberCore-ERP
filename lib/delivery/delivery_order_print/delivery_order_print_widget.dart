@@ -174,7 +174,7 @@ class _DeliveryOrderPrintWidgetState extends State<DeliveryOrderPrintWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     StreamBuilder<List<CompaniesRecord>>(
-                      stream: queryDefaultCompanyRecord(),
+                      stream: queryLetterheadCompanyRecordForOrder(widget.orderRef),
                       builder: (context, snapshot) {
                         // Customize what your widget looks like when it's loading.
                         if (!snapshot.hasData) {

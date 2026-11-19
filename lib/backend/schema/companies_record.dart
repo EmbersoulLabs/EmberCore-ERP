@@ -57,6 +57,11 @@ class CompaniesRecord extends FirestoreRecord {
   String get logo => _logo ?? '';
   bool hasLogo() => _logo != null;
 
+  // "website" field. Shopify storefront host used for catalog sync.
+  String? _website;
+  String get website => _website ?? '';
+  bool hasWebsite() => _website != null;
+
   // SaaS subscription fields (segment E).
   String? _planTier;
   String get planTier => _planTier ?? '';
@@ -121,6 +126,7 @@ class CompaniesRecord extends FirestoreRecord {
     _isActive = snapshotData['is_active'] as bool?;
     _createdAt = snapshotData['created_at'] as DateTime?;
     _logo = snapshotData['logo'] as String?;
+    _website = snapshotData['website'] as String?;
     _planTier = snapshotData['plan_tier'] as String?;
     _billingCountry = snapshotData['billing_country'] as String?;
     _subscriptionStatus = snapshotData['subscription_status'] as String?;
@@ -179,6 +185,7 @@ Map<String, dynamic> createCompaniesRecordData({
   bool? isActive,
   DateTime? createdAt,
   String? logo,
+  String? website,
   String? planTier,
   String? subscriptionStatus,
   DateTime? trialEndsAt,
@@ -202,6 +209,7 @@ Map<String, dynamic> createCompaniesRecordData({
       'is_active': isActive,
       'created_at': createdAt,
       'logo': logo,
+      'website': website,
       'plan_tier': planTier,
       'subscription_status': subscriptionStatus,
       'trial_ends_at': trialEndsAt,
@@ -233,6 +241,7 @@ class CompaniesRecordDocumentEquality implements Equality<CompaniesRecord> {
         e1?.isActive == e2?.isActive &&
         e1?.createdAt == e2?.createdAt &&
         e1?.logo == e2?.logo &&
+        e1?.website == e2?.website &&
         e1?.planTier == e2?.planTier &&
         e1?.subscriptionStatus == e2?.subscriptionStatus &&
         e1?.trialEndsAt == e2?.trialEndsAt &&
@@ -257,6 +266,7 @@ class CompaniesRecordDocumentEquality implements Equality<CompaniesRecord> {
         e?.isActive,
         e?.createdAt,
         e?.logo,
+        e?.website,
         e?.planTier,
         e?.subscriptionStatus,
         e?.trialEndsAt,

@@ -18,7 +18,11 @@
  * together: the client writes the plan-slot fields the rules require, and
  * production Functions are not on that client path.
  */
-const { orderPeriodSuffix, counterDocId } = require("./shopify/order_id_helpers");
+const {
+  orderPeriodSuffix,
+  counterDocId,
+  formatDeliveryOrderId,
+} = require("./shopify/order_id_helpers");
 
 class PlanQuotaError extends Error {
   constructor(kind, max) {
@@ -140,7 +144,7 @@ async function placePaidOrder(db, {
     const counterSnap = await tx.get(counterRef);
     const current = counterSnap.exists ? Number(counterSnap.data().current || 0) : 0;
     const seq = current + 1;
-    const orderIdLabel = `TFG-${orderPeriodSuffix(at)}-000${seq}`;
+    const orderIdLabel = formatDeliveryOrderId(seq, at);
     const slotRef = db
       .collection("plan_order_slots")
       .doc(companyId)

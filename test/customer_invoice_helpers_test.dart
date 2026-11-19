@@ -42,7 +42,7 @@ void main() {
       expect(totals.discountLabel, '10.00%');
     });
 
-    test('applies SGD discount', () {
+    test('applies amount discount without RM/SGD label', () {
       final totals = calculateCustomerInvoiceTotals(
         lines: lines,
         discount: const CustomerInvoiceDiscountInput(
@@ -52,6 +52,15 @@ void main() {
       );
       expect(totals.discount, 25);
       expect(totals.total, 175);
+      expect(totals.discountLabel, '25.00');
+      expect(totals.discountLabel.contains('RM'), isFalse);
+      expect(totals.discountLabel.contains('SGD'), isFalse);
+    });
+
+    test('parses legacy RM and SGD amount labels', () {
+      expect(parseAmountDiscountLabel('RM 12.50'), 12.5);
+      expect(parseAmountDiscountLabel('SGD 8.00'), 8);
+      expect(parseAmountDiscountLabel('25.00'), 25);
     });
   });
 }

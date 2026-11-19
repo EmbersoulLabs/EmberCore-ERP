@@ -28,6 +28,15 @@ Future<DocumentReference> provisionNewCompanyDocument({
     ),
   });
 
-  await initializeNewTenantFirestore(companyRef);
+  try {
+    await initializeNewTenantFirestore(companyRef);
+  } catch (error) {
+    throw StateError(
+      'Company "$companyName" was created, but tenant setup failed '
+      '(staff roles / permissions). ${error.toString()} '
+      'Fix Firestore rules, then open this company as superadmin and retry setup, '
+      'or add the director from User List.',
+    );
+  }
   return companyRef;
 }

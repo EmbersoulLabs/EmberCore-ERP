@@ -32,6 +32,7 @@ enum AppPermission {
   editCompanyProfile,
   viewAuditLog,
   accessSalesDashboard,
+  applyOrderDiscount,
 }
 
 /// Roles shown on the permission matrix (superadmin is platform owner — not configurable).
@@ -128,6 +129,8 @@ String appPermissionLabel(AppPermission permission) {
       return 'View audit log';
     case AppPermission.accessSalesDashboard:
       return 'Access sales dashboard';
+    case AppPermission.applyOrderDiscount:
+      return 'Apply order discount';
   }
 }
 
@@ -196,6 +199,7 @@ Set<AppPermission> defaultPermissionsForRole(UserRole role) {
         AppPermission.markInvoicesPaid,
         AppPermission.createCreditCustomers,
         AppPermission.printCashInvoice,
+        AppPermission.applyOrderDiscount,
       };
     case UserRole.admin:
       return {
@@ -217,6 +221,7 @@ Set<AppPermission> defaultPermissionsForRole(UserRole role) {
         AppPermission.createCreditCustomers,
         AppPermission.deleteCustomers,
         AppPermission.printCashInvoice,
+        AppPermission.applyOrderDiscount,
       };
     case UserRole.manager:
       return {
@@ -232,6 +237,7 @@ Set<AppPermission> defaultPermissionsForRole(UserRole role) {
         AppPermission.markInvoicesPaid,
         AppPermission.createCreditCustomers,
         AppPermission.printCashInvoice,
+        AppPermission.applyOrderDiscount,
       };
     case UserRole.account:
       return {
@@ -290,4 +296,5 @@ List<AppPermission> editablePermissionKeys() => const [
       AppPermission.permanentlyDeleteDeletedOrders,
       AppPermission.editCompanyProfile,
       AppPermission.viewAuditLog,
+      AppPermission.applyOrderDiscount,
     ];

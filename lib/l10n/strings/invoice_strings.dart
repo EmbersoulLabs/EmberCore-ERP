@@ -314,6 +314,11 @@ const Map<String, Map<String, String>> invoiceStrings = {
     'zh': '小计',
     'ms': 'Subjumlah',
   },
+  'invoice.discount.amountType': {
+    'en': 'Amount',
+    'zh': '金额',
+    'ms': 'Jumlah',
+  },
   'invoice.discount.hintPercent': {
     'en': 'e.g. 10',
     'zh': '例如 10',

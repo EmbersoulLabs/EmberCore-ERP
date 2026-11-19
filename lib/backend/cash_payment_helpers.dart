@@ -6,6 +6,7 @@ import '/backend/backend.dart';
 import '/backend/create_order_service.dart';
 import '/backend/material_cost_snapshot_helpers.dart';
 import '/backend/order_balance_helpers.dart';
+import '/backend/order_discount_helpers.dart';
 import '/backend/order_item_helpers.dart';
 import '/backend/payment_method_helpers.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -52,16 +53,39 @@ typedef CashPaymentResult = PaymentAmountResult;
 
 String formatCashMoney(double value) => '\$${value.toStringAsFixed(2)}';
 
+DateTime? _paymentAmountDialogClosedAt;
+const _paymentDialogFallthroughWindow = Duration(milliseconds: 400);
+
+void markPaymentAmountDialogClosed() {
+  _paymentAmountDialogClosedAt = DateTime.now();
+}
+
+/// True when a payment-amount dialog just closed; ignore the tap that
+/// would otherwise land on the next payment button (Shopify after PayNow).
+bool isPaymentDialogTapFallthrough() {
+  final closed = _paymentAmountDialogClosedAt;
+  if (closed == null) {
+    return false;
+  }
+  return DateTime.now().difference(closed) < _paymentDialogFallthroughWindow;
+}
+
 Future<double> loadOrderSaleTotal(DocumentReference orderRef) async {
   final items = activeOrderItems(await queryOrderItemsForOrderOnce(orderRef));
-  if (items.isEmpty) {
-    final order = await OrdersRecord.getDocumentOnce(orderRef);
-    return resolveOrderSaleTotal(order, 0);
-  }
-  return functions.calculationTotal(
-    items.map((item) => item.price).toList(),
-    items.map((item) => item.qty).toList(),
+  final order = await OrdersRecord.getDocumentOnce(orderRef);
+  final itemSubtotal = items.isEmpty
+      ? 0.0
+      : functions.calculationTotal(
+          items.map((item) => item.price).toList(),
+          items.map((item) => item.qty).toList(),
+        );
+  final payable = calculateOrderPayableTotals(
+    itemSubtotal: itemSubtotal > 0
+        ? itemSubtotal
+        : resolveOrderSaleTotal(order, 0),
+    discount: parseOrderDiscountInput(order),
   );
+  return payable.total;
 }
 
 Future<PaymentApplicationResult> applyPaymentAmountToOrder({
@@ -268,6 +292,7 @@ Future<PaymentAmountResult?> showPaymentAmountDialog(
     ),
   );
 
+  markPaymentAmountDialogClosed();
   controller.dispose();
   return result;
 }

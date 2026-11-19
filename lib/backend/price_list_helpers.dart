@@ -160,6 +160,39 @@ Future<void> savePriceListLines({
   );
 }
 
+/// Returns the customer's linked price list, or creates + assigns one.
+Future<DocumentReference> ensureCustomerAssignedPriceList(
+  CustomersRecord customer, {
+  String? preferredName,
+}) async {
+  if (!customer.isCreditCustomer) {
+    throw StateError('Price lists can only be assigned to credit customers.');
+  }
+  if (customer.hasPriceListRef()) {
+    return customer.priceListRef!;
+  }
+
+  final companyRef = TenantContext.instance.rulesMatchedCompanyRef;
+  if (companyRef == null) {
+    throw StateError('No company selected.');
+  }
+
+  final trimmedPreferred = preferredName?.trim() ?? '';
+  final customerName = customer.name.trim();
+  final name = trimmedPreferred.isNotEmpty
+      ? trimmedPreferred
+      : (customerName.isNotEmpty
+          ? '$customerName price list'
+          : 'Customer price list');
+
+  final ref = await createPriceList(name: name);
+  await customer.reference.update({
+    'price_list_ref': ref,
+    'updated_time': getCurrentTimestamp,
+  });
+  return ref;
+}
+
 Future<void> upsertPriceListLines({
   required DocumentReference priceListRef,
   required List<PriceListLine> incoming,

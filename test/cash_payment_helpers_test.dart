@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tfg_vday/backend/cash_payment_helpers.dart';
+import 'package:tfg_vday/backend/customer_invoice_helpers.dart';
 import 'package:tfg_vday/backend/order_balance_helpers.dart';
+import 'package:tfg_vday/backend/order_discount_helpers.dart';
 
 void main() {
   group('applyPaymentAmount', () {
@@ -42,6 +44,31 @@ void main() {
       expect(second.amountPaid, 500);
       expect(second.balanceDue, 0);
       expect(second.isFullyPaid, isTrue);
+    });
+  });
+
+  group('discounted POS checkout totals', () {
+    test('10% member discount reduces amount due and balance', () {
+      final payable = calculateOrderPayableTotals(
+        itemSubtotal: 184,
+        discount: const CustomerInvoiceDiscountInput(
+          type: CustomerInvoiceDiscountType.percent,
+          value: 10,
+        ),
+      );
+      expect(payable.discount, closeTo(18.40, 0.001));
+      expect(payable.total, closeTo(165.60, 0.001));
+      expect(
+        calculateBalanceDue(saleTotal: payable.total, amountPaid: 0),
+        closeTo(165.60, 0.001),
+      );
+    });
+  });
+
+  group('payment dialog tap fallthrough', () {
+    test('ignores a tap immediately after the amount dialog closes', () {
+      markPaymentAmountDialogClosed();
+      expect(isPaymentDialogTapFallthrough(), isTrue);
     });
   });
 

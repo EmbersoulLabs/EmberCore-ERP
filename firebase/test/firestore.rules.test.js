@@ -142,6 +142,17 @@ beforeEach(async () => {
       price: 3,
       companyRef: db.doc("Companies/companyB"),
     });
+
+    await db.doc("shopify_reviews/reviewA").set({
+      shopify_order_id: "1001",
+      status: "pending",
+      companyRef: db.doc("Companies/companyA"),
+    });
+    await db.doc("shopify_reviews/reviewB").set({
+      shopify_order_id: "1002",
+      status: "pending",
+      companyRef: db.doc("Companies/companyB"),
+    });
   });
 });
 
@@ -1453,6 +1464,41 @@ describe("legacy companyRef isolation", () => {
     );
   });
 
+  it("superadmin can create staff_roles for another company", async () => {
+    const db = authed("superA").firestore();
+    const companyRef = db.doc("Companies/companyA");
+    await assertSucceeds(
+      db.doc("staff_roles/companyA").set({
+        companyRef,
+        roles: ["director", "admin", "florist"],
+        updated_time: new Date(),
+      }),
+    );
+  });
+
+  it("superadmin cannot create staff_roles with mismatched companyRef", async () => {
+    const db = authed("superA").firestore();
+    const companyRef = db.doc("Companies/companyB");
+    await assertFails(
+      db.doc("staff_roles/companyA").set({
+        companyRef,
+        roles: ["director"],
+        updated_time: new Date(),
+      }),
+    );
+  });
+
+  it("florist cannot create staff_roles for another company", async () => {
+    const db = authed("floristA").firestore();
+    await assertFails(
+      db.doc("staff_roles/companyB").set({
+        companyRef: db.doc("Companies/companyB"),
+        roles: ["director"],
+        updated_time: new Date(),
+      }),
+    );
+  });
+
   it("staff can create legacy order without companyRef during migration", async () => {
     const db = authed("floristA").firestore();
     await assertSucceeds(
@@ -2311,5 +2357,37 @@ describe("trial quota enforcement", () => {
         role: "superadmin",
       }),
     );
+  });
+});
+
+describe("shopify_reviews tenant isolation", () => {
+  it("florist reads own-company review", async () => {
+    const db = authed("floristA").firestore();
+    await assertSucceeds(db.doc("shopify_reviews/reviewA").get());
+  });
+
+  it("florist cannot read other-company review", async () => {
+    const db = authed("floristA").firestore();
+    await assertFails(db.doc("shopify_reviews/reviewB").get());
+  });
+
+  it("driver cannot read shopify reviews", async () => {
+    const db = authed("driverA").firestore();
+    await assertFails(db.doc("shopify_reviews/reviewA").get());
+  });
+
+  it("staff cannot create or update shopify reviews", async () => {
+    const db = authed("admin").firestore();
+    await assertFails(
+      db.doc("shopify_reviews/newReview").set({
+        shopify_order_id: "1003",
+        status: "pending",
+        companyRef: db.doc("Companies/companyA"),
+      }),
+    );
+    await assertFails(
+      db.doc("shopify_reviews/reviewA").update({ status: "approved" }),
+    );
+    await assertFails(db.doc("shopify_reviews/reviewA").delete());
   });
 });

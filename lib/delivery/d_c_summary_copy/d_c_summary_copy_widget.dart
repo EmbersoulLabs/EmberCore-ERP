@@ -1,4 +1,5 @@
 import '/auth/firebase_auth/auth_util.dart';
+import '/auth/role_helpers.dart';
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -8,9 +9,12 @@ import 'dart:ui';
 import '/backend/order_navigation_helpers.dart';
 import '/backend/order_item_helpers.dart';
 import '/backend/cash_payment_helpers.dart';
+import '/backend/customer_invoice_helpers.dart';
+import '/backend/order_discount_helpers.dart';
 import '/components/home_nav_button.dart';
 import '/components/credit_payment_method_button.dart';
 import '/components/exact_payment_method_button.dart';
+import '/components/order_discount_panel.dart';
 import '/components/partial_payment_method_button.dart';
 import '/components/order_summary_item_tile.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -65,8 +69,50 @@ class DCSummaryCopyWidget extends StatefulWidget {
 class _DCSummaryCopyWidgetState extends State<DCSummaryCopyWidget> {
   late DCSummaryCopyModel _model;
   PendingOrderPaymentSelection? _pendingPayment;
+  CustomerInvoiceDiscountType _discountType =
+      CustomerInvoiceDiscountType.amount;
+  final _discountController = TextEditingController(text: '0');
+  final _discountRemarkController = TextEditingController();
+  var _discountSeeded = false;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+
+  bool get _canApplyDiscount =>
+      canApplyOrderDiscount(AppStateNotifier.instance.userRole);
+
+  CustomerInvoiceDiscountInput get _discountInput {
+    final parsed = double.tryParse(_discountController.text.trim()) ?? 0;
+    return CustomerInvoiceDiscountInput(
+      type: _discountType,
+      value: parsed < 0 ? 0 : parsed,
+    );
+  }
+
+  OrderPayableTotals _payableForSubtotal(double itemSubtotal) =>
+      calculateOrderPayableTotals(
+        itemSubtotal: itemSubtotal,
+        discount: _discountInput,
+      );
+
+  void _seedDiscountFromOrder(OrdersRecord order) {
+    if (_discountSeeded) {
+      return;
+    }
+    _discountSeeded = true;
+    final existing = parseOrderDiscountInput(order);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      safeSetState(() {
+        _discountType = existing.type;
+        _discountController.text = existing.value.toStringAsFixed(
+          existing.type == CustomerInvoiceDiscountType.percent ? 0 : 2,
+        );
+        _discountRemarkController.text = order.discountRemark;
+      });
+    });
+  }
 
   @override
   void initState() {
@@ -78,6 +124,8 @@ class _DCSummaryCopyWidgetState extends State<DCSummaryCopyWidget> {
 
   @override
   void dispose() {
+    _discountController.dispose();
+    _discountRemarkController.dispose();
     _model.dispose();
 
     super.dispose();
@@ -492,6 +540,51 @@ class _DCSummaryCopyWidgetState extends State<DCSummaryCopyWidget> {
                                           .alternate,
                                     ),
                                     Padding(
+                                      padding: const EdgeInsets.only(bottom: 12),
+                                      child: StreamBuilder<OrdersRecord>(
+                                        stream: OrdersRecord.getDocument(
+                                            widget.orderRef!),
+                                        builder: (context, orderSnapshot) {
+                                          if (orderSnapshot.hasData) {
+                                            _seedDiscountFromOrder(
+                                              orderSnapshot.data!,
+                                            );
+                                          }
+                                          final itemSubtotal =
+                                              functions.calculationTotal(
+                                            containerOrderItemRecordList
+                                                .map((e) => e.price)
+                                                .toList(),
+                                            containerOrderItemRecordList
+                                                .map((e) => e.qty)
+                                                .toList(),
+                                          );
+                                          return OrderDiscountPanel(
+                                            discountType: _discountType,
+                                            discountController:
+                                                _discountController,
+                                            remarkController:
+                                                _discountRemarkController,
+                                            totals: _payableForSubtotal(
+                                              itemSubtotal,
+                                            ),
+                                            canEdit: _canApplyDiscount,
+                                            existingRemark:
+                                                orderSnapshot.hasData
+                                                    ? orderSnapshot
+                                                        .data!.discountRemark
+                                                    : '',
+                                            onTypeChanged: (type) =>
+                                                safeSetState(
+                                              () => _discountType = type,
+                                            ),
+                                            onValueChanged: () =>
+                                                safeSetState(() {}),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    Padding(
                                       padding: EdgeInsetsDirectional.fromSTEB(
                                           0.0, 16.0, 0.0, 12.0),
                                       child: Text(
@@ -553,7 +646,8 @@ class _DCSummaryCopyWidgetState extends State<DCSummaryCopyWidget> {
                                             );
                                           }
                                           final rowOrdersRecord = snapshot.data!;
-                                          final saleTotal = functions.calculationTotal(
+                                          final itemSubtotal =
+                                              functions.calculationTotal(
                                             containerOrderItemRecordList
                                                 .map((e) => e.price)
                                                 .toList(),
@@ -561,6 +655,9 @@ class _DCSummaryCopyWidgetState extends State<DCSummaryCopyWidget> {
                                                 .map((e) => e.qty)
                                                 .toList(),
                                           );
+                                          final saleTotal =
+                                              _payableForSubtotal(itemSubtotal)
+                                                  .total;
 
                                           return Column(
                                             crossAxisAlignment:
@@ -784,7 +881,7 @@ class _DCSummaryCopyWidgetState extends State<DCSummaryCopyWidget> {
                                             children: [
                                               FFButtonWidget(
                                                 onPressed: () async {
-                                                  final saleTotal =
+                                                  final itemSubtotal =
                                                       functions.calculationTotal(
                                                     containerOrderItemRecordList
                                                         .map((e) => e.price)
@@ -793,12 +890,50 @@ class _DCSummaryCopyWidgetState extends State<DCSummaryCopyWidget> {
                                                         .map((e) => e.qty)
                                                         .toList(),
                                                   );
+                                                  final payable =
+                                                      _payableForSubtotal(
+                                                    itemSubtotal,
+                                                  );
+                                                  if (_canApplyDiscount) {
+                                                    if (payable.discount >
+                                                            0.005 &&
+                                                        _discountRemarkController
+                                                            .text
+                                                            .trim()
+                                                            .isEmpty) {
+                                                      if (context.mounted) {
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(
+                                                              tr(
+                                                                context,
+                                                                'pos.discount.remarkRequired',
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        );
+                                                      }
+                                                      return;
+                                                    }
+                                                    await persistOrderDiscountFields(
+                                                      widget!.orderRef!,
+                                                      payable,
+                                                      remark:
+                                                          _discountRemarkController
+                                                              .text,
+                                                    );
+                                                  }
+                                                  if (!context.mounted) {
+                                                    return;
+                                                  }
                                                   final paid =
                                                       await completeOrderSummaryPayment(
                                                     context,
                                                     orderRef:
                                                         widget!.orderRef!,
-                                                    saleTotal: saleTotal,
+                                                    saleTotal: payable.total,
                                                     pendingSelection:
                                                         _pendingPayment,
                                                   );

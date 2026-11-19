@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 
 import '/auth/role_helpers.dart';
 import '/backend/branch_helpers.dart';
+import '/backend/billing_catalog.dart';
 import '/backend/company_profile_helpers.dart';
+import '/backend/registration_approval_service.dart';
 import '/backend/schema/companies_record.dart';
+import '/backend/storefront_catalog_sync_api.dart';
 import '/backend/tenant_context.dart';
 import '/backend/user_query_helpers.dart';
 import '/components/add_branch_dialog.dart';
@@ -15,6 +18,8 @@ import '/components/ember_section_card.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
+import '/platform/platform_labels.dart';
+import '/platform/platform_module.dart';
 import '/theme/ember_brand.dart';
 import '/theme/ember_navigation.dart';
 import 'company_setting_page_model.dart';
@@ -37,6 +42,7 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
   DocumentReference? _companyRef;
   bool _loading = true;
   bool _saving = false;
+  bool _syncingCatalog = false;
   bool _uploadingLogo = false;
   String _logoUrl = '';
   String? _loadError;
@@ -55,6 +61,8 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
     _model.textFieldFocusNode3 ??= FocusNode();
     _model.textController4 ??= TextEditingController();
     _model.textFieldFocusNode4 ??= FocusNode();
+    _model.textController5 ??= TextEditingController();
+    _model.textFieldFocusNode5 ??= FocusNode();
 
     _model.textController1Validator = (context, val) {
       if (val == null || val.trim().isEmpty) {
@@ -96,6 +104,11 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
 
     try {
       final company = await loadCompanyProfile(companyRef);
+      if (isSuperAdminRole(AppStateNotifier.instance.userRole)) {
+        try {
+          await initializeNewTenantFirestore(companyRef);
+        } catch (_) {}
+      }
       if (!mounted) {
         return;
       }
@@ -123,7 +136,19 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
     _model.textController2!.text = company.companyUen;
     _model.textController3!.text = company.companyPhone;
     _model.textController4!.text = company.companyAddress;
+    _model.textController5!.text = company.website;
     _model.switchValue = company.isActive;
+  }
+
+  String _companyCountryLabel(BuildContext context) {
+    switch (normalizeBillingCountry(_loadedCompany?.billingCountry)) {
+      case 'MY':
+        return tr(context, 'settings.company.country.my');
+      case 'SG':
+        return tr(context, 'settings.company.country.sg');
+      default:
+        return tr(context, 'settings.company.country.unset');
+    }
   }
 
   Future<void> _pickLogo() async {
@@ -177,6 +202,13 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
         !_model.formKey.currentState!.validate()) {
       return;
     }
+    final websiteRaw = _model.textController5!.text.trim();
+    if (websiteRaw.isNotEmpty && normalizeCompanyWebsite(websiteRaw) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr(context, 'admin.company.websiteInvalid'))),
+      );
+      return;
+    }
 
     safeSetState(() => _saving = true);
     try {
@@ -187,6 +219,9 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
         companyPhone: _model.textController3!.text.trim(),
         companyAddress: _model.textController4!.text.trim(),
         logoUrl: _logoUrl,
+        website: websiteRaw.isEmpty
+            ? ''
+            : normalizeCompanyWebsite(websiteRaw),
         isActive: isSuperAdminRole(AppStateNotifier.instance.userRole)
             ? _model.switchValue
             : null,
@@ -206,6 +241,88 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
       );
     } finally {
       safeSetState(() => _saving = false);
+    }
+  }
+
+  Future<void> _updateCatalog() async {
+    final companyRef = _companyRef;
+    if (companyRef == null || _syncingCatalog) {
+      return;
+    }
+    final website = normalizeCompanyWebsite(_model.textController5!.text);
+    if (website == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr(context, 'admin.company.websiteInvalid'))),
+      );
+      return;
+    }
+    _model.textController5!.text = website;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(tr(dialogContext, 'admin.company.updateCatalogConfirmTitle')),
+        content: Text(tr(dialogContext, 'admin.company.updateCatalogConfirmBody')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(tr(dialogContext, 'common.cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(tr(dialogContext, 'admin.company.updateCatalog')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    safeSetState(() => _syncingCatalog = true);
+    try {
+      await companyRef.update(createCompaniesRecordData(website: website));
+      final result = await syncStorefrontCatalog(
+        companyId: companyRef.id,
+        website: website,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            tr(
+              context,
+              'admin.company.updateCatalogDone',
+              params: {
+                'created': '${result.createdCount}',
+                'prices': '${result.priceUpdateCount}',
+                'deactivated': '${result.deactivatedCount}',
+              },
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            tr(
+              context,
+              'admin.company.updateCatalogFailed',
+              params: {
+                'error': error is StateError ? error.message : '$error',
+              },
+            ),
+          ),
+        ),
+      );
+    } finally {
+      safeSetState(() => _syncingCatalog = false);
     }
   }
 
@@ -405,8 +522,51 @@ class _CompanySettingPageWidgetState extends State<CompanySettingPageWidget> {
                   validator: _model.textController4Validator,
                   minLines: 3,
                   maxLines: 4,
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    tr(context, 'settings.company.country'),
+                    style: theme.labelLarge,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _companyCountryLabel(context),
+                    style: theme.bodyMedium,
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    tr(context, 'settings.company.countryHint'),
+                    style: theme.bodySmall,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildTextField(
+                  controller: _model.textController5,
+                  focusNode: _model.textFieldFocusNode5,
+                  labelKey: 'admin.company.website',
+                  hintKey: 'admin.company.websiteHint',
+                  keyboardType: TextInputType.url,
                   textInputAction: TextInputAction.done,
                 ),
+                if (platformModuleEnabled(PlatformModule.products)) ...[
+                  const SizedBox(height: 12),
+                  FilledButton.tonal(
+                    onPressed: _syncingCatalog ? null : _updateCatalog,
+                    child: Text(
+                      _syncingCatalog
+                          ? tr(context, 'admin.company.updatingCatalog')
+                          : tr(context, 'admin.company.updateCatalog'),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

@@ -10,6 +10,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '/backend/dashboard_order_stats_helpers.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/schema/staff_notices_record.dart';
+import '/backend/operation_reminder_copy.dart';
 import '/backend/staff_notice_helpers.dart';
 import '/backend/web_notification_helper.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -144,6 +145,15 @@ class StaffNoticeAlertService {
 
   void navigateFromNoticePayload(String payload) {
     if (payload.isEmpty || !loggedIn) {
+      return;
+    }
+    final navTarget = decodeStaffNoticeNavTarget(payload);
+    if (navTarget == StaffNoticeNavTarget.shopifyReview) {
+      final context = appNavigatorKey.currentContext;
+      if (context == null || !context.mounted) {
+        return;
+      }
+      context.pushNamed(ShopifyPendingOrdersPageWidget.routeName);
       return;
     }
     if (payload == staffNoticeNavTomorrowPrep) {

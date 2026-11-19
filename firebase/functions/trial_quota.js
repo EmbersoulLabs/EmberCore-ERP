@@ -15,7 +15,10 @@
  * Flutter draft writer, which claims a slot in the same transaction. Direct
  * client writes still have to satisfy the Firestore rules.
  */
-const { orderPeriodSuffix, counterDocId } = require("./shopify/order_id_helpers");
+const {
+  counterDocId,
+  formatDeliveryOrderId,
+} = require("./shopify/order_id_helpers");
 
 const TRIAL_STATUS = "trialing";
 const PRICING_VERSION = "v1";
@@ -94,7 +97,7 @@ async function placeTrialOrder(db, {
     const counterSnap = await tx.get(counterRef);
     const current = counterSnap.exists ? Number(counterSnap.data().current || 0) : 0;
     const seq = current + 1;
-    const orderIdLabel = `TFG-${orderPeriodSuffix()}-000${seq}`;
+    const orderIdLabel = formatDeliveryOrderId(seq);
     const slotRef = db
       .collection("trial_order_slots")
       .doc(companyId)

@@ -32,6 +32,11 @@ class OrdersRecord extends FirestoreRecord {
   String get address => _address ?? '';
   bool hasAddress() => _address != null;
 
+  // "billing_address" field. Shopify sender name, phone, and billing street.
+  String? _billingAddress;
+  String get billingAddress => _billingAddress ?? '';
+  bool hasBillingAddress() => _billingAddress != null;
+
   // "region" field.
   String? _region;
   String get region => _region ?? '';
@@ -46,6 +51,11 @@ class OrdersRecord extends FirestoreRecord {
   DocumentReference? _assignedDriver;
   DocumentReference? get assignedDriver => _assignedDriver;
   bool hasAssignedDriver() => _assignedDriver != null;
+
+  // "ready_by" field — staff who made the order ready (not the driver).
+  DocumentReference? _readyBy;
+  DocumentReference? get readyBy => _readyBy;
+  bool hasReadyBy() => _readyBy != null;
 
   // "created_time" field.
   DateTime? _createdTime;
@@ -148,6 +158,19 @@ class OrdersRecord extends FirestoreRecord {
   double get totalAmount => _totalAmount ?? 0.0;
   bool hasTotalAmount() => _totalAmount != null;
 
+  // Order-level discount (mirrors invoice discount / discount_label).
+  double? _discount;
+  double get discount => _discount ?? 0.0;
+  bool hasDiscount() => _discount != null;
+
+  String? _discountLabel;
+  String get discountLabel => _discountLabel ?? '';
+  bool hasDiscountLabel() => _discountLabel != null;
+
+  String? _discountRemark;
+  String get discountRemark => _discountRemark ?? '';
+  bool hasDiscountRemark() => _discountRemark != null;
+
   // "totalQty" field.
   int? _totalQty;
   int get totalQty => _totalQty ?? 0;
@@ -206,6 +229,22 @@ class OrdersRecord extends FirestoreRecord {
   String get externalOrderName => _externalOrderName ?? '';
   bool hasExternalOrderName() => _externalOrderName != null;
 
+  String? _shopifyOrderId;
+  String get shopifyOrderId => _shopifyOrderId ?? '';
+  bool hasShopifyOrderId() => _shopifyOrderId != null;
+
+  String? _shopifyOrderName;
+  String get shopifyOrderName => _shopifyOrderName ?? '';
+  bool hasShopifyOrderName() => _shopifyOrderName != null;
+
+  int? _shopifyOrderNumber;
+  int get shopifyOrderNumber => _shopifyOrderNumber ?? 0;
+  bool hasShopifyOrderNumber() => _shopifyOrderNumber != null;
+
+  String? _shopifyReviewId;
+  String get shopifyReviewId => _shopifyReviewId ?? '';
+  bool hasShopifyReviewId() => _shopifyReviewId != null;
+
   // "delivery_proof_url" field.
   String? _deliveryProofUrl;
   String get deliveryProofUrl => _deliveryProofUrl ?? '';
@@ -219,6 +258,15 @@ class OrdersRecord extends FirestoreRecord {
   DateTime? _deliveryProofAt;
   DateTime? get deliveryProofAt => _deliveryProofAt;
   bool hasDeliveryProofAt() => _deliveryProofAt != null;
+
+  /// True after a Delivery Order slip was printed (thermal or PDF).
+  bool? _printedDo;
+  bool get printedDo => _printedDo ?? false;
+  bool hasPrintedDo() => _printedDo != null;
+
+  DateTime? _printedDoAt;
+  DateTime? get printedDoAt => _printedDoAt;
+  bool hasPrintedDoAt() => _printedDoAt != null;
 
   // Locked material cost at first payment (profit report uses this, not live catalog).
   double? _materialUsageCost;
@@ -254,9 +302,11 @@ class OrdersRecord extends FirestoreRecord {
     _clientName = snapshotData['client_name'] as String?;
     _recipientName = snapshotData['recipient_name'] as String?;
     _address = snapshotData['address'] as String?;
+    _billingAddress = snapshotData['billing_address'] as String?;
     _region = snapshotData['region'] as String?;
     _deliveryDate = snapshotData['delivery_date'] as DateTime?;
     _assignedDriver = snapshotData['assigned_driver'] as DocumentReference?;
+    _readyBy = snapshotData['ready_by'] as DocumentReference?;
     _createdTime = snapshotData['created_time'] as DateTime?;
     _cardMessage = snapshotData['card_message'] as String?;
     _orderId = snapshotData['Order_Id'] as String?;
@@ -280,6 +330,9 @@ class OrdersRecord extends FirestoreRecord {
     _recipientPhoneNumber = snapshotData['recipient_phone_number'] as String?;
     _productSelection = snapshotData['ProductSelection'] as DocumentReference?;
     _totalAmount = castToType<double>(snapshotData['totalAmount']);
+    _discount = castToType<double>(snapshotData['discount']);
+    _discountLabel = snapshotData['discount_label'] as String?;
+    _discountRemark = snapshotData['discount_remark'] as String?;
     _totalQty = castToType<int>(snapshotData['totalQty']);
     _current = castToType<int>(snapshotData['current']);
     _currentrtl = castToType<int>(snapshotData['currentrtl']);
@@ -294,12 +347,20 @@ class OrdersRecord extends FirestoreRecord {
     _source = snapshotData['source'] as String?;
     _externalOrderId = snapshotData['externalOrderId'] as String?;
     _externalOrderName = snapshotData['externalOrderName'] as String?;
+    _shopifyOrderId = snapshotData['shopifyOrderId'] as String?;
+    _shopifyOrderName = snapshotData['shopifyOrderName'] as String?;
+    _shopifyOrderNumber = castToType<int>(snapshotData['shopifyOrderNumber']);
+    _shopifyReviewId = snapshotData['shopifyReviewId'] as String?;
     _deliveryProofUrl = snapshotData['delivery_proof_url'] as String?;
     _deliveryProofUrls = _parseStringList(snapshotData['delivery_proof_urls']);
     _deliveryProofAt = snapshotData['delivery_proof_at'] as DateTime?;
+    _printedDo = snapshotData['printed_do'] as bool?;
+    _printedDoAt = snapshotData['printed_do_at'] as DateTime?;
     _materialUsageCost = castToType<double>(snapshotData['material_usage_cost']);
     _materialCostSnapshottedAt =
         snapshotData['material_cost_snapshotted_at'] as DateTime?;
+    _inventoryFrozen = snapshotData['inventory_frozen'] as bool?;
+    _stockDeducted = snapshotData['stock_deducted'] as bool?;
     final rawSnapshot = snapshotData['material_cost_snapshot'];
     if (rawSnapshot is Map) {
       _materialCostSnapshot = rawSnapshot.map(
@@ -309,8 +370,6 @@ class OrdersRecord extends FirestoreRecord {
         ),
       );
     }
-    _inventoryFrozen = snapshotData['inventory_frozen'] as bool?;
-    _stockDeducted = snapshotData['stock_deducted'] as bool?;
   }
 
   static CollectionReference get collection =>
@@ -355,9 +414,11 @@ Map<String, dynamic> createOrdersRecordData({
   String? clientName,
   String? recipientName,
   String? address,
+  String? billingAddress,
   String? region,
   DateTime? deliveryDate,
   DocumentReference? assignedDriver,
+  DocumentReference? readyBy,
   DateTime? createdTime,
   String? cardMessage,
   String? orderId,
@@ -379,6 +440,9 @@ Map<String, dynamic> createOrdersRecordData({
   String? recipientPhoneNumber,
   DocumentReference? productSelection,
   double? totalAmount,
+  double? discount,
+  String? discountLabel,
+  String? discountRemark,
   int? totalQty,
   int? current,
   int? currentrtl,
@@ -392,9 +456,15 @@ Map<String, dynamic> createOrdersRecordData({
   String? source,
   String? externalOrderId,
   String? externalOrderName,
+  String? shopifyOrderId,
+  String? shopifyOrderName,
+  int? shopifyOrderNumber,
+  String? shopifyReviewId,
   String? deliveryProofUrl,
   List<String>? deliveryProofUrls,
   DateTime? deliveryProofAt,
+  bool? printedDo,
+  DateTime? printedDoAt,
   double? materialUsageCost,
   Map<String, double>? materialCostSnapshot,
   DateTime? materialCostSnapshottedAt,
@@ -406,9 +476,11 @@ Map<String, dynamic> createOrdersRecordData({
       'client_name': clientName,
       'recipient_name': recipientName,
       'address': address,
+      'billing_address': billingAddress,
       'region': region,
       'delivery_date': deliveryDate,
       'assigned_driver': assignedDriver,
+      'ready_by': readyBy,
       'created_time': createdTime,
       'card_message': cardMessage,
       'Order_Id': orderId,
@@ -430,6 +502,9 @@ Map<String, dynamic> createOrdersRecordData({
       'recipient_phone_number': recipientPhoneNumber,
       'ProductSelection': productSelection,
       'totalAmount': totalAmount,
+      'discount': discount,
+      'discount_label': discountLabel,
+      'discount_remark': discountRemark,
       'totalQty': totalQty,
       'current': current,
       'currentrtl': currentrtl,
@@ -443,9 +518,15 @@ Map<String, dynamic> createOrdersRecordData({
       'source': source,
       'externalOrderId': externalOrderId,
       'externalOrderName': externalOrderName,
+      'shopifyOrderId': shopifyOrderId,
+      'shopifyOrderName': shopifyOrderName,
+      'shopifyOrderNumber': shopifyOrderNumber,
+      'shopifyReviewId': shopifyReviewId,
       'delivery_proof_url': deliveryProofUrl,
       'delivery_proof_urls': deliveryProofUrls,
       'delivery_proof_at': deliveryProofAt,
+      'printed_do': printedDo,
+      'printed_do_at': printedDoAt,
       'material_usage_cost': materialUsageCost,
       'material_cost_snapshot': materialCostSnapshot,
       'material_cost_snapshotted_at': materialCostSnapshottedAt,
@@ -465,9 +546,11 @@ class OrdersRecordDocumentEquality implements Equality<OrdersRecord> {
     return e1?.clientName == e2?.clientName &&
         e1?.recipientName == e2?.recipientName &&
         e1?.address == e2?.address &&
+        e1?.billingAddress == e2?.billingAddress &&
         e1?.region == e2?.region &&
         e1?.deliveryDate == e2?.deliveryDate &&
         e1?.assignedDriver == e2?.assignedDriver &&
+        e1?.readyBy == e2?.readyBy &&
         e1?.createdTime == e2?.createdTime &&
         e1?.cardMessage == e2?.cardMessage &&
         e1?.orderId == e2?.orderId &&
@@ -489,6 +572,9 @@ class OrdersRecordDocumentEquality implements Equality<OrdersRecord> {
         e1?.recipientPhoneNumber == e2?.recipientPhoneNumber &&
         e1?.productSelection == e2?.productSelection &&
         e1?.totalAmount == e2?.totalAmount &&
+        e1?.discount == e2?.discount &&
+        e1?.discountLabel == e2?.discountLabel &&
+        e1?.discountRemark == e2?.discountRemark &&
         e1?.totalQty == e2?.totalQty &&
         e1?.current == e2?.current &&
         e1?.currentrtl == e2?.currentrtl &&
@@ -501,6 +587,8 @@ class OrdersRecordDocumentEquality implements Equality<OrdersRecord> {
         e1?.invoicePaymentStatus == e2?.invoicePaymentStatus &&
         e1?.deliveryProofUrl == e2?.deliveryProofUrl &&
         e1?.deliveryProofAt == e2?.deliveryProofAt &&
+        e1?.printedDo == e2?.printedDo &&
+        e1?.printedDoAt == e2?.printedDoAt &&
         e1?.materialUsageCost == e2?.materialUsageCost &&
         e1?.materialCostSnapshottedAt == e2?.materialCostSnapshottedAt;
   }
@@ -510,9 +598,11 @@ class OrdersRecordDocumentEquality implements Equality<OrdersRecord> {
         e?.clientName,
         e?.recipientName,
         e?.address,
+        e?.billingAddress,
         e?.region,
         e?.deliveryDate,
         e?.assignedDriver,
+        e?.readyBy,
         e?.createdTime,
         e?.cardMessage,
         e?.orderId,
@@ -534,6 +624,9 @@ class OrdersRecordDocumentEquality implements Equality<OrdersRecord> {
         e?.recipientPhoneNumber,
         e?.productSelection,
         e?.totalAmount,
+        e?.discount,
+        e?.discountLabel,
+        e?.discountRemark,
         e?.totalQty,
         e?.current,
         e?.currentrtl,
@@ -546,6 +639,8 @@ class OrdersRecordDocumentEquality implements Equality<OrdersRecord> {
         e?.invoicePaymentStatus,
         e?.deliveryProofUrl,
         e?.deliveryProofAt,
+        e?.printedDo,
+        e?.printedDoAt,
         e?.materialUsageCost,
         e?.materialCostSnapshottedAt,
       ]);

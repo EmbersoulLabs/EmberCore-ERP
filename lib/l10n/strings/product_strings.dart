@@ -650,4 +650,339 @@ const Map<String, Map<String, String>> productStrings = {
     'zh': '确认出库',
     'ms': 'Sahkan stok keluar',
   },
+  'material.delete.failed': {
+    'en': 'Delete failed: {error}',
+    'zh': '删除失败：{error}',
+    'ms': 'Padam gagal: {error}',
+  },
+  'material.delete.success': {
+    'en': 'Deleted "{name}".',
+    'zh': '已删除「{name}」。',
+    'ms': '"{name}" dipadam.',
+  },
+  'material.delete.tooltip': {
+    'en': 'Delete material',
+    'zh': '删除物料',
+    'ms': 'Padam bahan',
+  },
+  'material.form.changePhoto': {
+    'en': 'Change photo',
+    'zh': '换图',
+    'ms': 'Tukar foto',
+  },
+  'material.list.addCategory': {
+    'en': 'Add Category',
+    'zh': '添加分类',
+    'ms': 'Tambah Kategori',
+  },
+  'material.list.addMaterial': {
+    'en': 'Add Material',
+    'zh': '添加物料',
+    'ms': 'Tambah Bahan',
+  },
+  'material.list.count': {
+    'en': '{count} shown',
+    'zh': '显示 {count} 个',
+    'ms': '{count} dipaparkan',
+  },
+  'material.list.noMatch': {
+    'en': 'No materials match your search or filter.',
+    'zh': '没有符合搜索或筛选的物料。',
+    'ms': 'Tiada bahan sepadan dengan carian atau penapis.',
+  },
+  'material.list.searchHint': {
+    'en': 'Search name, SKU, category, cost',
+    'zh': '搜索名称、SKU、分类、成本',
+    'ms': 'Cari nama, SKU, kategori, kos',
+  },
+  'material.list.subtitle': {
+    'en': '{count} materials in catalog',
+    'zh': '目录共 {count} 个物料',
+    'ms': '{count} bahan dalam katalog',
+  },
+  'material.snack.createdWithPhoto': {
+    'en': 'Material created with photo.',
+    'zh': '物料已创建（含图片）。',
+    'ms': 'Bahan dicipta dengan foto.',
+  },
+  'material.snack.invalidPhotoUrl': {
+    'en': 'Upload returned an invalid photo URL. Try again.',
+    'zh': '上传返回无效图片链接，请重试。',
+    'ms': 'Muat naik mengembalikan URL foto tidak sah. Cuba lagi.',
+  },
+  'material.snack.photoNotSavedCreate': {
+    'en': 'Material created but photo was not saved. Try Upload Photo again.',
+    'zh': '物料已创建但图片未保存。请重新上传图片。',
+    'ms': 'Bahan dicipta tetapi foto tidak disimpan. Cuba muat naik semula.',
+  },
+  'material.snack.photoNotSavedUpdate': {
+    'en': 'Material updated but photo was not saved. Try Upload Photo again.',
+    'zh': '物料已更新但图片未保存。请重新上传图片。',
+    'ms': 'Bahan dikemas kini tetapi foto tidak disimpan. Cuba muat naik semula.',
+  },
+  'material.snack.photoUpdated': {
+    'en': 'Photo updated.',
+    'zh': '图片已更新。',
+    'ms': 'Foto dikemas kini.',
+  },
+  'material.snack.photoUploaded': {
+    'en': 'Photo uploaded — tap Save to keep the material.',
+    'zh': '图片已上传 — 点击保存以写入物料。',
+    'ms': 'Foto dimuat naik — ketik Simpan untuk simpan bahan.',
+  },
+  'material.snack.updatedWithPhoto': {
+    'en': 'Material saved with photo.',
+    'zh': '物料已保存（含图片）。',
+    'ms': 'Bahan disimpan dengan foto.',
+  },
+  'product.bulk.actionFailed': {
+    'en': 'Action failed: {error}',
+    'zh': '操作失败：{error}',
+    'ms': 'Tindakan gagal: {error}',
+  },
+  'product.bulk.categoryApplied': {
+    'en': 'Updated {count} product(s) → {category}',
+    'zh': '已更新 {count} 个产品 → {category}',
+    'ms': 'Dikemas kini {count} produk → {category}',
+  },
+  'product.bulk.changeCategory': {
+    'en': 'Change category',
+    'zh': '更改分类',
+    'ms': 'Tukar kategori',
+  },
+  'product.bulk.changeCategoryTitle': {
+    'en': 'Change category',
+    'zh': '更改分类',
+    'ms': 'Tukar kategori',
+  },
+  'product.bulk.deleteBody': {
+    'en': 'Permanently delete {count} selected product(s)?',
+    'zh': '确定永久删除已选的 {count} 个产品？',
+    'ms': 'Padam kekal {count} produk dipilih?',
+  },
+  'product.bulk.deleteDone': {
+    'en': 'Deleted {count} product(s).',
+    'zh': '已删除 {count} 个产品。',
+    'ms': '{count} produk dipadam.',
+  },
+  'product.bulk.deleteTitle': {
+    'en': 'Delete products?',
+    'zh': '删除产品？',
+    'ms': 'Padam produk?',
+  },
+  'product.bulk.newCategoryHint': {
+    'en': 'Or type a new category',
+    'zh': '或输入新分类',
+    'ms': 'Atau taip kategori baharu',
+  },
+  'product.bulk.noneSelected': {
+    'en': 'Select products for bulk actions',
+    'zh': '勾选产品以批量操作',
+    'ms': 'Pilih produk untuk tindakan pukal',
+  },
+  'product.bulk.selectAll': {
+    'en': 'Select all',
+    'zh': '全选',
+    'ms': 'Pilih semua',
+  },
+  'product.bulk.selectedCount': {
+    'en': '{count} selected',
+    'zh': '已选 {count} 个',
+    'ms': '{count} dipilih',
+  },
+  'product.csv.download': {
+    'en': 'Download CSV',
+    'zh': '下载 CSV',
+    'ms': 'Muat turun CSV',
+  },
+  'product.csv.downloadDone': {
+    'en': 'Downloaded {count} products.',
+    'zh': '已下载 {count} 个产品。',
+    'ms': 'Dimuat turun {count} produk.',
+  },
+  'product.csv.downloadFailed': {
+    'en': 'Download failed: {error}',
+    'zh': '下载失败：{error}',
+    'ms': 'Muat turun gagal: {error}',
+  },
+  'product.csv.importFailed': {
+    'en': 'Import failed: {error}',
+    'zh': '导入失败：{error}',
+    'ms': 'Import gagal: {error}',
+  },
+  'product.csv.readFailed': {
+    'en': 'Could not read the selected file.',
+    'zh': '无法读取所选文件。',
+    'ms': 'Tidak dapat membaca fail dipilih.',
+  },
+  'product.csv.skippedDuplicates': {
+    'en': 'Skipped {count} duplicate(s) (same SKU or name).',
+    'zh': '已跳过 {count} 个重复（相同 SKU 或名称）。',
+    'ms': 'Dilangkau {count} pendua (SKU atau nama sama).',
+  },
+  'product.csv.upload': {
+    'en': 'Upload CSV',
+    'zh': '上传 CSV',
+    'ms': 'Muat naik CSV',
+  },
+  'product.form.changePhoto': {
+    'en': 'Change photo',
+    'zh': '换图',
+    'ms': 'Tukar foto',
+  },
+  'product.form.nameRequired': {
+    'en': 'Enter the product name.',
+    'zh': '请输入产品名称。',
+    'ms': 'Masukkan nama produk.',
+  },
+  'product.form.priceRequired': {
+    'en': 'Enter the price.',
+    'zh': '请输入售价。',
+    'ms': 'Masukkan harga.',
+  },
+  'product.form.skuRequired': {
+    'en': 'Enter the SKU.',
+    'zh': '请输入 SKU。',
+    'ms': 'Masukkan SKU.',
+  },
+  'product.list.addCategory': {
+    'en': 'Add Category',
+    'zh': '添加分类',
+    'ms': 'Tambah Kategori',
+  },
+  'product.list.addProduct': {
+    'en': 'Add Product',
+    'zh': '添加产品',
+    'ms': 'Tambah Produk',
+  },
+  'product.list.count': {
+    'en': '{count} shown',
+    'zh': '显示 {count} 个',
+    'ms': '{count} dipaparkan',
+  },
+  'product.list.noRecipe': {
+    'en': 'No recipe',
+    'zh': '无配方',
+    'ms': 'Tiada resipi',
+  },
+  'product.list.recipeCount': {
+    'en': '{count} materials',
+    'zh': '{count} 物料',
+    'ms': '{count} bahan',
+  },
+  'product.list.subtitle': {
+    'en': '{count} products in catalog',
+    'zh': '目录共 {count} 个产品',
+    'ms': '{count} produk dalam katalog',
+  },
+  'product.recipe.addMaterial': {
+    'en': '+ Material',
+    'zh': '+ 物料',
+    'ms': '+ Bahan',
+  },
+  'product.recipe.addSheetTitle': {
+    'en': 'Add material',
+    'zh': '加物料',
+    'ms': 'Tambah bahan',
+  },
+  'product.recipe.addToRecipe': {
+    'en': 'Add to recipe',
+    'zh': '加入配方',
+    'ms': 'Tambah ke resipi',
+  },
+  'product.recipe.categoryRequired': {
+    'en': 'Select a product category before adding materials.',
+    'zh': '请先选择产品分类再添加物料。',
+    'ms': 'Pilih kategori produk sebelum menambah bahan.',
+  },
+  'product.recipe.cost': {
+    'en': 'Recipe cost',
+    'zh': '配方成本',
+    'ms': 'Kos resipi',
+  },
+  'product.recipe.costHint': {
+    'en': 'Recipe cost {cost}',
+    'zh': '配方成本 {cost}',
+    'ms': 'Kos resipi {cost}',
+  },
+  'product.recipe.count': {
+    'en': '{count} items',
+    'zh': '{count} 项',
+    'ms': '{count} item',
+  },
+  'product.recipe.editMaterial': {
+    'en': 'Edit material',
+    'zh': '编辑物料',
+    'ms': 'Edit bahan',
+  },
+  'product.recipe.empty': {
+    'en': 'No materials yet. Tap + Material to pick from the catalog.',
+    'zh': '暂无配方物料。点 + 物料从现有物料中选择。',
+    'ms': 'Tiada bahan. Ketik + Bahan untuk pilih dari katalog.',
+  },
+  'product.recipe.hint': {
+    'en': 'Used by material usage and profit reports. Sell price stays manual.',
+    'zh': '供用量与利润报表使用。售价仍手填。',
+    'ms': 'Diguna laporan penggunaan & untung. Harga jualan kekal manual.',
+  },
+  'product.recipe.margin': {
+    'en': 'Gross margin',
+    'zh': '毛利',
+    'ms': 'Margin kasar',
+  },
+  'product.recipe.nameRequired': {
+    'en': 'Material name is required.',
+    'zh': '请填写物料名称。',
+    'ms': 'Nama bahan diperlukan.',
+  },
+  'product.recipe.noMatch': {
+    'en': 'No materials match your search or filter.',
+    'zh': '没有符合搜索或筛选的物料。',
+    'ms': 'Tiada bahan sepadan dengan carian atau penapis.',
+  },
+  'product.recipe.noMaterials': {
+    'en': 'No materials yet. Add them from Dashboard → Material List.',
+    'zh': '暂无物料。请先在首页 → 物料列表添加。',
+    'ms': 'Tiada bahan. Tambah dari Papan Pemuka → Senarai Bahan.',
+  },
+  'product.recipe.qtyMustBePositive': {
+    'en': 'Quantity must be greater than 0.',
+    'zh': '数量必须大于 0。',
+    'ms': 'Kuantiti mestilah lebih daripada 0.',
+  },
+  'product.recipe.searchHint': {
+    'en': 'Search name, SKU, category',
+    'zh': '搜索名称、SKU、分类',
+    'ms': 'Cari nama, SKU, kategori',
+  },
+  'product.recipe.selectFirst': {
+    'en': 'Select a material from the list first.',
+    'zh': '请先从列表选择物料。',
+    'ms': 'Pilih bahan dari senarai dahulu.',
+  },
+  'product.recipe.selectFromList': {
+    'en': 'Select from list',
+    'zh': '从列表选择',
+    'ms': 'Pilih dari senarai',
+  },
+  'product.recipe.sellPrice': {
+    'en': 'Sell price',
+    'zh': '售价',
+    'ms': 'Harga jualan',
+  },
+  'product.recipe.title': {
+    'en': 'Recipe',
+    'zh': '配方',
+    'ms': 'Resipi',
+  },
+  'product.select.cardMessage': {
+    'en': 'Message card',
+    'zh': '贺卡',
+    'ms': 'Kad mesej',
+  },
+  'product.select.done': {
+    'en': 'Done',
+    'zh': '完成',
+    'ms': 'Selesai',
+  },
 };
